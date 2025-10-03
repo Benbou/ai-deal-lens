@@ -9,12 +9,12 @@ All colors MUST be HSL.
 @layer base {
   :root {
     /* Base colors - Modern investment theme */
-    --background: 0 0% 100%;
+    --background: 48 19% 95%;
     --foreground: 222 47% 11%;
 
-    /* Primary - Indigo for trust and sophistication */
-    --primary: 239 84% 67%; /* Indigo-500 */
-    --primary-glow: 239 84% 77%; /* Lighter indigo */
+    /* Primary - Burnt orange */
+    --primary: 13 67% 48%;
+    --primary-glow: 13 67% 58%;
     --primary-foreground: 0 0% 100%;
 
     /* Secondary - Slate for neutral actions */
@@ -50,7 +50,7 @@ All colors MUST be HSL.
     /* Borders & Inputs */
     --border: 214 32% 91%;
     --input: 214 32% 91%;
-    --ring: 239 84% 67%;
+    --ring: 13 67% 48%;
 
     /* Destructive */
     --destructive: 0 72% 51%;
@@ -59,24 +59,24 @@ All colors MUST be HSL.
     /* Sidebar */
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 222 47% 11%;
-    --sidebar-primary: 239 84% 67%;
+    --sidebar-primary: 13 67% 48%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 210 40% 96%;
     --sidebar-accent-foreground: 222 47% 11%;
     --sidebar-border: 214 32% 91%;
-    --sidebar-ring: 239 84% 67%;
+    --sidebar-ring: 13 67% 48%;
 
     /* Radius */
     --radius: 0.75rem;
 
     /* Custom gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(239 84% 67%), hsl(239 84% 77%));
+    --gradient-primary: linear-gradient(135deg, hsl(13 67% 48%), hsl(13 67% 58%));
     --gradient-success: linear-gradient(135deg, hsl(142 76% 36%), hsl(142 76% 46%));
-    --gradient-hero: linear-gradient(135deg, hsl(239 84% 67%) 0%, hsl(220 84% 60%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(13 67% 48%) 0%, hsl(20 70% 55%) 100%);
 
     /* Shadows */
-    --shadow-elegant: 0 10px 30px -10px hsl(239 84% 67% / 0.3);
-    --shadow-glow: 0 0 40px hsl(239 84% 77% / 0.4);
+    --shadow-elegant: 0 10px 30px -10px hsl(13 67% 48% / 0.3);
+    --shadow-glow: 0 0 40px hsl(13 67% 58% / 0.4);
     --shadow-subtle: 0 2px 8px hsl(222 47% 11% / 0.08);
 
     /* Transitions */
@@ -88,8 +88,8 @@ All colors MUST be HSL.
     --background: 222 47% 11%;
     --foreground: 210 40% 98%;
 
-    --primary: 239 84% 67%;
-    --primary-glow: 239 84% 57%;
+    --primary: 13 67% 48%;
+    --primary-glow: 13 67% 43%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 217 33% 18%;
@@ -117,22 +117,22 @@ All colors MUST be HSL.
 
     --border: 217 33% 18%;
     --input: 217 33% 18%;
-    --ring: 239 84% 67%;
+    --ring: 13 67% 48%;
 
     --destructive: 0 63% 31%;
     --destructive-foreground: 210 40% 98%;
 
     --sidebar-background: 222 47% 11%;
     --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 239 84% 67%;
+    --sidebar-primary: 13 67% 48%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 217 33% 18%;
     --sidebar-accent-foreground: 210 40% 98%;
     --sidebar-border: 217 33% 18%;
-    --sidebar-ring: 239 84% 67%;
+    --sidebar-ring: 13 67% 48%;
 
-    --shadow-elegant: 0 10px 30px -10px hsl(239 84% 67% / 0.5);
-    --shadow-glow: 0 0 40px hsl(239 84% 67% / 0.6);
+    --shadow-elegant: 0 10px 30px -10px hsl(13 67% 48% / 0.5);
+    --shadow-glow: 0 0 40px hsl(13 67% 48% / 0.6);
     --shadow-subtle: 0 2px 8px hsl(0 0% 0% / 0.3);
   }
 }
