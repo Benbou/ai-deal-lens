@@ -207,6 +207,17 @@ export default function Dashboard() {
                       </td>
                       <td className="p-4">
                         <div className="flex gap-2 justify-end">
+                          {deal.deck_files?.[0]?.storage_path && (
+                            <a
+                              href={`/_/storage/deck-files/${encodeURIComponent(deal.deck_files[0].storage_path)}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-xs underline text-muted-foreground"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              Télécharger deck
+                            </a>
+                          )}
                           <Button
                             size="sm"
                             variant="ghost"
