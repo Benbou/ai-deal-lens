@@ -103,7 +103,9 @@ export default function Auth() {
                     <Label htmlFor="signin-email">Email</Label>
                     <Input
                       id="signin-email"
+                      name="email"
                       type="email"
+                      autoComplete="email"
                       value={signInData.email}
                       onChange={(e) => setSignInData({ ...signInData, email: e.target.value })}
                       placeholder="you@example.com"
@@ -115,7 +117,9 @@ export default function Auth() {
                     <Label htmlFor="signin-password">Password</Label>
                     <Input
                       id="signin-password"
+                      name="password"
                       type="password"
+                      autoComplete="current-password"
                       value={signInData.password}
                       onChange={(e) => setSignInData({ ...signInData, password: e.target.value })}
                       placeholder="••••••••"
@@ -135,7 +139,9 @@ export default function Auth() {
                     <Label htmlFor="signup-name">Full Name</Label>
                     <Input
                       id="signup-name"
+                      name="name"
                       type="text"
+                      autoComplete="name"
                       value={signUpData.name}
                       onChange={(e) => setSignUpData({ ...signUpData, name: e.target.value })}
                       placeholder="John Doe"
@@ -147,7 +153,9 @@ export default function Auth() {
                     <Label htmlFor="signup-email">Email</Label>
                     <Input
                       id="signup-email"
+                      name="email"
                       type="email"
+                      autoComplete="email"
                       value={signUpData.email}
                       onChange={(e) => setSignUpData({ ...signUpData, email: e.target.value })}
                       placeholder="you@example.com"
@@ -159,7 +167,9 @@ export default function Auth() {
                     <Label htmlFor="signup-password">Password</Label>
                     <Input
                       id="signup-password"
+                      name="password"
                       type="password"
+                      autoComplete="new-password"
                       value={signUpData.password}
                       onChange={(e) => setSignUpData({ ...signUpData, password: e.target.value })}
                       placeholder="••••••••"

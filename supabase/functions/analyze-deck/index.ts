@@ -6,6 +6,87 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Load analysis prompt template
+const ANALYSIS_PROMPT = `# Senior Investment Memo Analyst
+## Output: All memos and analyses must be written in French with appropriate business terminology
+
+You are a senior investment analyst specialized in producing ultra-effective investment memos for VC funds. Your mission is to transform complex, messy inputs into decision-ready analyses that can be read in 3–4 minutes while preserving all substance required for an informed investment decision.
+
+Default stance: Constructive skepticism with a high rejection rate (~90%). Evidence over promises; proven execution over narrative potential. Binary decisions (GO/NO-GO) with clear rationale.
+
+Analyze the provided pitch deck and additional information to produce a comprehensive investment memo in French following this structure:
+
+## Structure du Mémo
+
+### Source du Deal
+[Indiquer qui a sourcé l'opportunité]
+
+### Termes de la Levée
+- Montant: €[X]m
+- Valorisation: Pré-money €[X]m | Post-money €[X]m
+- Utilisation des fonds détaillée
+
+### Résumé Exécutif (max 5 lignes)
+Synthèse de ce que fait l'entreprise, pourquoi elle gagne, points de preuve clés, risques principaux, et décision provisoire.
+
+### Contexte (5-7 lignes)
+- Définition de l'industrie et du segment avec taille de marché sourcée
+- Points de douleur majeurs et défis non résolus
+- Drivers et contraintes d'adoption
+- Pourquoi cette catégorie compte maintenant
+
+### Solution & Proposition de Valeur (8-10 lignes)
+- Description précise du produit/technologie
+- Différenciateurs fondés sur des preuves vs alternatives
+- ROI client quantifié avec exemples spécifiques
+- Fit problème-solution et coûts de changement
+- Défensabilité: tech, moats de données, distribution, effets de réseau
+
+### Pourquoi Maintenant? (3-4 lignes)
+- Tendances de marché documentées créant une fenêtre d'entrée
+- Shifts technologiques et/ou réglementaires permettant l'accélération
+- Timing compétitif
+
+### Métriques Clés
+- Revenus, croissance, unit economics, burn rate, runway
+- Benchmarks vs secteur
+
+### Marché & Opportunité (6-8 lignes)
+- TAM/SAM avec sources
+- CAGR et drivers documentés
+- Vecteurs d'expansion
+
+### Business Model (6-8 lignes)
+- Flux de revenus
+- Structure de coûts
+- Outlook 3-5 ans
+
+### Paysage Concurrentiel (6-8 lignes)
+- Principaux concurrents
+- Alternatives indirectes/status quo
+- Barrières à l'entrée
+- Différenciation fondée sur des preuves
+
+### Traction & Validation (5-7 lignes)
+- Croissance clients/revenus
+- Preuves de PMF
+- Partenariats stratégiques
+- Logos clients
+
+### Équipe (4-5 lignes)
+- Track record d'exécution des fondateurs
+- Founder-market fit
+- Complémentarité et gaps
+
+### Risques & Mitigations (6-8 lignes)
+- 3-5 risques principaux avec mitigations concrètes
+- Scénarios downside/base/upside
+
+### Recommandation Finale
+Décision: GO ou NO-GO avec rationale factuel de 2-3 phrases
+
+Total: 1,500-2,000 mots (3-4 minutes de lecture)`;
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -19,7 +100,24 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    console.log('Starting analysis for deal:', dealId);
+    const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY');
+    
+    if (!anthropicApiKey) {
+      throw new Error('ANTHROPIC_API_KEY not configured. Please add it in your secrets.');
+    }
+
+    console.log('Starting Claude analysis for deal:', dealId);
+
+    // Get deal and deck file information
+    const { data: deal, error: dealError } = await supabaseClient
+      .from('deals')
+      .select('*, deck_files(*)')
+      .eq('id', dealId)
+      .single();
+
+    if (dealError || !deal) {
+      throw new Error('Deal not found');
+    }
 
     // Update deal status to analyzing
     await supabaseClient
@@ -36,7 +134,7 @@ serve(async (req) => {
       .insert({
         deal_id: dealId,
         status: 'extracting',
-        current_step: 'Extracting text from deck...',
+        current_step: 'Extraction des données du deck...',
         progress_percent: 10,
         started_at: new Date().toISOString()
       })
@@ -45,31 +143,84 @@ serve(async (req) => {
 
     if (analysisError) throw analysisError;
 
-    // Simulate 10-minute analysis process (mock for now)
-    // In production, this would call MCP/Composio and AI services
-    
-    // Step 1: Extracting (2 min)
-    await updateProgress(supabaseClient, analysis.id, 'extracting', 'Analyzing market fit...', 30);
-    
-    // Step 2: Analyzing (5 min)
-    await updateProgress(supabaseClient, analysis.id, 'analyzing', 'Comparing valuations...', 50);
-    await updateProgress(supabaseClient, analysis.id, 'analyzing', 'Generating insights...', 70);
-    
-    // Step 3: Finalizing (3 min)
-    await updateProgress(supabaseClient, analysis.id, 'finalizing', 'Finalizing report...', 90);
+    // Update progress: Analyzing market
+    await updateProgress(supabaseClient, analysis.id, 'analyzing', 'Analyse du marché et du secteur...', 30);
 
-    // Generate mock analysis results
-    const mockResults = generateMockAnalysis();
+    // Build the prompt with deal information
+    const deckInfo = deal.deck_files?.[0];
+    const userPrompt = `Analysez ce pitch deck et produisez un memo d'investissement détaillé en français.
+
+**Informations de base:**
+- Nom fichier deck: ${deckInfo?.file_name || 'Non fourni'}
+- Notes personnelles: ${deal.personal_notes || 'Aucune'}
+
+**Votre mission:**
+Produisez une analyse complète selon le template fourni. Cette analyse doit être factuelle, critique et prête pour une décision GO/NO-GO.
+
+Note: Vous devez faire des recherches web pour valider les informations, analyser le marché, la concurrence, et produire une analyse selon le template.`;
+
+    // Update progress: Generating AI analysis
+    await updateProgress(supabaseClient, analysis.id, 'analyzing', 'Génération de l\'analyse IA avec Claude...', 50);
+
+    console.log('Calling Claude API...');
+
+    // Call Claude API
+    const claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': anthropicApiKey,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-opus-4-20250514',
+        max_tokens: 8000,
+        messages: [
+          {
+            role: 'user',
+            content: `${ANALYSIS_PROMPT}\n\n${userPrompt}`
+          }
+        ]
+      })
+    });
+
+    if (!claudeResponse.ok) {
+      const errorText = await claudeResponse.text();
+      console.error('Claude API error:', errorText);
+      throw new Error(`Claude API error: ${claudeResponse.status} - ${errorText}`);
+    }
+
+    const claudeData = await claudeResponse.json();
+    const analysisText = claudeData.content[0].text;
+
+    console.log('Claude analysis completed, text length:', analysisText.length);
+
+    // Update progress: Extracting metrics
+    await updateProgress(supabaseClient, analysis.id, 'finalizing', 'Extraction des métriques clés...', 80);
+
+    // Parse analysis to extract structured data (simplified)
+    const analysisResult = {
+      full_text: analysisText,
+      summary: analysisText.substring(0, 500) + '...',
+      strengths: [],
+      weaknesses: [],
+      red_flags: [],
+      opportunities: [],
+      maturity_level: 'Growth',
+      risk_score: 3,
+      valuation_gap_percent: 0,
+      recommendation: analysisText.toLowerCase().includes('no-go') ? 'NO-GO' : 'GO'
+    };
 
     // Complete analysis
     await supabaseClient
       .from('analyses')
       .update({
         status: 'completed',
-        result: mockResults,
+        result: analysisResult,
         progress_percent: 100,
         completed_at: new Date().toISOString(),
-        duration_seconds: 600
+        duration_seconds: Math.floor((Date.now() - new Date(analysis.started_at).getTime()) / 1000)
       })
       .eq('id', analysis.id);
 
@@ -79,13 +230,15 @@ serve(async (req) => {
       .update({
         status: 'completed',
         analysis_completed_at: new Date().toISOString(),
-        maturity_level: mockResults.maturity_level,
-        risk_score: mockResults.risk_score,
-        valuation_gap_percent: mockResults.valuation_gap_percent
+        maturity_level: analysisResult.maturity_level,
+        risk_score: analysisResult.risk_score,
+        valuation_gap_percent: analysisResult.valuation_gap_percent,
+        // AI will extract these from the deck - for now keeping original values
+        // In production, Claude would extract: startup_name, sector, stage, country, etc.
       })
       .eq('id', dealId);
 
-    console.log('Analysis completed for deal:', dealId);
+    console.log('Analysis completed successfully for deal:', dealId);
 
     return new Response(
       JSON.stringify({ success: true, dealId }),
@@ -96,6 +249,23 @@ serve(async (req) => {
     );
   } catch (error: any) {
     console.error('Error in analyze-deck function:', error);
+    
+    // Try to update deal status to failed
+    try {
+      const { dealId } = await req.json();
+      const supabaseClient = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      );
+      
+      await supabaseClient
+        .from('deals')
+        .update({ status: 'failed' })
+        .eq('id', dealId);
+    } catch (updateError) {
+      console.error('Failed to update deal status:', updateError);
+    }
+    
     return new Response(
       JSON.stringify({ error: error.message }),
       { 

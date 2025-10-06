@@ -1,0 +1,163 @@
+{
+  "nav": {
+    "dashboard": "Mes Deals",
+    "submit": "Soumettre un Deal",
+    "profile": "Profil",
+    "signOut": "Déconnexion"
+  },
+  "landing": {
+    "title": "Analyse de Deck",
+    "subtitle": "Propulsée par l'IA",
+    "description": "Téléchargez des pitch decks de startups et obtenez une analyse IA complète en quelques minutes. Suivez les écarts de valorisation, évaluez les risques et prenez des décisions d'investissement basées sur les données.",
+    "getStarted": "Commencer",
+    "learnMore": "En savoir plus",
+    "signIn": "Se connecter",
+    "features": {
+      "fast": {
+        "title": "Analyse en 10 Minutes",
+        "description": "Téléchargez un deck et obtenez une analyse IA complète avec des données de marché en seulement 10 minutes."
+      },
+      "valuation": {
+        "title": "Benchmarks de Valorisation",
+        "description": "Comparez les deals avec les médianes sectorielles et identifiez automatiquement les écarts de valorisation."
+      },
+      "risk": {
+        "title": "Évaluation des Risques",
+        "description": "Obtenez des scores de risque propulsés par l'IA avec forces, faiblesses et signaux d'alerte détaillés."
+      }
+    },
+    "cta": {
+      "title": "Prêt à analyser votre premier deck ?",
+      "description": "Rejoignez les investisseurs qui prennent des décisions plus intelligentes avec l'analyse IA",
+      "button": "Commencer l'Analyse"
+    },
+    "footer": "© 2025 Albo. Tous droits réservés."
+  },
+  "auth": {
+    "welcome": "Bienvenue",
+    "description": "Analyse de Deck Propulsée par l'IA",
+    "signInDescription": "Connectez-vous ou créez un compte pour commencer",
+    "continueWithGoogle": "Continuer avec Google",
+    "orContinueWith": "Ou continuer avec email",
+    "signIn": "Se connecter",
+    "signUp": "S'inscrire",
+    "email": "Email",
+    "password": "Mot de passe",
+    "fullName": "Nom complet",
+    "signingIn": "Connexion...",
+    "creatingAccount": "Création du compte...",
+    "backToHome": "Retour à l'accueil",
+    "createAccount": "Créer un compte"
+  },
+  "onboarding": {
+    "welcome": "Bienvenue sur Albo !",
+    "letsSetup": "Configurons votre profil",
+    "step1": {
+      "title": "Parlez-nous de vous",
+      "name": "Nom complet",
+      "namePlaceholder": "Jean Dupont"
+    },
+    "step2": {
+      "title": "Dans quels secteurs investissez-vous ?",
+      "description": "Sélectionnez tous ceux qui s'appliquent",
+      "fintech": "FinTech",
+      "healthtech": "HealthTech",
+      "climate": "Climat",
+      "b2b": "B2B SaaS",
+      "marketplace": "Marketplace",
+      "other": "Autre"
+    },
+    "step3": {
+      "title": "Quelle est votre fourchette d'investissement typique ?",
+      "min": "Min",
+      "max": "Max"
+    },
+    "step4": {
+      "title": "Où êtes-vous basé ?",
+      "country": "Pays",
+      "countryPlaceholder": "Sélectionnez votre pays"
+    },
+    "next": "Suivant",
+    "previous": "Précédent",
+    "finish": "Terminer",
+    "skip": "Passer pour l'instant"
+  },
+  "dashboard": {
+    "title": "Mes Deals",
+    "search": "Rechercher des deals...",
+    "filters": "Filtres",
+    "columns": {
+      "startup": "Startup",
+      "amountRaised": "Montant Levé",
+      "valuation": "Valorisation",
+      "valuationGap": "Écart de Valorisation",
+      "sector": "Secteur",
+      "maturity": "Maturité",
+      "risk": "Risque",
+      "status": "Statut",
+      "submitted": "Soumis",
+      "actions": "Actions"
+    },
+    "status": {
+      "pending": "En attente",
+      "analyzing": "En analyse",
+      "completed": "Terminé",
+      "failed": "Échec"
+    },
+    "empty": {
+      "title": "Aucun deal pour le moment",
+      "description": "Soumettez votre premier deck d'investissement pour obtenir des insights propulsés par l'IA",
+      "button": "Soumettre un Deal"
+    }
+  },
+  "submit": {
+    "title": "Soumettre un Deal",
+    "description": "Téléchargez un pitch deck pour obtenir une analyse IA",
+    "form": {
+      "deckUpload": {
+        "label": "Pitch Deck",
+        "description": "Téléchargez un PDF ou fournissez un lien Docsend",
+        "dragDrop": "Glissez-déposez votre deck ici, ou cliquez pour parcourir",
+        "uploading": "Téléchargement...",
+        "uploaded": "Téléchargé"
+      },
+      "additionalInfo": {
+        "label": "Informations Supplémentaires",
+        "email": "Email du Fondateur",
+        "emailPlaceholder": "fondateur@startup.com",
+        "context": "Contexte Additionnel",
+        "contextPlaceholder": "Toute information supplémentaire sur le deal, le fondateur ou le contexte qui serait utile pour l'analyse...",
+        "contextDescription": "Fournissez tout contexte qui aiderait l'analyse"
+      },
+      "submit": "Soumettre & Analyser",
+      "submitting": "Soumission..."
+    },
+    "success": {
+      "title": "Deal soumis !",
+      "description": "L'analyse commence maintenant (~10 min)",
+      "viewProgress": "Voir la Progression"
+    }
+  },
+  "profile": {
+    "title": "Profil",
+    "personalInfo": "Informations Personnelles",
+    "investmentPreferences": "Préférences d'Investissement",
+    "name": "Nom",
+    "email": "Email",
+    "country": "Pays",
+    "investmentFocus": "Focus d'Investissement",
+    "checkSize": "Fourchette d'Investissement",
+    "save": "Sauvegarder",
+    "saving": "Sauvegarde..."
+  },
+  "common": {
+    "loading": "Chargement...",
+    "error": "Erreur",
+    "success": "Succès",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "view": "Voir",
+    "download": "Télécharger"
+  }
+}

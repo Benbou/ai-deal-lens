@@ -12,9 +12,9 @@ All colors MUST be HSL.
     --background: 48 19% 95%;
     --foreground: 222 47% 11%;
 
-    /* Primary - Burnt orange */
-    --primary: 13 67% 48%;
-    --primary-glow: 13 67% 58%;
+    /* Primary - Elegant slate blue */
+    --primary: 215 25% 27%;
+    --primary-glow: 215 25% 37%;
     --primary-foreground: 0 0% 100%;
 
     /* Secondary - Slate for neutral actions */

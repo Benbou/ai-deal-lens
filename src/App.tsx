@@ -10,7 +10,9 @@ import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import SubmitDeal from "./pages/SubmitDeal";
+import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
+import '@/i18n/config';
 
 const queryClient = new QueryClient();
 
@@ -40,6 +42,16 @@ const App = () => (
                 <ProtectedRoute>
                   <DashboardLayout>
                     <SubmitDeal />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute>
+                  <DashboardLayout>
+                    <Profile />
                   </DashboardLayout>
                 </ProtectedRoute>
               }

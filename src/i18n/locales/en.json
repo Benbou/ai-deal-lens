@@ -1,0 +1,163 @@
+{
+  "nav": {
+    "dashboard": "My Deals",
+    "submit": "Submit Deal",
+    "profile": "Profile",
+    "signOut": "Sign Out"
+  },
+  "landing": {
+    "title": "AI-Powered Investment",
+    "subtitle": "Deck Analysis",
+    "description": "Upload startup decks and get comprehensive AI analysis in minutes. Track valuation gaps, assess risks, and make data-driven investment decisions.",
+    "getStarted": "Get Started",
+    "learnMore": "Learn More",
+    "signIn": "Sign In",
+    "features": {
+      "fast": {
+        "title": "10-Minute Analysis",
+        "description": "Upload a deck and get comprehensive AI analysis with market intelligence in just 10 minutes."
+      },
+      "valuation": {
+        "title": "Valuation Benchmarks",
+        "description": "Compare deals against sector medians and identify valuation gaps automatically."
+      },
+      "risk": {
+        "title": "Risk Assessment",
+        "description": "Get AI-powered risk scores with detailed strengths, weaknesses, and red flags."
+      }
+    },
+    "cta": {
+      "title": "Ready to analyze your first deck?",
+      "description": "Join investors making smarter decisions with AI-powered analysis",
+      "button": "Start Analyzing Now"
+    },
+    "footer": "© 2025 Albo. All rights reserved."
+  },
+  "auth": {
+    "welcome": "Welcome",
+    "description": "AI-Powered Investment Deck Analysis",
+    "signInDescription": "Sign in or create an account to get started",
+    "continueWithGoogle": "Continue with Google",
+    "orContinueWith": "Or continue with email",
+    "signIn": "Sign In",
+    "signUp": "Sign Up",
+    "email": "Email",
+    "password": "Password",
+    "fullName": "Full Name",
+    "signingIn": "Signing in...",
+    "creatingAccount": "Creating account...",
+    "backToHome": "Back to home",
+    "createAccount": "Create Account"
+  },
+  "onboarding": {
+    "welcome": "Welcome to Albo!",
+    "letsSetup": "Let's set up your profile",
+    "step1": {
+      "title": "Tell us about yourself",
+      "name": "Full Name",
+      "namePlaceholder": "John Doe"
+    },
+    "step2": {
+      "title": "What sectors do you invest in?",
+      "description": "Select all that apply",
+      "fintech": "FinTech",
+      "healthtech": "HealthTech",
+      "climate": "Climate",
+      "b2b": "B2B SaaS",
+      "marketplace": "Marketplace",
+      "other": "Other"
+    },
+    "step3": {
+      "title": "What's your typical check size?",
+      "min": "Min",
+      "max": "Max"
+    },
+    "step4": {
+      "title": "Where are you based?",
+      "country": "Country",
+      "countryPlaceholder": "Select your country"
+    },
+    "next": "Next",
+    "previous": "Previous",
+    "finish": "Finish",
+    "skip": "Skip for now"
+  },
+  "dashboard": {
+    "title": "My Deals",
+    "search": "Search deals...",
+    "filters": "Filters",
+    "columns": {
+      "startup": "Startup",
+      "amountRaised": "Amount Raised",
+      "valuation": "Valuation",
+      "valuationGap": "Valuation Gap",
+      "sector": "Sector",
+      "maturity": "Maturity",
+      "risk": "Risk",
+      "status": "Status",
+      "submitted": "Submitted",
+      "actions": "Actions"
+    },
+    "status": {
+      "pending": "Pending",
+      "analyzing": "Analyzing",
+      "completed": "Completed",
+      "failed": "Failed"
+    },
+    "empty": {
+      "title": "No deals yet",
+      "description": "Submit your first investment deck to get AI-powered insights",
+      "button": "Submit Deal"
+    }
+  },
+  "submit": {
+    "title": "Submit Deal",
+    "description": "Upload a pitch deck to get AI-powered analysis",
+    "form": {
+      "deckUpload": {
+        "label": "Pitch Deck",
+        "description": "Upload PDF or provide Docsend link",
+        "dragDrop": "Drag and drop your deck here, or click to browse",
+        "uploading": "Uploading...",
+        "uploaded": "Uploaded"
+      },
+      "additionalInfo": {
+        "label": "Additional Information",
+        "email": "Founder Email",
+        "emailPlaceholder": "founder@startup.com",
+        "context": "Additional Context",
+        "contextPlaceholder": "Any additional information about the deal, founder, or context that would be helpful for the analysis...",
+        "contextDescription": "Provide any context that would help with the analysis"
+      },
+      "submit": "Submit & Analyze",
+      "submitting": "Submitting..."
+    },
+    "success": {
+      "title": "Deal submitted!",
+      "description": "Analysis starting now (~10 min)",
+      "viewProgress": "View Progress"
+    }
+  },
+  "profile": {
+    "title": "Profile",
+    "personalInfo": "Personal Information",
+    "investmentPreferences": "Investment Preferences",
+    "name": "Name",
+    "email": "Email",
+    "country": "Country",
+    "investmentFocus": "Investment Focus",
+    "checkSize": "Check Size Range",
+    "save": "Save Changes",
+    "saving": "Saving..."
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "view": "View",
+    "download": "Download"
+  }
+}

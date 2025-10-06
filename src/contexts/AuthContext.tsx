@@ -60,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signUp = async (email: string, password: string, name: string) => {
     try {
       const redirectUrl = `${window.location.origin}/`;
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -69,8 +69,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
       });
       if (error) throw error;
-      toast.success('Account created! You can now sign in.');
-      navigate('/auth');
+      
+      // With auto-confirm enabled, user is automatically signed in
+      if (data.session) {
+        toast.success('Account created successfully!');
+        navigate('/dashboard');
+      } else {
+        toast.success('Account created! Please check your email to confirm.');
+        navigate('/auth');
+      }
     } catch (error: any) {
       toast.error(error.message || 'Failed to sign up');
       throw error;
