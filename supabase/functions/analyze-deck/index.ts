@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import Anthropic from 'npm:@anthropic-ai/sdk';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -162,36 +163,34 @@ Note: Vous devez faire des recherches web pour valider les informations, analyse
     // Update progress: Generating AI analysis
     await updateProgress(supabaseClient, analysis.id, 'analyzing', 'Génération de l\'analyse IA avec Claude...', 50);
 
-    console.log('Calling Claude API...');
+    console.log('Calling Claude via SDK...');
 
-    // Call Claude API
-    const claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': anthropicApiKey,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-opus-4-20250514',
-        max_tokens: 8000,
-        messages: [
-          {
-            role: 'user',
-            content: `${ANALYSIS_PROMPT}\n\n${userPrompt}`
-          }
-        ]
-      })
-    });
+    const anthropic = new Anthropic({ apiKey: anthropicApiKey });
 
-    if (!claudeResponse.ok) {
-      const errorText = await claudeResponse.text();
-      console.error('Claude API error:', errorText);
-      throw new Error(`Claude API error: ${claudeResponse.status} - ${errorText}`);
-    }
+    const msg = await anthropic.beta.messages.create({
+      model: 'claude-sonnet-4-5-20250929',
+      max_tokens: 20000,
+      temperature: 1,
+      system: 'You are a senior investment analyst specialized in producing ultra-effective investment memos for VC funds. Your mission is to transform complex, messy inputs into decision-ready analyses that can be read in 3–4 minutes while preserving all substance required for an informed investment decision.',
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: `${ANALYSIS_PROMPT}\n\n${userPrompt}`,
+            },
+          ],
+        },
+      ],
+      tools: [
+        { name: 'web_search', type: 'web_search_20250305' as any },
+      ],
+      thinking: { type: 'enabled', budget_tokens: 8000 } as any,
+      betas: ['web-search-2025-03-05'] as any,
+    } as any);
 
-    const claudeData = await claudeResponse.json();
-    const analysisText = claudeData.content[0].text;
+    const analysisText = (msg as any).content?.[0]?.text ?? '';
 
     console.log('Claude analysis completed, text length:', analysisText.length);
 

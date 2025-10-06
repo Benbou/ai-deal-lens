@@ -14,6 +14,7 @@ import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 import '@/i18n/config';
 import AuthCallback from "./pages/AuthCallback";
+import DealDetail from "./pages/DealDetail";
 
 const queryClient = new QueryClient();
 
@@ -44,6 +45,16 @@ const App = () => (
                 <ProtectedRoute>
                   <DashboardLayout>
                     <SubmitDeal />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/deals/:id"
+              element={
+                <ProtectedRoute>
+                  <DashboardLayout>
+                    <DealDetail />
                   </DashboardLayout>
                 </ProtectedRoute>
               }
