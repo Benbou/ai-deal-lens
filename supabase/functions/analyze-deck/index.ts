@@ -194,6 +194,10 @@ Use markdown formatting for:
 
 At the very end, provide the structured data JSON block labeled "STRUCTURED_DATA:".`;
 
+    console.log('Preparing to call Claude API...');
+    console.log('PDF size (base64):', base64.length, 'characters');
+    console.log('Model:', 'claude-sonnet-4-5-20250929');
+
     // Call Claude API with correct beta header
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -239,6 +243,8 @@ At the very end, provide the structured data JSON block labeled "STRUCTURED_DATA
         ],
       }),
     });
+
+    console.log('Claude API response status:', response.status);
 
     if (!response.ok) {
       const errorText = await response.text();
