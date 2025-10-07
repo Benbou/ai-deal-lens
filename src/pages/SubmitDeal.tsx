@@ -66,7 +66,14 @@ export default function SubmitDeal() {
     setUploading(true);
 
     try {
-      const fileName = `${user?.id}/${Date.now()}_${deckFile.name}`;
+      // Sanitize filename: remove special characters, spaces, and keep only alphanumeric, dots, hyphens, and underscores
+      const sanitizedFileName = deckFile.name
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '') // Remove accents
+        .replace(/[^a-zA-Z0-9.-]/g, '_') // Replace invalid characters with underscore
+        .replace(/_{2,}/g, '_'); // Replace multiple underscores with single one
+      
+      const fileName = `${user?.id}/${Date.now()}_${sanitizedFileName}`;
       setUploadProgress(10);
 
       const { error: uploadError } = await supabase.storage
