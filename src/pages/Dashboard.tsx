@@ -118,83 +118,122 @@ export default function Dashboard() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
+      <div className="space-y-6 max-w-full overflow-x-hidden">
+        <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
-            <h1 className="text-3xl font-bold">My Deals</h1>
-            <p className="text-muted-foreground">Track and analyze your investment opportunities</p>
+            <h1 className="text-3xl font-bold">Mes Deals</h1>
+            <p className="text-muted-foreground">Suivez et analysez vos opportunités d'investissement</p>
           </div>
           <Button onClick={() => navigate('/submit')}>
             <Plus className="mr-2 h-4 w-4" />
-            Submit Deal
+            Soumettre un Deal
           </Button>
         </div>
 
-        <div className="grid gap-4">
-          {deals.map((deal) => {
-            const latestAnalysis = deal.analyses?.[0];
-            const analysisStatus = latestAnalysis?.status || 'pending';
-            const displayName = deal.company_name || deal.startup_name;
-            
-            return (
-              <Card key={deal.id} className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
+        {deals.length === 0 ? (
+          <Card className="p-12 text-center">
+            <p className="text-muted-foreground">Aucun deal pour le moment</p>
+          </Card>
+        ) : (
+          <div className="space-y-4">
+            {/* Header Row */}
+            <div className="grid grid-cols-12 gap-4 px-6 py-3 bg-muted/50 rounded-lg text-sm font-medium">
+              <div className="col-span-3">Entreprise</div>
+              <div className="col-span-2">Secteur / Stage</div>
+              <div className="col-span-2">Montant levé</div>
+              <div className="col-span-2">Valorisation</div>
+              <div className="col-span-2">Status</div>
+              <div className="col-span-1 text-right">Actions</div>
+            </div>
+
+            {/* Data Rows */}
+            {deals.map((deal) => {
+              const latestAnalysis = deal.analyses?.[0];
+              const analysisStatus = latestAnalysis?.status || 'pending';
+              const displayName = deal.company_name || deal.startup_name;
+              
+              return (
+                <Card key={deal.id} className="hover:shadow-md transition-shadow">
+                  <div className="grid grid-cols-12 gap-4 px-6 py-4 items-center">
+                    {/* Company Name + Summary */}
+                    <div className="col-span-3">
                       <h3 
-                        className="text-lg font-semibold hover:underline cursor-pointer"
+                        className="text-base font-semibold hover:underline cursor-pointer mb-1"
                         onClick={() => navigate(`/deal/${deal.id}`)}
                       >
                         {displayName}
                       </h3>
-                      <Badge variant="outline">{deal.sector}</Badge>
-                      {deal.stage && <Badge variant="outline">{deal.stage}</Badge>}
-                      {getStatusBadge(analysisStatus)}
-                    </div>
-                    <div className="text-sm text-muted-foreground space-y-1">
-                      <div className="flex gap-4">
-                        <span>Amount: {formatCurrency(deal.amount_raised_cents)}</span>
-                        <span>Valuation: {formatCurrency(deal.pre_money_valuation_cents)}</span>
-                      </div>
                       {deal.solution_summary && (
-                        <div className="text-xs mt-2 line-clamp-2">{deal.solution_summary}</div>
+                        <p className="text-xs text-muted-foreground line-clamp-2">
+                          {deal.solution_summary}
+                        </p>
                       )}
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {deal.deck_files?.[0] && (
+
+                    {/* Sector / Stage */}
+                    <div className="col-span-2 space-y-1">
+                      <Badge variant="outline" className="text-xs">{deal.sector}</Badge>
+                      {deal.stage && <Badge variant="outline" className="text-xs ml-1">{deal.stage}</Badge>}
+                    </div>
+
+                    {/* Amount Raised */}
+                    <div className="col-span-2">
+                      <p className="text-sm font-medium">{formatCurrency(deal.amount_raised_cents)}</p>
+                    </div>
+
+                    {/* Valuation */}
+                    <div className="col-span-2">
+                      <p className="text-sm font-medium">{formatCurrency(deal.pre_money_valuation_cents)}</p>
+                    </div>
+
+                    {/* Status */}
+                    <div className="col-span-2">
+                      {getStatusBadge(analysisStatus)}
+                    </div>
+
+                    {/* Actions */}
+                    <div className="col-span-1 flex items-center justify-end gap-2">
+                      {deal.deck_files?.[0] && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={(e) => handleDownloadDeck(deal, e)}
+                              >
+                                <Download className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Télécharger le deck</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Button
-                              variant="outline"
+                              variant="ghost"
                               size="icon"
-                              onClick={(e) => handleDownloadDeck(deal, e)}
+                              onClick={() => navigate(`/deal/${deal.id}`)}
                             >
-                              <Download className="h-4 w-4" />
+                              <Eye className="h-4 w-4" />
                             </Button>
                           </TooltipTrigger>
                           <TooltipContent>
-                            <p>{t('downloadDeck')}</p>
+                            <p>Voir les détails</p>
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
-                    )}
-                    {analysisStatus === 'completed' && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => navigate(`/deal/${deal.id}`)}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    )}
+                    </div>
                   </div>
-                </div>
-              </Card>
-            );
-          })}
-        </div>
+                </Card>
+              );
+            })}
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );

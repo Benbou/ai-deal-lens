@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { DashboardLayout } from '@/components/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -8,19 +9,11 @@ import { Separator } from '@/components/ui/separator';
 import { Download } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { useTranslation } from 'react-i18next';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 
 interface AnalysisResult {
+  status?: string;
   full_text?: string;
   summary?: string;
-  maturity_level?: string | null;
-  risk_score?: number | null;
-  valuation_gap_percent?: number | null;
 }
 
 interface DeckFile {
@@ -43,7 +36,7 @@ interface Deal {
 export default function DealDetail() {
   const { id } = useParams();
   const [deal, setDeal] = useState<Deal | null>(null);
-  const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
+  const [analysis, setAnalysis] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const { t } = useTranslation();
 
@@ -67,7 +60,7 @@ export default function DealDetail() {
           .limit(1)
           .maybeSingle();
 
-        setAnalysis((analysisData?.result as AnalysisResult) || null);
+        setAnalysis(analysisData);
       } finally {
         setLoading(false);
       }
@@ -77,25 +70,28 @@ export default function DealDetail() {
 
   const formatCurrency = (cents?: number | null) => {
     if (!cents) return '-';
-    return `€${(cents / 100 / 1000).toFixed(1)}M`;
+    const millions = cents / 100 / 1000000;
+    return `€${millions.toFixed(1)}M`;
   };
 
   if (loading) {
     return (
-      <div className="p-6">
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24">
-            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" opacity="0.25" />
-            <path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" strokeWidth="4" fill="none" />
-          </svg>
-          <span>Analyse en cours… Cela peut prendre 2–3 minutes.</span>
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-muted-foreground">Chargement...</div>
         </div>
-      </div>
+      </DashboardLayout>
     );
   }
 
   if (!deal) {
-    return <div className="p-6 text-destructive">Deal introuvable.</div>;
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-muted-foreground">Deal non trouvé</div>
+        </div>
+      </DashboardLayout>
+    );
   }
 
   const handleDownloadDeck = async () => {
@@ -109,83 +105,95 @@ export default function DealDetail() {
     }
   };
 
+  const analysisStatus = analysis?.status || 'pending';
+  const isProcessing = analysisStatus === 'processing';
+  const isCompleted = analysisStatus === 'completed';
   const displayName = deal.company_name || deal.startup_name;
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">{displayName}</h1>
-        <div className="flex items-center gap-3">
-          <Badge variant="outline">{deal.sector}</Badge>
+    <DashboardLayout>
+      <div className="space-y-6 max-w-full overflow-x-hidden">
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div>
+            <h1 className="text-3xl font-bold">{displayName}</h1>
+            <div className="flex gap-2 mt-2">
+              <Badge>{deal.sector}</Badge>
+              {deal.stage && <Badge variant="outline">{deal.stage}</Badge>}
+              {isProcessing && <Badge className="bg-primary">Analyse en cours...</Badge>}
+              {isCompleted && <Badge className="bg-success">Analysé</Badge>}
+            </div>
+          </div>
           {deal.deck_files?.[0] && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={handleDownloadDeck}
-                  >
-                    <Download className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>{t('downloadDeck')}</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <Button onClick={handleDownloadDeck} variant="outline">
+              <Download className="mr-2 h-4 w-4" />
+              Télécharger le deck
+            </Button>
           )}
         </div>
-      </div>
 
-      <Card className="p-4">
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          <div>
-            <div className="text-sm text-muted-foreground">Montant levé</div>
-            <div className="font-medium">{formatCurrency(deal.amount_raised_cents)}</div>
+        <Card className="p-6">
+          <h2 className="text-2xl font-semibold mb-4">Informations du Deal</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <p className="text-sm text-muted-foreground mb-1">Montant levé</p>
+              <p className="text-xl font-semibold">{formatCurrency(deal.amount_raised_cents)}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground mb-1">Valorisation pré-money</p>
+              <p className="text-xl font-semibold">{formatCurrency(deal.pre_money_valuation_cents)}</p>
+            </div>
           </div>
-          <div>
-            <div className="text-sm text-muted-foreground">Pré-money</div>
-            <div className="font-medium">{formatCurrency(deal.pre_money_valuation_cents)}</div>
-          </div>
-          <div>
-            <div className="text-sm text-muted-foreground">Secteur</div>
-            <div className="font-medium">{deal.sector}</div>
-          </div>
-        </div>
-        {deal.solution_summary && (
-          <div className="mt-4 pt-4 border-t">
-            <div className="text-sm text-muted-foreground mb-1">Résumé de la solution</div>
-            <div className="text-sm">{deal.solution_summary}</div>
-          </div>
+          {deal.solution_summary && (
+            <div className="mt-6 pt-6 border-t">
+              <p className="text-sm text-muted-foreground mb-2">Résumé de la solution</p>
+              <p className="text-base leading-relaxed">{deal.solution_summary}</p>
+            </div>
+          )}
+        </Card>
+
+        {isProcessing && (
+          <Card className="p-12 text-center">
+            <div className="flex flex-col items-center gap-4">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+              <div>
+                <h3 className="text-xl font-semibold mb-2">Analyse en cours</h3>
+                <p className="text-muted-foreground">
+                  Notre IA analyse le deck en détail. Cela peut prendre quelques minutes...
+                </p>
+              </div>
+            </div>
+          </Card>
         )}
-      </Card>
 
-      <Separator />
+        {isCompleted && analysis?.result?.full_text && (
+          <Card className="p-6">
+            <h2 className="text-2xl font-semibold mb-6">Mémo d'Investissement</h2>
+            <div className="prose prose-sm max-w-none dark:prose-invert 
+              prose-headings:font-semibold prose-headings:text-foreground
+              prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg
+              prose-p:text-foreground prose-p:leading-relaxed
+              prose-strong:text-foreground prose-strong:font-semibold
+              prose-ul:text-foreground prose-ol:text-foreground
+              prose-li:text-foreground prose-li:marker:text-muted-foreground
+              prose-table:text-foreground prose-th:font-semibold
+              prose-td:border-border prose-th:border-border
+              prose-blockquote:border-l-primary prose-blockquote:text-muted-foreground
+              prose-code:text-foreground prose-code:bg-muted prose-code:px-1 prose-code:rounded
+              prose-pre:bg-muted prose-pre:text-foreground">
+              <ReactMarkdown>{analysis.result.full_text}</ReactMarkdown>
+            </div>
+          </Card>
+        )}
 
-      <Card className="p-6">
-        <h2 className="text-lg font-semibold mb-4">Mémo d'analyse</h2>
-        <div className="prose prose-sm max-w-none dark:prose-invert">
-          <ReactMarkdown
-            components={{
-              h1: ({node, ...props}) => <h1 className="text-2xl font-bold mt-6 mb-4" {...props} />,
-              h2: ({node, ...props}) => <h2 className="text-xl font-semibold mt-5 mb-3" {...props} />,
-              h3: ({node, ...props}) => <h3 className="text-lg font-semibold mt-4 mb-2" {...props} />,
-              p: ({node, ...props}) => <p className="mb-3 leading-7" {...props} />,
-              ul: ({node, ...props}) => <ul className="list-disc pl-6 mb-3 space-y-1" {...props} />,
-              ol: ({node, ...props}) => <ol className="list-decimal pl-6 mb-3 space-y-1" {...props} />,
-              li: ({node, ...props}) => <li className="leading-7" {...props} />,
-              strong: ({node, ...props}) => <strong className="font-semibold" {...props} />,
-              em: ({node, ...props}) => <em className="italic" {...props} />,
-              code: ({node, ...props}) => <code className="bg-muted px-1 py-0.5 rounded text-sm" {...props} />,
-              blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-primary pl-4 italic my-4" {...props} />,
-            }}
-          >
-            {analysis?.full_text || analysis?.summary || 'Aucune analyse disponible pour le moment.'}
-          </ReactMarkdown>
-        </div>
-      </Card>
-    </div>
+        {!isProcessing && !isCompleted && (
+          <Card className="p-12 text-center">
+            <div className="text-muted-foreground">
+              <p>L'analyse n'a pas encore démarré</p>
+            </div>
+          </Card>
+        )}
+      </div>
+    </DashboardLayout>
   );
 }
 
