@@ -192,9 +192,11 @@ async function analyzeInBackground(supabaseClient: any, dealId: string) {
     }
     const base64 = btoa(binary);
 
-    const systemPrompt = `You are a senior investment analyst specialized in producing ultra-effective investment memos for VC funds. 
+const systemPrompt = `You are a senior investment analyst specialized in producing ultra-effective investment memos for VC funds. 
 
 Output: All memos and analyses must be written in French with appropriate business terminology.
+
+IMPORTANT: Be CONCISE. Focus on the most critical information only. This is an initial screening memo, not a deep dive.
 
 After your analysis, you MUST also extract and provide the following structured data in a JSON block at the very end of your response, labeled as "STRUCTURED_DATA:":
 {
@@ -205,7 +207,7 @@ After your analysis, you MUST also extract and provide the following structured 
   "solution_summary": "brief 2-3 sentence summary of the solution"
 }
 
-Write your full investment memo first in markdown format, then add the JSON block at the end.`;
+Write your investment memo first (MAX 800 words) in markdown format, then add the JSON block at the end.`;
 
     const prompt = `Analyze this pitch deck and provide a comprehensive investment memo following the structured format. Include all critical analysis sections.
 
@@ -228,11 +230,18 @@ At the very end, provide the structured data JSON block labeled "STRUCTURED_DATA
         'Content-Type': 'application/json',
         'x-api-key': anthropicApiKey,
         'anthropic-version': '2023-06-01',
+        'anthropic-beta': 'web-search-2025-03-05',
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-5-20250929',
-        max_tokens: 16000,
+        max_tokens: 8000,
         system: systemPrompt,
+        tools: [
+          {
+            name: 'web_search',
+            type: 'web_search_20250305',
+          },
+        ],
         messages: [
           {
             role: 'user',
