@@ -9,6 +9,7 @@ import { Separator } from '@/components/ui/separator';
 import { Download } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 
 interface AnalysisResult {
   status?: string;
@@ -97,11 +98,20 @@ export default function DealDetail() {
   const handleDownloadDeck = async () => {
     if (!deal?.deck_files?.[0]) return;
     
-    const { data } = await supabase.storage
-      .from('deck-files')
-      .createSignedUrl(deal.deck_files[0].storage_path, 60 * 60);
-    if (data?.signedUrl) {
-      window.open(data.signedUrl, '_blank', 'noopener');
+    try {
+      const { data, error } = await supabase.storage
+        .from('deck-files')
+        .createSignedUrl(deal.deck_files[0].storage_path, 60 * 60);
+      
+      if (error) throw error;
+      
+      if (data?.signedUrl) {
+        window.open(data.signedUrl, '_blank', 'noopener');
+      }
+    } catch (error: any) {
+      console.error('Error downloading deck:', error);
+      // User-friendly error without internal details
+      toast.error('Failed to download deck');
     }
   };
 

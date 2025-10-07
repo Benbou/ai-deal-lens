@@ -50,11 +50,14 @@ export default function Dashboard() {
       if (error) throw error;
 
       setDeals(data || []);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading deals:', error);
+      const userMessage = error.message?.includes('policy')
+        ? 'Access denied'
+        : 'Failed to load deals';
       toast({
         title: 'Error',
-        description: 'Failed to load deals',
+        description: userMessage,
         variant: 'destructive',
       });
     } finally {
@@ -81,10 +84,14 @@ export default function Dashboard() {
       if (data?.signedUrl) {
         window.open(data.signedUrl, '_blank', 'noopener');
       }
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Error downloading deck:', error);
+      const userMessage = error.message?.includes('policy')
+        ? 'Access denied'
+        : 'Failed to download deck';
       toast({
         title: 'Error',
-        description: 'Failed to download deck',
+        description: userMessage,
         variant: 'destructive',
       });
     }

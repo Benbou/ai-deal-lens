@@ -10,6 +10,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Upload, FileText, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
+import { z } from 'zod';
+
+const dealSubmissionSchema = z.object({
+  founderEmail: z.string().email('Invalid email format').max(255, 'Email too long').optional().or(z.literal('')),
+  additionalContext: z.string().max(5000, 'Additional context must be less than 5000 characters').optional()
+});
 
 export default function SubmitDeal() {
   const { user } = useAuth();
@@ -42,6 +48,17 @@ export default function SubmitDeal() {
     
     if (!deckFile) {
       toast.error(t('submit.form.deckUpload.label') + ' required');
+      return;
+    }
+
+    // Validate inputs
+    const validation = dealSubmissionSchema.safeParse({
+      founderEmail: founderEmail || '',
+      additionalContext
+    });
+
+    if (!validation.success) {
+      toast.error(validation.error.issues[0].message);
       return;
     }
 
@@ -101,7 +118,12 @@ export default function SubmitDeal() {
 
     } catch (error: any) {
       console.error('Error:', error);
-      toast.error(error.message || t('submit.errors.failed'));
+      const userMessage = error.code === 'PGRST116' 
+        ? 'Deal not found'
+        : error.message?.includes('policy')
+        ? 'Access denied'
+        : t('submit.errors.failed');
+      toast.error(userMessage);
     } finally {
       setLoading(false);
       setUploading(false);

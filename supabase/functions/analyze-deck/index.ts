@@ -26,7 +26,19 @@ serve(async (req) => {
     const { dealId } = await req.json();
     
     if (!dealId) {
-      throw new Error('dealId is required');
+      return new Response(
+        JSON.stringify({ error: 'Invalid request' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Verify authentication
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Authentication required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const supabaseClient = createClient(
@@ -34,13 +46,52 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
+    // Get authenticated user
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
+
+    if (authError || !user) {
+      console.error('Authentication failed:', authError?.message);
+      return new Response(
+        JSON.stringify({ error: 'Invalid authentication' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Verify deal ownership
+    const { data: deal, error: ownershipError } = await supabaseClient
+      .from('deals')
+      .select('user_id')
+      .eq('id', dealId)
+      .single();
+
+    if (ownershipError || !deal) {
+      console.error('Deal not found:', dealId, ownershipError?.message);
+      return new Response(
+        JSON.stringify({ error: 'Deal not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (deal.user_id !== user.id) {
+      console.error('Unauthorized access attempt:', user.id, 'to deal:', dealId);
+      return new Response(
+        JSON.stringify({ error: 'Access denied' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY');
     
     if (!anthropicApiKey) {
-      throw new Error('ANTHROPIC_API_KEY not configured');
+      console.error('API key not configured');
+      return new Response(
+        JSON.stringify({ error: 'Service temporarily unavailable' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    console.log('Starting analysis for deal:', dealId);
+    console.log('Starting analysis for deal:', dealId, 'user:', user.id);
 
     // Create analysis record
     const { data: analysis, error: analysisError } = await supabaseClient
@@ -62,18 +113,54 @@ serve(async (req) => {
       .eq('deal_id', dealId)
       .single();
 
-    if (fileError) throw fileError;
+    if (fileError) {
+      console.error('Deck file not found:', fileError.message);
+      return new Response(
+        JSON.stringify({ error: 'File not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Download file
     const { data: fileData, error: downloadError } = await supabaseClient.storage
       .from('deck-files')
       .download(deckFile.storage_path);
 
-    if (downloadError) throw downloadError;
+    if (downloadError) {
+      console.error('File download failed:', downloadError.message);
+      return new Response(
+        JSON.stringify({ error: 'Failed to access file' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
-    // Convert to base64
+    // Convert to base64 and validate PDF
     const arrayBuffer = await fileData.arrayBuffer();
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+    const uint8Array = new Uint8Array(arrayBuffer);
+    
+    // Validate PDF magic number (%PDF-)
+    const isPDF = uint8Array[0] === 0x25 && uint8Array[1] === 0x50 && 
+                  uint8Array[2] === 0x44 && uint8Array[3] === 0x46 && 
+                  uint8Array[4] === 0x2D;
+    
+    if (!isPDF) {
+      console.error('Invalid PDF file detected for deal:', dealId);
+      await supabaseClient
+        .from('analyses')
+        .update({ 
+          status: 'failed', 
+          error_message: 'Invalid file format',
+          completed_at: new Date().toISOString()
+        })
+        .eq('id', analysis.id);
+      
+      return new Response(
+        JSON.stringify({ error: 'Invalid file format' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    const base64 = btoa(String.fromCharCode(...uint8Array));
 
     const systemPrompt = `You are a senior investment analyst specialized in producing ultra-effective investment memos for VC funds. 
 
@@ -148,8 +235,21 @@ At the very end, provide the structured data JSON block labeled "STRUCTURED_DATA
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Claude API error:', response.status, errorText);
-      throw new Error(`Claude API error: ${response.status}`);
+      console.error('External API error:', response.status, errorText);
+      
+      await supabaseClient
+        .from('analyses')
+        .update({ 
+          status: 'failed', 
+          error_message: 'Analysis service error',
+          completed_at: new Date().toISOString()
+        })
+        .eq('id', analysis.id);
+      
+      return new Response(
+        JSON.stringify({ error: 'Analysis failed. Please try again later.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const result = await response.json();
@@ -213,7 +313,7 @@ At the very end, provide the structured data JSON block labeled "STRUCTURED_DATA
   } catch (error) {
     console.error('Error in analyze-deck:', error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
+      JSON.stringify({ error: 'An unexpected error occurred. Please try again.' }),
       { 
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
