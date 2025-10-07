@@ -1,14 +1,25 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Download } from 'lucide-react';
+import { Download, Trash2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface AnalysisResult {
   status?: string;
@@ -35,9 +46,11 @@ interface Deal {
 
 export default function DealDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [deal, setDeal] = useState<Deal | null>(null);
   const [analysis, setAnalysis] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
   const { t } = useTranslation();
 
   useEffect(() => {
@@ -105,8 +118,42 @@ export default function DealDetail() {
       }
     } catch (error: any) {
       console.error('Error downloading deck:', error);
-      // User-friendly error without internal details
-      toast.error('Failed to download deck');
+      toast.error('Échec du téléchargement du deck');
+    }
+  };
+
+  const handleDeleteDeal = async () => {
+    if (!id || !deal) return;
+    
+    setDeleting(true);
+    try {
+      // Delete files from storage first
+      if (deal.deck_files && deal.deck_files.length > 0) {
+        const filePaths = deal.deck_files.map(f => f.storage_path);
+        const { error: storageError } = await supabase.storage
+          .from('deck-files')
+          .remove(filePaths);
+        
+        if (storageError) {
+          console.error('Error deleting files from storage:', storageError);
+        }
+      }
+
+      // Delete the deal (cascade will handle related records)
+      const { error: deleteError } = await supabase
+        .from('deals')
+        .delete()
+        .eq('id', id);
+
+      if (deleteError) throw deleteError;
+
+      toast.success('Deal supprimé avec succès');
+      navigate('/dashboard');
+    } catch (error: any) {
+      console.error('Error deleting deal:', error);
+      toast.error('Échec de la suppression du deal');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -127,12 +174,37 @@ export default function DealDetail() {
             {isCompleted && <Badge className="bg-success">Analysé</Badge>}
           </div>
         </div>
-        {deal.deck_files?.[0] && (
-          <Button onClick={handleDownloadDeck} variant="outline">
-            <Download className="mr-2 h-4 w-4" />
-            Télécharger le deck
-          </Button>
-        )}
+        <div className="flex gap-2">
+          {deal.deck_files?.[0] && (
+            <Button onClick={handleDownloadDeck} variant="outline">
+              <Download className="mr-2 h-4 w-4" />
+              Télécharger le deck
+            </Button>
+          )}
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" disabled={deleting}>
+                <Trash2 className="mr-2 h-4 w-4" />
+                Supprimer
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Êtes-vous sûr ?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Cette action est irréversible. Cela supprimera définitivement le deal,
+                  les analyses, les fichiers et toutes les données associées.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Annuler</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDeleteDeal} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                  Supprimer définitivement
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
       </div>
 
       <Card className="p-6">
