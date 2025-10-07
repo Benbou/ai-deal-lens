@@ -10,6 +10,11 @@ import { Search, FileText, TrendingUp, Loader2, Eye, RefreshCw, Archive } from '
 import { OnboardingModal } from '@/components/OnboardingModal';
 import { formatDistanceToNow } from 'date-fns';
 
+interface DeckFile {
+  storage_path: string;
+  file_name: string;
+}
+
 interface Deal {
   id: string;
   startup_name: string;
@@ -21,6 +26,7 @@ interface Deal {
   risk_score: number | null;
   status: string;
   created_at: string;
+  deck_files?: DeckFile[];
 }
 
 export default function Dashboard() {
@@ -68,7 +74,7 @@ export default function Dashboard() {
     try {
       const { data, error } = await supabase
         .from('deals')
-        .select('*')
+        .select('*, deck_files(storage_path, file_name)')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -77,6 +83,15 @@ export default function Dashboard() {
       console.error('Error loading deals:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const openDeck = async (storagePath: string) => {
+    const { data } = await supabase.storage
+      .from('deck-files')
+      .createSignedUrl(storagePath, 60 * 60);
+    if (data?.signedUrl) {
+      window.open(data.signedUrl, '_blank', 'noopener');
     }
   };
 
@@ -124,8 +139,11 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
+      <div className="flex flex-col items-center justify-center min-h-[400px] text-center gap-3">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <div className="text-sm text-muted-foreground">
+          Analyse en cours… Cela peut prendre 2–3 minutes pendant que nous traitons le deck.
+        </div>
       </div>
     );
   }
@@ -206,17 +224,14 @@ export default function Dashboard() {
                         {formatDistanceToNow(new Date(deal.created_at), { addSuffix: true })}
                       </td>
                       <td className="p-4">
-                        <div className="flex gap-2 justify-end">
+                        <div className="flex gap-3 justify-end items-center">
                           {deal.deck_files?.[0]?.storage_path && (
-                            <a
-                              href={`/_/storage/deck-files/${encodeURIComponent(deal.deck_files[0].storage_path)}`}
-                              target="_blank"
-                              rel="noreferrer"
+                            <button
                               className="text-xs underline text-muted-foreground"
-                              onClick={(e) => e.stopPropagation()}
+                              onClick={(e) => { e.stopPropagation(); openDeck(deal.deck_files![0].storage_path); }}
                             >
                               Télécharger deck
-                            </a>
+                            </button>
                           )}
                           <Button
                             size="sm"

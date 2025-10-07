@@ -13,6 +13,11 @@ interface AnalysisResult {
   valuation_gap_percent?: number | null;
 }
 
+interface DeckFile {
+  storage_path: string;
+  file_name: string;
+}
+
 interface Deal {
   id: string;
   startup_name: string;
@@ -23,6 +28,7 @@ interface Deal {
   maturity_level?: string | null;
   risk_score?: number | null;
   valuation_gap_percent?: number | null;
+  deck_files?: DeckFile[];
 }
 
 export default function DealDetail() {
@@ -37,7 +43,7 @@ export default function DealDetail() {
       try {
         const { data: dealData } = await supabase
           .from('deals')
-          .select('*')
+          .select('*, deck_files(storage_path, file_name)')
           .eq('id', id)
           .single();
 
@@ -65,7 +71,17 @@ export default function DealDetail() {
   };
 
   if (loading) {
-    return <div className="p-6 text-muted-foreground">Chargement…</div>;
+    return (
+      <div className="p-6">
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" opacity="0.25" />
+            <path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" strokeWidth="4" fill="none" />
+          </svg>
+          <span>Analyse en cours… Cela peut prendre 2–3 minutes.</span>
+        </div>
+      </div>
+    );
   }
 
   if (!deal) {
@@ -76,7 +92,24 @@ export default function DealDetail() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">{deal.startup_name}</h1>
-        <Badge variant="outline">{deal.sector}</Badge>
+        <div className="flex items-center gap-3">
+          <Badge variant="outline">{deal.sector}</Badge>
+          {deal.deck_files?.[0]?.storage_path && (
+            <button
+              className="text-sm underline text-muted-foreground"
+              onClick={async () => {
+                const { data } = await supabase.storage
+                  .from('deck-files')
+                  .createSignedUrl(deal.deck_files![0].storage_path, 60 * 60);
+                if (data?.signedUrl) {
+                  window.open(data.signedUrl, '_blank', 'noopener');
+                }
+              }}
+            >
+              Télécharger deck
+            </button>
+          )}
+        </div>
       </div>
 
       <Card className="p-4">
