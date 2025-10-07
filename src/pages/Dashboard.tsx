@@ -194,17 +194,19 @@ export default function Dashboard() {
                     </div>
 
                     {/* Status */}
-                    <Badge 
-                      className={
-                        deal.status === 'completed' ? 'bg-success text-success-foreground' : 
-                        deal.status === 'processing' ? 'bg-primary text-primary-foreground' : 
-                        'bg-destructive text-destructive-foreground'
-                      }
-                    >
-                      {deal.status === 'completed' && t('dashboard.status.completed')}
-                      {deal.status === 'processing' && t('dashboard.status.analyzing')}
-                      {deal.status === 'pending' && t('dashboard.status.pending')}
-                    </Badge>
+                    <div className="col-span-2">
+                      <Badge 
+                        className={
+                          deal.status === 'completed' ? 'bg-[hsl(var(--success))] text-[hsl(var(--success-foreground))]' : 
+                          deal.status === 'processing' ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]' : 
+                          'bg-[hsl(var(--destructive))] text-[hsl(var(--destructive-foreground))]'
+                        }
+                      >
+                        {deal.status === 'completed' && t('dashboard.status.completed')}
+                        {deal.status === 'processing' && t('dashboard.status.analyzing')}
+                        {deal.status === 'pending' && t('dashboard.status.pending')}
+                      </Badge>
+                    </div>
 
                     {/* Actions */}
                     <div className="col-span-1 flex items-center justify-end gap-2">
