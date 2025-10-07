@@ -120,9 +120,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       </aside>
 
       {/* Main Content */}
-      <main className="w-full">
-        <div className="md:pl-24 w-full">
-          <div className="max-w-[1400px] mx-auto p-4 md:p-8 pt-20 md:pt-8">{children}</div>
+      <main className="flex-1 w-full md:ml-64">
+        <div className="w-full h-full">
+          <div className="container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 pt-20 md:pt-8">
+            {children}
+          </div>
         </div>
       </main>
     </div>

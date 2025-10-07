@@ -50,7 +50,7 @@ const App = () => (
               }
             />
             <Route
-              path="/deals/:id"
+              path="/deal/:id"
               element={
                 <ProtectedRoute>
                   <DashboardLayout>

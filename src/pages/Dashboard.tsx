@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { DashboardLayout } from '@/components/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Eye, Plus, Download } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { Eye, Plus, Download, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import {
   Tooltip,
@@ -14,6 +13,17 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface Deal {
   id: string;
@@ -32,8 +42,8 @@ interface Deal {
 export default function Dashboard() {
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState<string | null>(null);
   const navigate = useNavigate();
-  const { toast } = useToast();
   const { t } = useTranslation();
 
   useEffect(() => {
@@ -52,14 +62,7 @@ export default function Dashboard() {
       setDeals(data || []);
     } catch (error: any) {
       console.error('Error loading deals:', error);
-      const userMessage = error.message?.includes('policy')
-        ? 'Access denied'
-        : 'Failed to load deals';
-      toast({
-        title: 'Error',
-        description: userMessage,
-        variant: 'destructive',
-      });
+      toast.error('Échec du chargement des deals');
     } finally {
       setLoading(false);
     }
@@ -86,14 +89,42 @@ export default function Dashboard() {
       }
     } catch (error: any) {
       console.error('Error downloading deck:', error);
-      const userMessage = error.message?.includes('policy')
-        ? 'Access denied'
-        : 'Failed to download deck';
-      toast({
-        title: 'Error',
-        description: userMessage,
-        variant: 'destructive',
-      });
+      toast.error('Échec du téléchargement du deck');
+    }
+  };
+
+  const handleDeleteDeal = async (dealId: string, deal: Deal) => {
+    setDeleting(dealId);
+    try {
+      // Delete files from storage first
+      if (deal.deck_files && deal.deck_files.length > 0) {
+        const filePaths = deal.deck_files.map(f => f.storage_path);
+        const { error: storageError } = await supabase.storage
+          .from('deck-files')
+          .remove(filePaths);
+        
+        if (storageError) {
+          console.error('Error deleting files from storage:', storageError);
+        }
+      }
+
+      // Delete the deal (cascade will handle related records)
+      const { error: deleteError } = await supabase
+        .from('deals')
+        .delete()
+        .eq('id', dealId);
+
+      if (deleteError) throw deleteError;
+
+      toast.success('Deal supprimé avec succès');
+      
+      // Reload deals
+      await loadDeals();
+    } catch (error: any) {
+      console.error('Error deleting deal:', error);
+      toast.error('Échec de la suppression du deal');
+    } finally {
+      setDeleting(null);
     }
   };
 
@@ -115,18 +146,15 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-muted-foreground">Loading...</div>
-        </div>
-      </DashboardLayout>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-muted-foreground">Chargement...</div>
+      </div>
     );
   }
 
   return (
-    <DashboardLayout>
-      <div className="space-y-6 max-w-full overflow-x-hidden">
-        <div className="flex items-center justify-between flex-wrap gap-4">
+    <div className="space-y-6 w-full">
+      <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
             <h1 className="text-3xl font-bold">Mes Deals</h1>
             <p className="text-muted-foreground">Suivez et analysez vos opportunités d'investissement</p>
@@ -223,7 +251,7 @@ export default function Dashboard() {
                               </Button>
                             </TooltipTrigger>
                             <TooltipContent>
-                              <p>{t('common.downloadDeck')}</p>
+                              <p>Télécharger le deck</p>
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
@@ -240,10 +268,39 @@ export default function Dashboard() {
                             </Button>
                           </TooltipTrigger>
                           <TooltipContent>
-                            <p>{t('common.view')}</p>
+                            <p>Voir les détails</p>
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            disabled={deleting === deal.id}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Êtes-vous sûr ?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Cette action est irréversible. Cela supprimera définitivement le deal,
+                              les analyses, les fichiers et toutes les données associées.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Annuler</AlertDialogCancel>
+                            <AlertDialogAction 
+                              onClick={() => handleDeleteDeal(deal.id, deal)}
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                              Supprimer définitivement
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </div>
                   </div>
                 </Card>
@@ -251,7 +308,6 @@ export default function Dashboard() {
             })}
           </div>
         )}
-      </div>
-    </DashboardLayout>
+    </div>
   );
 }
