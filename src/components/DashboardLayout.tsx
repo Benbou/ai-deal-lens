@@ -1,8 +1,8 @@
-import { ReactNode, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { ReactNode, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,9 +10,9 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { LayoutDashboard, Plus, Shield, LogOut, User, Menu, X } from 'lucide-react';
-import logo from '@/assets/logo.svg';
+} from "@/components/ui/dropdown-menu";
+import { LayoutDashboard, Plus, Shield, LogOut, User, Menu, X } from "lucide-react";
+import logo from "@/assets/logo.svg";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -25,8 +25,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const navItems = [
-    { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-    { label: 'Submit Deal', path: '/submit', icon: Plus },
+    { label: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
+    { label: "Submit Deal", path: "/submit", icon: Plus },
   ];
 
   const isActive = (path: string) => location.pathname === path;
@@ -34,12 +34,12 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const getInitials = () => {
     if (user?.user_metadata?.name) {
       return user.user_metadata.name
-        .split(' ')
+        .split(" ")
         .map((n: string) => n[0])
-        .join('')
+        .join("")
         .toUpperCase();
     }
-    return user?.email?.[0].toUpperCase() || 'U';
+    return user?.email?.[0].toUpperCase() || "U";
   };
 
   return (
@@ -56,18 +56,20 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
       {/* Sidebar overlay for mobile */}
       {sidebarOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40 md:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       {/* Sidebar */}
-      <aside className={`
+      <aside
+        className={`
         fixed left-0 top-0 h-full w-64 border-r bg-card flex flex-col z-40 transition-transform duration-200
-        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+        ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
         md:translate-x-0
-      `}>
+      `}
+      >
         <div className="p-6 border-b">
           <img src={logo} alt="Albo" className="h-8 w-auto" />
         </div>
@@ -75,10 +77,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         <nav className="flex-1 p-4 space-y-2">
           {navItems.map((item) => (
             <Link key={item.path} to={item.path} onClick={() => setSidebarOpen(false)}>
-              <Button
-                variant={isActive(item.path) ? 'default' : 'ghost'}
-                className="w-full justify-start"
-              >
+              <Button variant={isActive(item.path) ? "default" : "ghost"} className="w-full justify-start">
                 <item.icon className="mr-2 h-4 w-4" />
                 {item.label}
               </Button>
@@ -94,21 +93,19 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   <AvatarFallback>{getInitials()}</AvatarFallback>
                 </Avatar>
                 <div className="flex flex-col items-start text-sm">
-                  <span className="font-medium">{user?.user_metadata?.name || 'User'}</span>
-                  <span className="text-xs text-muted-foreground truncate max-w-[120px]">
-                    {user?.email}
-                  </span>
+                  <span className="font-medium">{user?.user_metadata?.name || "User"}</span>
+                  <span className="text-xs text-muted-foreground truncate max-w-[120px]">{user?.email}</span>
                 </div>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>My Account</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => navigate('/profile')}>
+              <DropdownMenuItem onClick={() => navigate("/profile")}>
                 <User className="mr-2 h-4 w-4" />
                 Profile
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate('/admin')}>
+              <DropdownMenuItem onClick={() => navigate("/admin")}>
                 <Shield className="mr-2 h-4 w-4" />
                 Admin
               </DropdownMenuItem>
@@ -123,10 +120,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       </aside>
 
       {/* Main Content */}
-      <main className="w-full md:pl-0">
-        <div className="max-w-[1400px] mx-auto p-4 md:p-8 pt-20 md:pt-8">
-          {children}
-        </div>
+      <main className="w-full md:pl-64">
+        <div className="max-w-[1400px] mx-auto p-4 md:p-8 pt-20 md:pt-8">{children}</div>
       </main>
     </div>
   );
