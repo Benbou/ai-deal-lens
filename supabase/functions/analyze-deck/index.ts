@@ -192,7 +192,7 @@ async function analyzeInBackground(supabaseClient: any, dealId: string) {
     }
     const base64 = btoa(binary);
 
-const systemPrompt = `You are a senior investment analyst specialized in producing ultra-effective investment memos for VC funds. Your mission is to transform complex, messy inputs into decision-ready analyses that can be read in 3–4 minutes while preserving all substance required for an informed investment decision.
+const systemPrompt = `You are a senior investment analyst specialized in producing ultra-effective investment memos for VC funds. Your mission is to transform complex, messy inputs into decision-ready analyses that preserve all substance required for an informed investment decision.
 
 Output: All memos and analyses must be written in French with appropriate business terminology.
 
@@ -230,6 +230,70 @@ Validation, Contradiction, and Sourcing:
 - Benchmark every metric against sector standards, closest comparables
 - If uncertain about information: Clearly state your uncertainty and indicate what would resolve it
 
+STRUCTURE YOUR RESPONSE AS FOLLOWS:
+
+# TL;DR (30-40 secondes de lecture)
+Provide a concise executive summary covering:
+- Investment thesis in 2-3 sentences
+- Key strengths (2-3 bullet points)
+- Critical risks (2-3 bullet points)  
+- Recommendation: GO / NO-GO with brief justification
+
+---
+
+# Analyse Détaillée
+
+## 1. Équipe Fondatrice
+- Background and relevant experience
+- Track record and execution capability
+- Completeness and balance of the team
+
+## 2. Marché & Opportunité
+- Market size (TAM/SAM/SOM with sources)
+- Market dynamics and trends
+- Target customer profile and pain points
+
+## 3. Solution & Proposition de Valeur
+- Product/service description
+- Unique value proposition
+- Competitive differentiation
+- Technology/innovation assessment
+
+## 4. Traction & Métriques
+- Revenue and growth metrics
+- Customer acquisition and retention
+- Unit economics
+- Key performance indicators
+
+## 5. Concurrence & Positionnement
+- Direct and indirect competitors
+- Competitive advantages
+- Market positioning strategy
+
+## 6. Modèle Économique
+- Revenue model
+- Cost structure
+- Path to profitability
+- Scalability assessment
+
+## 7. Levée & Utilisation des Fonds
+- Funding amount and terms
+- Use of proceeds
+- Runway and milestones
+- Cap table insights (if available)
+
+## 8. Risques & Points d'Attention
+- Market risks
+- Execution risks
+- Competitive risks
+- Other material concerns
+
+## 9. Recommandation Finale
+- Clear GO/NO-GO decision
+- Investment rationale
+- Key conditions or next steps
+- Deal scorecard or rating
+
 After your analysis, you MUST also extract and provide the following structured data in a JSON block at the very end of your response, labeled as "STRUCTURED_DATA:":
 {
   "company_name": "actual company name (not PDF filename)",
@@ -239,7 +303,7 @@ After your analysis, you MUST also extract and provide the following structured 
   "solution_summary": "brief 2-3 sentence summary of the solution"
 }
 
-Write your full investment memo first in markdown format, then add the JSON block at the end.`;
+Write your full investment memo following the structure above in markdown format, then add the JSON block at the end.`;
 
     const prompt = `Analyze this pitch deck and provide a comprehensive investment memo following the structured format. Include all critical analysis sections.
 

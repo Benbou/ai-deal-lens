@@ -81,7 +81,7 @@ export default function DealDetail() {
     load();
 
     // Subscribe to real-time updates on analyses
-    const channel = supabase
+    const analysisChannel = supabase
       .channel(`analysis-${id}`)
       .on(
         'postgres_changes',
@@ -100,8 +100,29 @@ export default function DealDetail() {
       )
       .subscribe();
 
+    // Subscribe to real-time updates on deals
+    const dealChannel = supabase
+      .channel(`deal-${id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'deals',
+          filter: `id=eq.${id}`,
+        },
+        (payload) => {
+          console.log('Deal update:', payload);
+          if (payload.new) {
+            setDeal(prev => prev ? { ...prev, ...payload.new } as Deal : null);
+          }
+        }
+      )
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(analysisChannel);
+      supabase.removeChannel(dealChannel);
     };
   }, [id]);
 
@@ -266,20 +287,25 @@ export default function DealDetail() {
       )}
 
       {isCompleted && analysis?.result?.full_text && (
-        <Card className="p-6">
+        <Card className="p-8">
           <h2 className="text-2xl font-semibold mb-6">Mémo d'Investissement</h2>
-          <div className="prose prose-sm max-w-none dark:prose-invert 
-            prose-headings:font-semibold prose-headings:text-foreground
-            prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg
-            prose-p:text-foreground prose-p:leading-relaxed
-            prose-strong:text-foreground prose-strong:font-semibold
-            prose-ul:text-foreground prose-ol:text-foreground
-            prose-li:text-foreground prose-li:marker:text-muted-foreground
-            prose-table:text-foreground prose-th:font-semibold
-            prose-td:border-border prose-th:border-border
-            prose-blockquote:border-l-primary prose-blockquote:text-muted-foreground
-            prose-code:text-foreground prose-code:bg-muted prose-code:px-1 prose-code:rounded
-            prose-pre:bg-muted prose-pre:text-foreground">
+          <div className="prose prose-base max-w-none dark:prose-invert 
+            prose-headings:font-bold prose-headings:text-foreground prose-headings:tracking-tight
+            prose-h1:text-3xl prose-h1:border-b prose-h1:pb-3 prose-h1:mb-6
+            prose-h2:text-2xl prose-h2:mt-10 prose-h2:mb-4 prose-h2:border-b prose-h2:pb-2
+            prose-h3:text-xl prose-h3:mt-6 prose-h3:mb-3
+            prose-p:text-foreground prose-p:leading-relaxed prose-p:mb-4
+            prose-strong:text-foreground prose-strong:font-bold
+            prose-ul:my-4 prose-ul:text-foreground prose-ol:my-4 prose-ol:text-foreground
+            prose-li:text-foreground prose-li:my-1.5 prose-li:marker:text-muted-foreground
+            prose-table:text-sm prose-table:my-6 prose-th:font-bold prose-th:py-3 prose-th:px-4
+            prose-td:border-border prose-td:py-2.5 prose-td:px-4 prose-th:border-border
+            prose-blockquote:border-l-4 prose-blockquote:border-l-primary prose-blockquote:pl-4 
+            prose-blockquote:italic prose-blockquote:text-muted-foreground prose-blockquote:my-4
+            prose-code:text-foreground prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 
+            prose-code:rounded prose-code:text-sm prose-code:font-mono
+            prose-pre:bg-muted prose-pre:text-foreground prose-pre:p-4 prose-pre:rounded-lg prose-pre:my-4
+            prose-hr:border-border prose-hr:my-8">
             <ReactMarkdown>{analysis.result.full_text}</ReactMarkdown>
           </div>
         </Card>

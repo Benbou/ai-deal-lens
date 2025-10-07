@@ -174,7 +174,8 @@ export default function Dashboard() {
             {/* Header Row */}
             <div className="grid grid-cols-12 gap-4 px-6 py-3 bg-muted/50 rounded-lg text-sm font-medium">
               <div className="col-span-3">Entreprise</div>
-              <div className="col-span-2">Secteur / Stage</div>
+              <div className="col-span-1">Secteur</div>
+              <div className="col-span-1">Stage</div>
               <div className="col-span-2">Montant levé</div>
               <div className="col-span-2">Valorisation</div>
               <div className="col-span-2">Status</div>
@@ -205,10 +206,14 @@ export default function Dashboard() {
                       )}
                     </div>
 
-                    {/* Sector / Stage */}
-                    <div className="col-span-2 space-y-1">
+                    {/* Sector */}
+                    <div className="col-span-1">
                       <Badge variant="outline" className="text-xs">{deal.sector}</Badge>
-                      {deal.stage && <Badge variant="outline" className="text-xs ml-1">{deal.stage}</Badge>}
+                    </div>
+
+                    {/* Stage */}
+                    <div className="col-span-1">
+                      {deal.stage && <Badge variant="outline" className="text-xs">{deal.stage}</Badge>}
                     </div>
 
                     {/* Amount Raised */}
