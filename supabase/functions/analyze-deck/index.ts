@@ -105,6 +105,8 @@ serve(async (req) => {
 });
 
 async function analyzeInBackground(supabaseClient: any, dealId: string) {
+  let analysisId: string | null = null;
+  
   try {
     const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY');
     
@@ -112,6 +114,8 @@ async function analyzeInBackground(supabaseClient: any, dealId: string) {
       console.error('API key not configured');
       throw new Error('API key not configured');
     }
+
+    console.log('Creating analysis record for deal:', dealId);
 
     // Create analysis record
     const { data: analysis, error: analysisError } = await supabaseClient
@@ -128,6 +132,9 @@ async function analyzeInBackground(supabaseClient: any, dealId: string) {
       console.error('Failed to create analysis:', analysisError);
       throw analysisError;
     }
+
+    analysisId = analysis.id;
+    console.log('Analysis record created:', analysisId);
 
     // Get deck file
     const { data: deckFile, error: fileError } = await supabaseClient
@@ -382,7 +389,7 @@ At the very end, provide the structured data JSON block labeled "STRUCTURED_DATA
     }
 
     const result = await response.json();
-    console.log('Claude API response received');
+    console.log('Claude API response received, processing result...');
 
     // Extract text from all content blocks
     let analysisText = '';
@@ -391,6 +398,10 @@ At the very end, provide the structured data JSON block labeled "STRUCTURED_DATA
         .filter((block: any) => block.type === 'text')
         .map((block: any) => block.text)
         .join('\n\n');
+      console.log('Extracted analysis text, length:', analysisText.length);
+    } else {
+      console.error('Unexpected result format:', JSON.stringify(result).substring(0, 500));
+      throw new Error('Unexpected API response format');
     }
 
     // Extract structured data
@@ -407,17 +418,26 @@ At the very end, provide the structured data JSON block labeled "STRUCTURED_DATA
     }
 
     // Update analysis
-    await supabaseClient
+    console.log('Updating analysis record to completed...');
+    const { error: updateError } = await supabaseClient
       .from('analyses')
       .update({
         status: 'completed',
         result: { full_text: analysisText },
         completed_at: new Date().toISOString(),
       })
-      .eq('id', analysis.id);
+      .eq('id', analysisId);
+
+    if (updateError) {
+      console.error('Failed to update analysis:', updateError);
+      throw updateError;
+    }
+
+    console.log('Analysis record updated successfully');
 
     // Update deal with structured data if extracted
     if (structuredData) {
+      console.log('Updating deal with structured data:', structuredData);
       const dealUpdate: any = {};
       if (structuredData.company_name) dealUpdate.company_name = structuredData.company_name;
       if (structuredData.sector) dealUpdate.sector = structuredData.sector;
@@ -426,16 +446,46 @@ At the very end, provide the structured data JSON block labeled "STRUCTURED_DATA
       if (structuredData.solution_summary) dealUpdate.solution_summary = structuredData.solution_summary;
 
       if (Object.keys(dealUpdate).length > 0) {
-        await supabaseClient
+        const { error: dealUpdateError } = await supabaseClient
           .from('deals')
           .update(dealUpdate)
           .eq('id', dealId);
+
+        if (dealUpdateError) {
+          console.error('Failed to update deal:', dealUpdateError);
+          // Don't throw here, analysis is already complete
+        } else {
+          console.log('Deal updated successfully with structured data');
+        }
       }
     }
 
-    console.log('Analysis completed successfully');
+    console.log('Analysis completed successfully for deal:', dealId);
   } catch (error) {
-    console.error('Error in background analysis:', error);
-    // Note: No response to return in background task
+    console.error('CRITICAL ERROR in background analysis:', error);
+    console.error('Error details:', error instanceof Error ? error.message : String(error));
+    console.error('Stack trace:', error instanceof Error ? error.stack : 'No stack trace');
+    
+    // Try to update analysis status to failed
+    if (analysisId) {
+      try {
+        console.log('Updating analysis status to failed for:', analysisId);
+        await supabaseClient
+          .from('analyses')
+          .update({ 
+            status: 'failed', 
+            error_message: error instanceof Error ? error.message : 'Unknown error occurred',
+            error_details: { 
+              error: String(error),
+              stack: error instanceof Error ? error.stack : undefined 
+            },
+            completed_at: new Date().toISOString()
+          })
+          .eq('id', analysisId);
+        console.log('Analysis status updated to failed');
+      } catch (updateError) {
+        console.error('Failed to update analysis status:', updateError);
+      }
+    }
   }
 }
