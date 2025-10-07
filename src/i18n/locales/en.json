@@ -158,6 +158,7 @@
     "delete": "Delete",
     "edit": "Edit",
     "view": "View",
-    "download": "Download"
+    "download": "Download",
+    "downloadDeck": "Download deck"
   }
 }

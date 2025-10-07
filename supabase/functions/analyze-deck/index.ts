@@ -6,86 +6,16 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Load analysis prompt template
-const ANALYSIS_PROMPT = `# Senior Investment Memo Analyst
-## Output: All memos and analyses must be written in French with appropriate business terminology
-
-You are a senior investment analyst specialized in producing ultra-effective investment memos for VC funds. Your mission is to transform complex, messy inputs into decision-ready analyses that can be read in 3–4 minutes while preserving all substance required for an informed investment decision.
-
-Default stance: Constructive skepticism with a high rejection rate (~90%). Evidence over promises; proven execution over narrative potential. Binary decisions (GO/NO-GO) with clear rationale.
-
-Analyze the provided pitch deck and additional information to produce a comprehensive investment memo in French following this structure:
-
-## Structure du Mémo
-
-### Source du Deal
-[Indiquer qui a sourcé l'opportunité]
-
-### Termes de la Levée
-- Montant: €[X]m
-- Valorisation: Pré-money €[X]m | Post-money €[X]m
-- Utilisation des fonds détaillée
-
-### Résumé Exécutif (max 5 lignes)
-Synthèse de ce que fait l'entreprise, pourquoi elle gagne, points de preuve clés, risques principaux, et décision provisoire.
-
-### Contexte (5-7 lignes)
-- Définition de l'industrie et du segment avec taille de marché sourcée
-- Points de douleur majeurs et défis non résolus
-- Drivers et contraintes d'adoption
-- Pourquoi cette catégorie compte maintenant
-
-### Solution & Proposition de Valeur (8-10 lignes)
-- Description précise du produit/technologie
-- Différenciateurs fondés sur des preuves vs alternatives
-- ROI client quantifié avec exemples spécifiques
-- Fit problème-solution et coûts de changement
-- Défensabilité: tech, moats de données, distribution, effets de réseau
-
-### Pourquoi Maintenant? (3-4 lignes)
-- Tendances de marché documentées créant une fenêtre d'entrée
-- Shifts technologiques et/ou réglementaires permettant l'accélération
-- Timing compétitif
-
-### Métriques Clés
-- Revenus, croissance, unit economics, burn rate, runway
-- Benchmarks vs secteur
-
-### Marché & Opportunité (6-8 lignes)
-- TAM/SAM avec sources
-- CAGR et drivers documentés
-- Vecteurs d'expansion
-
-### Business Model (6-8 lignes)
-- Flux de revenus
-- Structure de coûts
-- Outlook 3-5 ans
-
-### Paysage Concurrentiel (6-8 lignes)
-- Principaux concurrents
-- Alternatives indirectes/status quo
-- Barrières à l'entrée
-- Différenciation fondée sur des preuves
-
-### Traction & Validation (5-7 lignes)
-- Croissance clients/revenus
-- Preuves de PMF
-- Partenariats stratégiques
-- Logos clients
-
-### Équipe (4-5 lignes)
-- Track record d'exécution des fondateurs
-- Founder-market fit
-- Complémentarité et gaps
-
-### Risques & Mitigations (6-8 lignes)
-- 3-5 risques principaux avec mitigations concrètes
-- Scénarios downside/base/upside
-
-### Recommandation Finale
-Décision: GO ou NO-GO avec rationale factuel de 2-3 phrases
-
-Total: 1,500-2,000 mots (3-4 minutes de lecture)`;
+const updateProgress = async (client: any, analysisId: string, status: string, step: string, percent: number) => {
+  await client
+    .from('analyses')
+    .update({
+      status,
+      current_step: step,
+      progress_percent: percent
+    })
+    .eq('id', analysisId);
+};
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -95,6 +25,10 @@ serve(async (req) => {
   try {
     const { dealId } = await req.json();
     
+    if (!dealId) {
+      throw new Error('dealId is required');
+    }
+
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -103,100 +37,113 @@ serve(async (req) => {
     const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY');
     
     if (!anthropicApiKey) {
-      throw new Error('ANTHROPIC_API_KEY not configured. Please add it in your secrets.');
+      throw new Error('ANTHROPIC_API_KEY not configured');
     }
 
-    console.log('Starting Claude analysis for deal:', dealId);
-
-    // Get deal and deck file information
-    const { data: deal, error: dealError } = await supabaseClient
-      .from('deals')
-      .select('*, deck_files(*)')
-      .eq('id', dealId)
-      .single();
-
-    if (dealError || !deal) {
-      throw new Error('Deal not found');
-    }
-
-    // Update deal status to analyzing
-    await supabaseClient
-      .from('deals')
-      .update({ 
-        status: 'analyzing',
-        analysis_started_at: new Date().toISOString()
-      })
-      .eq('id', dealId);
+    console.log('Starting analysis for deal:', dealId);
 
     // Create analysis record
     const { data: analysis, error: analysisError } = await supabaseClient
       .from('analyses')
       .insert({
         deal_id: dealId,
-        status: 'extracting',
-        current_step: 'Extraction des données du deck...',
-        progress_percent: 10,
-        started_at: new Date().toISOString()
+        status: 'processing',
+        started_at: new Date().toISOString(),
       })
       .select()
       .single();
 
     if (analysisError) throw analysisError;
 
-    // Update progress: Analyzing market
-    await updateProgress(supabaseClient, analysis.id, 'analyzing', 'Analyse du marché et du secteur...', 30);
+    // Get deck file
+    const { data: deckFile, error: fileError } = await supabaseClient
+      .from('deck_files')
+      .select('storage_path, file_name')
+      .eq('deal_id', dealId)
+      .single();
 
-    // Build the prompt with deal information
-    const deckInfo = deal.deck_files?.[0];
-    // Create a signed URL for the PDF if we have a storage path
-    let deckSignedUrl: string | null = null;
-    if (deckInfo?.storage_path) {
-      const { data: signed } = await supabaseClient.storage
-        .from('deck-files')
-        .createSignedUrl(deckInfo.storage_path, 60 * 60);
-      deckSignedUrl = signed?.signedUrl ?? null;
-    }
-    const userPrompt = `Analysez ce pitch deck et produisez un memo d'investissement détaillé en français.
+    if (fileError) throw fileError;
 
-**Informations de base:**
-- Nom fichier deck: ${deckInfo?.file_name || 'Non fourni'}
-- Notes personnelles: ${deal.personal_notes || 'Aucune'}
+    // Download file
+    const { data: fileData, error: downloadError } = await supabaseClient.storage
+      .from('deck-files')
+      .download(deckFile.storage_path);
 
-**Votre mission:**
-Produisez une analyse complète selon le template fourni. Cette analyse doit être factuelle, critique et prête pour une décision GO/NO-GO.
+    if (downloadError) throw downloadError;
 
-Note: Vous devez faire des recherches web pour valider les informations, analyser le marché, la concurrence, et produire une analyse selon le template.`;
+    // Convert to base64
+    const arrayBuffer = await fileData.arrayBuffer();
+    const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
 
-    // Update progress: Generating AI analysis
-    await updateProgress(supabaseClient, analysis.id, 'analyzing', 'Génération de l\'analyse IA avec Claude...', 50);
+    const systemPrompt = `You are a senior investment analyst specialized in producing ultra-effective investment memos for VC funds. 
 
-    console.log('Calling Claude API...');
+Output: All memos and analyses must be written in French with appropriate business terminology.
 
+After your analysis, you MUST also extract and provide the following structured data in a JSON block at the very end of your response, labeled as "STRUCTURED_DATA:":
+{
+  "company_name": "actual company name (not PDF filename)",
+  "sector": "main sector/industry",
+  "amount_raised_cents": number in cents (e.g., 500000 for €5k),
+  "pre_money_valuation_cents": number in cents,
+  "solution_summary": "brief 2-3 sentence summary of the solution"
+}
+
+Write your full investment memo first in markdown format, then add the JSON block at the end.`;
+
+    const prompt = `Analyze this pitch deck and provide a comprehensive investment memo following the structured format. Include all critical analysis sections.
+
+Use markdown formatting for:
+- Headers (# ## ###)
+- Bold for key terms (**important**)
+- Bullet lists
+- Tables where appropriate
+
+At the very end, provide the structured data JSON block labeled "STRUCTURED_DATA:".`;
+
+    // Call Claude API
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': anthropicApiKey,
         'anthropic-version': '2023-06-01',
-        'anthropic-beta': 'web-search-2025-03-05'
+        'anthropic-beta': 'web-search-2025-03-05',
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-5-20250929',
         max_tokens: 20000,
         temperature: 1,
-        system: `# Senior Investment Memo Analyst\n## Output: All memos and analyses must be written in French with appropriate business terminology\nResearch: Conduct web searches in English or French based on relevance to get the best available information\n## Identity & Mission\nYou are a senior investment analyst specialized in producing ultra-effective investment memos for VC funds. Your mission is to transform complex, messy inputs into decision-ready analyses that can be read in 3–4 minutes while preserving all substance required for an informed investment decision.\nDefault stance: Constructive skepticism with a high rejection rate (~90%). Evidence over promises; proven execution over narrative potential. Binary decisions (GO/NO-GO) with clear rationale.\nCritical Language Instructions:\nOutput: All memos and analyses must be written in English with appropriate business terminology\nResearch: Conduct web searches in English or French based on relevance to get the best available information (English for global markets/tech/international benchmarks, French for French market/local regulations/French competitors)\n## Expected Inputs\nPitch deck and data room (if available), website, key metrics, round terms\nExplicit founder hypotheses to be tested/invalidated\nSector context (regulation, competition, sales cycles)\n## Mandatory Pre-Analysis Method\n### Phase 1: Albo Internal Research\nBEFORE any analysis, systematically perform these searches in internal databases:\nAlboknowledge Search (tool \"search knowledge in notion\")\nDatabase: \"Alboknowledge\"\nObjective: Identify sector sheets, market studies, existing competitive analyses\nQuery types: [industry vertical], [vertical market], [business model], [technology type]\nExtract: sector trends, historical valuation multiples, competitive insights, regulatory landscape\nValuation Ratios Database Search (tool \"search query\")\nDatabase: \"ratio de valorisation\"\nObjective: Obtain sector reference multiples for benchmarking\nQuery types: [sector], [business model], [stage/series], [geography]\nExtract: Revenue multiples, EBITDA multiples, growth multiples by sector and stage\n### Phase 2: Think Step-by-Step Approach\nFor each section of the memo, follow this systematic approach:\nGather Data: Research and verify information through web searches + Albo internal data\nAnalyze Critically: Identify strengths, weaknesses, inconsistencies\nBenchmark: Compare against sector standards, comparables AND Alboknowledge data\nSynthesize: Summarize into clear decision-relevant points\nValidate: Check consistency with your constructive skepticism stance\n### Phase 3: Systematic Web Research (5–8 distinct searches minimum)\nAfter internal research, perform targeted web research to validate:\nMarket size, structure, and dynamics\nFounders' background and execution track record (prior scale, exits, relevant builds)\nCompetitive landscape (direct, indirect, status quo/Excel, substitutes)\nBusiness model viability via sector benchmarks and comparables\nImpact claims (if applicable): independent, peer-reviewed or equivalent validation\nResearch Strategy:\nUse English for: global market research, technology benchmarks, international competitors, sector reports\nUse French for: French market specifics, local regulations, French competitors, French business context\nAlways prioritize the language that will yield the most relevant and recent results\n### Validation, Contradiction, and Sourcing\nTriangulate every material claim with independent sources AND Alboknowledge data\nActively look for contradictory evidence to company claims\nCross-reference valuation multiples between web research and Albo ratios database\nCite a source for every critical metric/statement or mark \"Missing data: [what]\" and propose what would resolve it\nBenchmark every metric against sector standards, closest comparables AND historical Albo data\nIf uncertain about information: Clearly state your uncertainty and indicate what would resolve it\n## Immediate Rejection Criteria (any single item triggers NO-GO)\nUnproven business model requiring significant market education\nPre-revenue with unvalidated customer demand or no paying logos\nScientifically unsubstantiated impact claims (where impact is core to value)\nInsufficient founder–market fit or lack of execution at comparable scale\nExcessive valuation relative to traction, growth AND Albo database multiples\nVague or easily replicable competitive advantage\nCritical dependencies not secured (e.g., regulatory approvals, key partnerships)\n## Memo Structure (strict; keep within line limits)\n### Deal Source\nIndicate who sourced the opportunity and any context on access/relationship.\n### Fundraising Terms\nAmount: €[X]m\nValuation: Pre-money €[X]m | Post-money €[X]m vs Albo database sector multiples: [benchmark range]\nPrior rounds recap: dates, amounts, valuations, investors, dilution\nSpecific use of funds:\n[X]% Product & engineering\n[Y]% Capacity/operations\n[Z]% Go-to-market / BD\n[W]% Opportunistic M&A (if any)\nKey milestones targeted with this round\nExit projection:\nPossible scenarios (M&A/IPO/PE)\nTiming (years)\nPotential multiples vs sector benchmarks AND Alboknowledge historical data\n### Executive Summary (max 5 lines)\nA crisp synthesis of what the company does, why it wins, the core proof points, the top risks, and the provisional decision. Prioritize quantified facts enriched by Alboknowledge insights.\n### Context (5–7 lines)\nIndustry and segment definition with sourced market size\nMajor pain points and unresolved challenges\nAdoption drivers and constraints (incl. regulatory where relevant)\nWhy this category matters now\nSector insights from Alboknowledge: [key trends summary]\n### Solution & Value Proposition (8–10 lines)\nPrecise product/technology description (what, for whom, how it works)\nEvidence-backed differentiators vs identified alternatives + Albo database comparables\nQuantified customer ROI with specific examples (not projections only)\nProblem-solution fit and switching costs for target users/buyers\nDefensibility: tech, data moats, distribution, network effects\n### Why Now? (3–4 lines)\nDocumented market trends creating an entry window validated by Alboknowledge studies\nTechnological and/or regulatory shifts enabling acceleration\nCompetitive timing: why this team can capitalize now\n### Key Metrics\nReport current metrics and benchmark them against sector standards/comparables AND Albo ratios database. Surface assumptions explicitly.\nRevenue: €[X] (MRR/ARR if applicable) and growth [Y]% (MoM/YoY) vs benchmark [Z]% vs Albo database: [range]\nUnit economics: CAC €[X], LTV €[Y], LTV/CAC [Z], payback [N] months, gross margin [G]%\nGMV (if marketplace): €[X], take rate [T]%\nEBITDA and/or break-even timeline\nBurn rate €[X]/mo; runway [N] months; fundraise timeline realism\nMultiples comparison: Current valuation vs Albo ratios database [details]\n### Market & Opportunity (6–8 lines)\nTAM/SAM: €[X]bn/€[Y]bn with sources (e.g., Gartner/IDC/industry reports + Alboknowledge studies)\nCAGR [X]% driven by [2–3 documented drivers]\nRealistic penetration and adoption curve positioning\nExpansion vectors (geo, verticals, products) with early evidence of demand\n### Business Model (6–8 lines)\nRevenue streams: [%] recurring, [%] transactional, [%] services\nUnit economics sustainability drivers and scale effects vs Albo benchmarks\nCost structure and key operating leverage points\n3–5 year revenue outlook with explicit assumptions and sector CAGR reference\n### Competitive Landscape (6–8 lines)\n2–3 principal competitors: share estimates, strengths/weaknesses, recent moves + Alboknowledge insights\nIndirect alternatives/status quo and their entrenchment\nBarriers to entry (technical, regulatory, data, distribution)\nEvidence-based differentiation and durability\n### Traction & Validation (5–7 lines)\nGrowth: [X] paying customers, €[Y] revenue; YoY [Z]% vs sector benchmark AND Albo database\nPMF evidence: retention/cohort metrics, NPS, expansion revenue\nStrategic partnerships and quantified business impact\nCustomer proof: named logos, testimonials, case studies, references\n### Team (4–5 lines)\nFounders' execution track record at comparable scope/complexity\nFounder–market fit: direct experience with the problem/buyer\nComplementarity and identified gaps with plan to close\nAdvisors/investors relevant to specific growth or regulatory hurdles\n### Risks & Mitigations (6–8 lines)\nLay out the 3–5 primary risks with concrete mitigations and leading indicators informed by Alboknowledge sector insights.\nCompetitive risk → [Specific mitigation]\nAdoption/timing risk → [Specific mitigation]\nExecution/operational risk → [Specific mitigation]\nRegulatory/impact risk (if applicable) → [Specific mitigation]\nValuation risk: [analysis vs Albo database multiples]\nScenario framing: downside [X]x, base [Y]x, upside [Z]x (with probability ranges)\n### Final Recommendation\nDecision: GO or NO-GO with a 2–3 sentence factual rationale integrating Albo insights\nIf NO-GO: precise milestones that would trigger reconsideration\nIf GO: ticket size, required conditions/rights, priority due diligence areas, and next steps with a timeline\n## Writing Principles\nExtreme concision: every sentence must carry essential, decision-relevant information\nQuantify wherever possible: avoid vague descriptors\nHierarchy first: lead with what matters most\nObjectivity: clearly separate facts, assumptions, and unknowns\nSource everything material: flag and propose resolution paths for data gaps\nClear structure: use headings, short paragraphs, and bullet points judiciously\nNo repetition: avoid non-essential jargon; use present tense, active verbs\nLanguage: Write everything in English with appropriate business terminology\nIntegrate Albo insights: Weave internal research findings naturally into analysis\n## Output Constraints\nUse French to write the output\nTotal length: 1,000–1,500 words (2–3 minutes read)   \nStructure: clear titles and visually distinct sections\nFormatting: bullet points where helpful; bold key elements\nData presentation: surface critical numbers prominently and benchmarked vs Albo database\nSources: list the 5–8 web searches, Alboknowledge queries, and ratio database searches consulted at the end\n## Final Instructions\nAlways start by conducting systematic Albo internal research (Alboknowledge + ratios database) before web research\nThink step-by-step for each section: gather (internal + web) → analyze → benchmark (including Albo data) → synthesize → validate\nMaintain your stance of constructive skepticism throughout the analysis\nWrite in French but research in the most relevant language for each topic\nIf unsure about any information, clearly state your uncertainty and indicate what would resolve it\nCross-reference systematically between web data and Albo database for validation/contradiction\nRemember: Your goal is to produce a decision-ready memo that investors can trust for GO/NO-GO decisions, enriched by Albo's proprietary insights\n## Sources Section Template\nAlbo Internal Research:\nAlboknowledge: [X queries performed on sector Y]\nRatios database: [sector multiples extracted]\nWeb Research:\n[5-8 searches with key URLs consulted]`,
+        system: systemPrompt,
+        thinking: {
+          type: 'enabled',
+          budget_tokens: 8000,
+        },
+        tools: [
+          {
+            type: 'web_search_20250305',
+            name: 'web_search',
+          },
+        ],
         messages: [
           {
             role: 'user',
             content: [
-              ...(deckSignedUrl ? [{ type: 'document', source: { type: 'url', url: deckSignedUrl } }] : []),
-              { type: 'text', text: userPrompt }
-            ]
-          }
+              {
+                type: 'document',
+                source: {
+                  type: 'base64',
+                  media_type: 'application/pdf',
+                  data: base64,
+                },
+              },
+              {
+                type: 'text',
+                text: prompt,
+              },
+            ],
+          },
         ],
-        tools: [{ name: 'web_search', type: 'web_search_20250305' }],
-        thinking: { type: 'enabled', budget_tokens: 8000 }
-      })
+      }),
     });
 
     if (!response.ok) {
@@ -205,139 +152,72 @@ Note: Vous devez faire des recherches web pour valider les informations, analyse
       throw new Error(`Claude API error: ${response.status}`);
     }
 
-    const message = await response.json();
-    const analysisText = message.content?.find((block: any) => block.type === 'text')?.text ?? '';
+    const result = await response.json();
+    console.log('Claude API response received');
 
-    console.log('Claude analysis completed, text length:', analysisText.length);
+    // Extract text from all content blocks
+    let analysisText = '';
+    if (result.content && Array.isArray(result.content)) {
+      analysisText = result.content
+        .filter((block: any) => block.type === 'text')
+        .map((block: any) => block.text)
+        .join('\n\n');
+    }
 
-    // Update progress: Extracting metrics
-    await updateProgress(supabaseClient, analysis.id, 'finalizing', 'Extraction des métriques clés...', 80);
+    // Extract structured data
+    let structuredData: any = null;
+    const jsonMatch = analysisText.match(/STRUCTURED_DATA:\s*({[\s\S]*?})/);
+    if (jsonMatch) {
+      try {
+        structuredData = JSON.parse(jsonMatch[1]);
+        // Remove the JSON block from the analysis text
+        analysisText = analysisText.replace(/STRUCTURED_DATA:\s*{[\s\S]*?}/, '').trim();
+      } catch (e) {
+        console.error('Failed to parse structured data:', e);
+      }
+    }
 
-    // Parse analysis to extract structured data (simplified)
-    const analysisResult = {
-      full_text: analysisText,
-      summary: analysisText.substring(0, 500) + '...',
-      strengths: [],
-      weaknesses: [],
-      red_flags: [],
-      opportunities: [],
-      maturity_level: 'Growth',
-      risk_score: 3,
-      valuation_gap_percent: 0,
-      recommendation: analysisText.toLowerCase().includes('no-go') ? 'NO-GO' : 'GO'
-    };
-
-    // Complete analysis
+    // Update analysis
     await supabaseClient
       .from('analyses')
       .update({
         status: 'completed',
-        result: analysisResult,
-        progress_percent: 100,
+        result: { full_text: analysisText },
         completed_at: new Date().toISOString(),
-        duration_seconds: Math.floor((Date.now() - new Date(analysis.started_at).getTime()) / 1000)
       })
       .eq('id', analysis.id);
 
-    // Update deal with analysis results
-    await supabaseClient
-      .from('deals')
-      .update({
-        status: 'completed',
-        analysis_completed_at: new Date().toISOString(),
-        maturity_level: analysisResult.maturity_level,
-        risk_score: analysisResult.risk_score,
-        valuation_gap_percent: analysisResult.valuation_gap_percent,
-        // AI will extract these from the deck - for now keeping original values
-        // In production, Claude would extract: startup_name, sector, stage, country, etc.
-      })
-      .eq('id', dealId);
+    // Update deal with structured data if extracted
+    if (structuredData) {
+      const dealUpdate: any = {};
+      if (structuredData.company_name) dealUpdate.company_name = structuredData.company_name;
+      if (structuredData.sector) dealUpdate.sector = structuredData.sector;
+      if (structuredData.amount_raised_cents) dealUpdate.amount_raised_cents = structuredData.amount_raised_cents;
+      if (structuredData.pre_money_valuation_cents) dealUpdate.pre_money_valuation_cents = structuredData.pre_money_valuation_cents;
+      if (structuredData.solution_summary) dealUpdate.solution_summary = structuredData.solution_summary;
 
-    console.log('Analysis completed successfully for deal:', dealId);
-
-    return new Response(
-      JSON.stringify({ success: true, dealId }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200 
+      if (Object.keys(dealUpdate).length > 0) {
+        await supabaseClient
+          .from('deals')
+          .update(dealUpdate)
+          .eq('id', dealId);
       }
-    );
-  } catch (error: any) {
-    console.error('Error in analyze-deck function:', error);
-    
-    // Try to update deal status to failed
-    try {
-      const { dealId } = await req.json();
-      const supabaseClient = createClient(
-        Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-      );
-      
-      await supabaseClient
-        .from('deals')
-        .update({ status: 'failed' })
-        .eq('id', dealId);
-    } catch (updateError) {
-      console.error('Failed to update deal status:', updateError);
     }
-    
+
+    console.log('Analysis completed successfully');
+
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ success: true, analysis: analysisText }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } catch (error) {
+    console.error('Error in analyze-deck:', error);
+    return new Response(
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
       { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500 
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
     );
   }
 });
-
-async function updateProgress(
-  supabase: any, 
-  analysisId: string, 
-  status: string, 
-  step: string, 
-  percent: number
-) {
-  await supabase
-    .from('analyses')
-    .update({
-      status,
-      current_step: step,
-      progress_percent: percent
-    })
-    .eq('id', analysisId);
-}
-
-function generateMockAnalysis() {
-  return {
-    summary: "This is a promising early-stage FinTech startup with a clear value proposition targeting SMB banking. The team has relevant experience and the market opportunity is substantial. However, there are concerns about competition from established players and the go-to-market strategy needs more detail.",
-    problem: "SMBs struggle with complex banking processes and lack of digital tools for financial management.",
-    solution: "An all-in-one banking platform designed specifically for SMBs with integrated accounting, payments, and credit facilities.",
-    strengths: [
-      { text: "Strong founding team with 10+ years combined experience in banking tech", confidence: 0.9 },
-      { text: "Clear product-market fit validated by 500+ beta users", confidence: 0.85 },
-      { text: "Recurring revenue model with strong unit economics", confidence: 0.8 },
-      { text: "Strategic partnerships with accounting software providers", confidence: 0.75 }
-    ],
-    weaknesses: [
-      { text: "Limited traction compared to competitors in the space", confidence: 0.8 },
-      { text: "Customer acquisition costs are relatively high at current scale", confidence: 0.75 },
-      { text: "Regulatory compliance complexity not fully addressed", confidence: 0.7 }
-    ],
-    red_flags: [
-      { text: "Burn rate is high relative to runway (6 months)", severity: "High" },
-      { text: "No technical co-founder on the team", severity: "Medium" },
-      { text: "Market highly competitive with well-funded incumbents", severity: "Medium" }
-    ],
-    opportunities: [
-      "Expand to European markets where competition is less intense",
-      "Develop API partnerships with major accounting platforms",
-      "Add credit/lending features to increase revenue per customer"
-    ],
-    market_size_tam: "€45B",
-    sector_median_valuation_multiple: 8.5,
-    maturity_level: "Early",
-    risk_score: 3,
-    valuation_gap_percent: 15.5
-  };
-}

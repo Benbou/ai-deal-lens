@@ -158,6 +158,7 @@
     "delete": "Supprimer",
     "edit": "Modifier",
     "view": "Voir",
-    "download": "Télécharger"
+    "download": "Télécharger",
+    "downloadDeck": "Télécharger le deck"
   }
 }

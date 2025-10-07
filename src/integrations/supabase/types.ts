@@ -72,6 +72,7 @@ export type Database = {
           amount_raised_cents: number | null
           analysis_completed_at: string | null
           analysis_started_at: string | null
+          company_name: string | null
           country: string
           created_at: string | null
           currency: string | null
@@ -83,6 +84,7 @@ export type Database = {
           pre_money_valuation_cents: number | null
           risk_score: number | null
           sector: string
+          solution_summary: string | null
           stage: string
           startup_name: string
           status: string | null
@@ -95,6 +97,7 @@ export type Database = {
           amount_raised_cents?: number | null
           analysis_completed_at?: string | null
           analysis_started_at?: string | null
+          company_name?: string | null
           country: string
           created_at?: string | null
           currency?: string | null
@@ -106,6 +109,7 @@ export type Database = {
           pre_money_valuation_cents?: number | null
           risk_score?: number | null
           sector: string
+          solution_summary?: string | null
           stage: string
           startup_name: string
           status?: string | null
@@ -118,6 +122,7 @@ export type Database = {
           amount_raised_cents?: number | null
           analysis_completed_at?: string | null
           analysis_started_at?: string | null
+          company_name?: string | null
           country?: string
           created_at?: string | null
           currency?: string | null
@@ -129,6 +134,7 @@ export type Database = {
           pre_money_valuation_cents?: number | null
           risk_score?: number | null
           sector?: string
+          solution_summary?: string | null
           stage?: string
           startup_name?: string
           status?: string | null

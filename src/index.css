@@ -25,10 +25,6 @@ All colors MUST be HSL.
     --success: 142 76% 36%;
     --success-foreground: 0 0% 100%;
 
-    /* Warning - Amber for caution */
-    --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 100%;
-
     /* Danger - Rose for destructive actions */
     --danger: 0 72% 51%;
     --danger-foreground: 0 0% 100%;
@@ -97,9 +93,6 @@ All colors MUST be HSL.
 
     --success: 142 76% 36%;
     --success-foreground: 0 0% 100%;
-
-    --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 100%;
 
     --danger: 0 72% 51%;
     --danger-foreground: 0 0% 100%;
