@@ -160,7 +160,14 @@ serve(async (req) => {
       );
     }
     
-    const base64 = btoa(String.fromCharCode(...uint8Array));
+    // Convert to base64 in chunks to avoid stack overflow
+    let binary = '';
+    const chunkSize = 8192;
+    for (let i = 0; i < uint8Array.length; i += chunkSize) {
+      const chunk = uint8Array.subarray(i, Math.min(i + chunkSize, uint8Array.length));
+      binary += String.fromCharCode.apply(null, Array.from(chunk));
+    }
+    const base64 = btoa(binary);
 
     const systemPrompt = `You are a senior investment analyst specialized in producing ultra-effective investment memos for VC funds. 
 

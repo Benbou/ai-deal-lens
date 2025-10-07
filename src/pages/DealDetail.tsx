@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { DashboardLayout } from '@/components/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -77,21 +76,17 @@ export default function DealDetail() {
 
   if (loading) {
     return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-muted-foreground">Chargement...</div>
-        </div>
-      </DashboardLayout>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-muted-foreground">Chargement...</div>
+      </div>
     );
   }
 
   if (!deal) {
     return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-muted-foreground">Deal non trouvé</div>
-        </div>
-      </DashboardLayout>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-muted-foreground">Deal non trouvé</div>
+      </div>
     );
   }
 
@@ -121,89 +116,87 @@ export default function DealDetail() {
   const displayName = deal.company_name || deal.startup_name;
 
   return (
-    <DashboardLayout>
-      <div className="space-y-6 max-w-full overflow-x-hidden">
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div>
-            <h1 className="text-3xl font-bold">{displayName}</h1>
-            <div className="flex gap-2 mt-2">
-              <Badge>{deal.sector}</Badge>
-              {deal.stage && <Badge variant="outline">{deal.stage}</Badge>}
-              {isProcessing && <Badge className="bg-primary">Analyse en cours...</Badge>}
-              {isCompleted && <Badge className="bg-success">Analysé</Badge>}
-            </div>
+    <div className="space-y-6 max-w-full overflow-x-hidden">
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <div>
+          <h1 className="text-3xl font-bold">{displayName}</h1>
+          <div className="flex gap-2 mt-2">
+            <Badge>{deal.sector}</Badge>
+            {deal.stage && <Badge variant="outline">{deal.stage}</Badge>}
+            {isProcessing && <Badge className="bg-primary">Analyse en cours...</Badge>}
+            {isCompleted && <Badge className="bg-success">Analysé</Badge>}
           </div>
-          {deal.deck_files?.[0] && (
-            <Button onClick={handleDownloadDeck} variant="outline">
-              <Download className="mr-2 h-4 w-4" />
-              Télécharger le deck
-            </Button>
-          )}
         </div>
-
-        <Card className="p-6">
-          <h2 className="text-2xl font-semibold mb-4">Informations du Deal</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <p className="text-sm text-muted-foreground mb-1">Montant levé</p>
-              <p className="text-xl font-semibold">{formatCurrency(deal.amount_raised_cents)}</p>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground mb-1">Valorisation pré-money</p>
-              <p className="text-xl font-semibold">{formatCurrency(deal.pre_money_valuation_cents)}</p>
-            </div>
-          </div>
-          {deal.solution_summary && (
-            <div className="mt-6 pt-6 border-t">
-              <p className="text-sm text-muted-foreground mb-2">Résumé de la solution</p>
-              <p className="text-base leading-relaxed">{deal.solution_summary}</p>
-            </div>
-          )}
-        </Card>
-
-        {isProcessing && (
-          <Card className="p-12 text-center">
-            <div className="flex flex-col items-center gap-4">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-              <div>
-                <h3 className="text-xl font-semibold mb-2">Analyse en cours</h3>
-                <p className="text-muted-foreground">
-                  Notre IA analyse le deck en détail. Cela peut prendre quelques minutes...
-                </p>
-              </div>
-            </div>
-          </Card>
-        )}
-
-        {isCompleted && analysis?.result?.full_text && (
-          <Card className="p-6">
-            <h2 className="text-2xl font-semibold mb-6">Mémo d'Investissement</h2>
-            <div className="prose prose-sm max-w-none dark:prose-invert 
-              prose-headings:font-semibold prose-headings:text-foreground
-              prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg
-              prose-p:text-foreground prose-p:leading-relaxed
-              prose-strong:text-foreground prose-strong:font-semibold
-              prose-ul:text-foreground prose-ol:text-foreground
-              prose-li:text-foreground prose-li:marker:text-muted-foreground
-              prose-table:text-foreground prose-th:font-semibold
-              prose-td:border-border prose-th:border-border
-              prose-blockquote:border-l-primary prose-blockquote:text-muted-foreground
-              prose-code:text-foreground prose-code:bg-muted prose-code:px-1 prose-code:rounded
-              prose-pre:bg-muted prose-pre:text-foreground">
-              <ReactMarkdown>{analysis.result.full_text}</ReactMarkdown>
-            </div>
-          </Card>
-        )}
-
-        {!isProcessing && !isCompleted && (
-          <Card className="p-12 text-center">
-            <div className="text-muted-foreground">
-              <p>L'analyse n'a pas encore démarré</p>
-            </div>
-          </Card>
+        {deal.deck_files?.[0] && (
+          <Button onClick={handleDownloadDeck} variant="outline">
+            <Download className="mr-2 h-4 w-4" />
+            Télécharger le deck
+          </Button>
         )}
       </div>
-    </DashboardLayout>
+
+      <Card className="p-6">
+        <h2 className="text-2xl font-semibold mb-4">Informations du Deal</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <p className="text-sm text-muted-foreground mb-1">Montant levé</p>
+            <p className="text-xl font-semibold">{formatCurrency(deal.amount_raised_cents)}</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground mb-1">Valorisation pré-money</p>
+            <p className="text-xl font-semibold">{formatCurrency(deal.pre_money_valuation_cents)}</p>
+          </div>
+        </div>
+        {deal.solution_summary && (
+          <div className="mt-6 pt-6 border-t">
+            <p className="text-sm text-muted-foreground mb-2">Résumé de la solution</p>
+            <p className="text-base leading-relaxed">{deal.solution_summary}</p>
+          </div>
+        )}
+      </Card>
+
+      {isProcessing && (
+        <Card className="p-12 text-center">
+          <div className="flex flex-col items-center gap-4">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            <div>
+              <h3 className="text-xl font-semibold mb-2">Analyse en cours</h3>
+              <p className="text-muted-foreground">
+                Notre IA analyse le deck en détail. Cela peut prendre quelques minutes...
+              </p>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {isCompleted && analysis?.result?.full_text && (
+        <Card className="p-6">
+          <h2 className="text-2xl font-semibold mb-6">Mémo d'Investissement</h2>
+          <div className="prose prose-sm max-w-none dark:prose-invert 
+            prose-headings:font-semibold prose-headings:text-foreground
+            prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg
+            prose-p:text-foreground prose-p:leading-relaxed
+            prose-strong:text-foreground prose-strong:font-semibold
+            prose-ul:text-foreground prose-ol:text-foreground
+            prose-li:text-foreground prose-li:marker:text-muted-foreground
+            prose-table:text-foreground prose-th:font-semibold
+            prose-td:border-border prose-th:border-border
+            prose-blockquote:border-l-primary prose-blockquote:text-muted-foreground
+            prose-code:text-foreground prose-code:bg-muted prose-code:px-1 prose-code:rounded
+            prose-pre:bg-muted prose-pre:text-foreground">
+            <ReactMarkdown>{analysis.result.full_text}</ReactMarkdown>
+          </div>
+        </Card>
+      )}
+
+      {!isProcessing && !isCompleted && (
+        <Card className="p-12 text-center">
+          <div className="text-muted-foreground">
+            <p>L'analyse n'a pas encore démarré</p>
+          </div>
+        </Card>
+      )}
+    </div>
   );
 }
 
