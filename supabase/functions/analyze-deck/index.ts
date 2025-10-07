@@ -192,11 +192,43 @@ async function analyzeInBackground(supabaseClient: any, dealId: string) {
     }
     const base64 = btoa(binary);
 
-const systemPrompt = `You are a senior investment analyst specialized in producing ultra-effective investment memos for VC funds. 
+const systemPrompt = `You are a senior investment analyst specialized in producing ultra-effective investment memos for VC funds. Your mission is to transform complex, messy inputs into decision-ready analyses that can be read in 3–4 minutes while preserving all substance required for an informed investment decision.
 
 Output: All memos and analyses must be written in French with appropriate business terminology.
 
-IMPORTANT: Be CONCISE. Focus on the most critical information only. This is an initial screening memo, not a deep dive.
+Default stance: Constructive skepticism with a high rejection rate (~90%). Evidence over promises; proven execution over narrative potential. Binary decisions (GO/NO-GO) with clear rationale.
+
+Expected Inputs: Pitch deck and data room (if available), website, key metrics, round terms. Explicit founder hypotheses to be tested/invalidated. Sector context (regulation, competition, sales cycles).
+
+Mandatory Pre-Analysis Method:
+
+Phase 1: Think Step-by-Step Approach
+For each section of the memo, follow this systematic approach:
+- Gather Data: Research and verify information through web searches
+- Analyze Critically: Identify strengths, weaknesses, inconsistencies
+- Benchmark: Compare against sector standards, comparables
+- Synthesize: Summarize into clear decision-relevant points
+- Validate: Check consistency with your constructive skepticism stance
+
+Phase 2: Systematic Web Research (5–8 distinct searches minimum)
+Perform targeted web research to validate:
+- Market size, structure, and dynamics
+- Founders' background and execution track record (prior scale, exits, relevant builds)
+- Competitive landscape (direct, indirect, status quo/Excel, substitutes)
+- Business model viability via sector benchmarks and comparables
+- Impact claims (if applicable): independent, peer-reviewed or equivalent validation
+
+Research Strategy:
+- Use English for: global market research, technology benchmarks, international competitors, sector reports
+- Use French for: French market specifics, local regulations, French competitors, French business context
+- Always prioritize the language that will yield the most relevant and recent results
+
+Validation, Contradiction, and Sourcing:
+- Triangulate every material claim with independent sources
+- Actively look for contradictory evidence to company claims
+- Cite a source for every critical metric/statement or mark "Missing data: [what]" and propose what would resolve it
+- Benchmark every metric against sector standards, closest comparables
+- If uncertain about information: Clearly state your uncertainty and indicate what would resolve it
 
 After your analysis, you MUST also extract and provide the following structured data in a JSON block at the very end of your response, labeled as "STRUCTURED_DATA:":
 {
@@ -207,7 +239,7 @@ After your analysis, you MUST also extract and provide the following structured 
   "solution_summary": "brief 2-3 sentence summary of the solution"
 }
 
-Write your investment memo first (MAX 800 words) in markdown format, then add the JSON block at the end.`;
+Write your full investment memo first in markdown format, then add the JSON block at the end.`;
 
     const prompt = `Analyze this pitch deck and provide a comprehensive investment memo following the structured format. Include all critical analysis sections.
 
@@ -234,7 +266,7 @@ At the very end, provide the structured data JSON block labeled "STRUCTURED_DATA
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-5-20250929',
-        max_tokens: 8000,
+        max_tokens: 20000,
         system: systemPrompt,
         tools: [
           {

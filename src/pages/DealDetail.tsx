@@ -79,6 +79,30 @@ export default function DealDetail() {
       }
     };
     load();
+
+    // Subscribe to real-time updates on analyses
+    const channel = supabase
+      .channel(`analysis-${id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'analyses',
+          filter: `deal_id=eq.${id}`,
+        },
+        (payload) => {
+          console.log('Analysis update:', payload);
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            setAnalysis(payload.new as any);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [id]);
 
   const formatCurrency = (cents?: number | null) => {
