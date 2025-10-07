@@ -124,7 +124,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
       {/* Main Content */}
       <main className="w-full">
-        <div className="max-w-[1400px] mx-auto p-4 md:p-8 pt-20 md:pt-8">
+        <div className="max-w-[1400px] mx-auto p-4 md:p-8 pt-20 md:pt-8 md:ml-64">
           {children}
         </div>
       </main>
