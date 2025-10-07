@@ -50,37 +50,42 @@
     "createAccount": "Create Account"
   },
   "onboarding": {
-    "welcome": "Welcome to Albo!",
-    "letsSetup": "Let's set up your profile",
+    "welcome": {
+      "title": "Welcome to Albo",
+      "description": "Let's set up your profile to get started with AI-powered deck analysis"
+    },
     "step1": {
-      "title": "Tell us about yourself",
-      "name": "Full Name",
+      "title": "Personal Information",
+      "nameLabel": "Your Name *",
       "namePlaceholder": "John Doe"
     },
     "step2": {
-      "title": "What sectors do you invest in?",
-      "description": "Select all that apply",
-      "fintech": "FinTech",
-      "healthtech": "HealthTech",
-      "climate": "Climate",
-      "b2b": "B2B SaaS",
-      "marketplace": "Marketplace",
-      "other": "Other"
+      "title": "Investment Preferences",
+      "sectorsLabel": "What sectors do you invest in?",
+      "sectorsDescription": "Select all that apply (optional)"
     },
     "step3": {
-      "title": "What's your typical check size?",
-      "min": "Min",
-      "max": "Max"
+      "title": "Investment Details",
+      "checkSizeLabel": "What's your typical check size?",
+      "checkSizeDescription": "Optional",
+      "to": "to",
+      "minPlaceholder": "10",
+      "maxPlaceholder": "500"
     },
     "step4": {
-      "title": "Where are you based?",
-      "country": "Country",
-      "countryPlaceholder": "Select your country"
+      "title": "Location",
+      "locationLabel": "Where are you based?",
+      "locationDescription": "Optional",
+      "selectCountry": "Select country"
     },
-    "next": "Next",
-    "previous": "Previous",
-    "finish": "Finish",
-    "skip": "Skip for now"
+    "continue": "Continue",
+    "back": "Back",
+    "getStarted": "Get Started",
+    "success": "Profile completed!",
+    "errors": {
+      "nameRequired": "Please enter your name",
+      "saveFailed": "Failed to save profile"
+    }
   },
   "dashboard": {
     "title": "My Deals",
@@ -136,17 +141,25 @@
       "title": "Deal submitted!",
       "description": "Analysis starting now (~10 min)",
       "viewProgress": "View Progress"
+    },
+    "errors": {
+      "pdfOnly": "Please upload a PDF file",
+      "fileSize": "File size must be less than 50MB",
+      "failed": "Failed to submit"
     }
   },
   "profile": {
     "title": "Profile",
     "personalInfo": "Personal Information",
-    "investmentPreferences": "Investment Preferences",
+    "personalInfoDesc": "Your basic information",
     "name": "Name",
     "email": "Email",
+    "emailNotice": "Email cannot be changed",
     "country": "Country",
+    "investmentPreferences": "Investment Preferences",
+    "investmentPreferencesDesc": "Your investment criteria",
     "investmentFocus": "Investment Focus",
-    "checkSize": "Check Size Range",
+    "checkSize": "Check Size (€)",
     "save": "Save Changes",
     "saving": "Saving..."
   },

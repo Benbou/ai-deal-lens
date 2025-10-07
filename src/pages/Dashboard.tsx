@@ -187,9 +187,17 @@ export default function Dashboard() {
                     </div>
 
                     {/* Status */}
-                    <div className="col-span-2">
-                      {getStatusBadge(analysisStatus)}
-                    </div>
+                    <Badge 
+                      className={
+                        deal.status === 'completed' ? 'bg-success text-success-foreground' : 
+                        deal.status === 'processing' ? 'bg-primary text-primary-foreground' : 
+                        'bg-destructive text-destructive-foreground'
+                      }
+                    >
+                      {deal.status === 'completed' && t('dashboard.status.completed')}
+                      {deal.status === 'processing' && t('dashboard.status.analyzing')}
+                      {deal.status === 'pending' && t('dashboard.status.pending')}
+                    </Badge>
 
                     {/* Actions */}
                     <div className="col-span-1 flex items-center justify-end gap-2">
@@ -206,7 +214,7 @@ export default function Dashboard() {
                               </Button>
                             </TooltipTrigger>
                             <TooltipContent>
-                              <p>Télécharger le deck</p>
+                              <p>{t('common.downloadDeck')}</p>
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
@@ -223,7 +231,7 @@ export default function Dashboard() {
                             </Button>
                           </TooltipTrigger>
                           <TooltipContent>
-                            <p>Voir les détails</p>
+                            <p>{t('common.view')}</p>
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>

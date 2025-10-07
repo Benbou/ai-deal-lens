@@ -123,8 +123,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       </aside>
 
       {/* Main Content */}
-      <main className="md:ml-64 w-full p-4 md:p-8 pt-20 md:pt-8 overflow-x-hidden">
-        <div className="max-w-[1400px] mx-auto">
+      <main className="md:ml-64 w-full overflow-x-hidden">
+        <div className="max-w-[1400px] mx-auto p-4 md:p-8 pt-20 md:pt-8">
           {children}
         </div>
       </main>

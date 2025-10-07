@@ -50,37 +50,42 @@
     "createAccount": "Créer un compte"
   },
   "onboarding": {
-    "welcome": "Bienvenue sur Albo !",
-    "letsSetup": "Configurons votre profil",
+    "welcome": {
+      "title": "Bienvenue sur Albo",
+      "description": "Configurons votre profil pour commencer l'analyse de pitch decks par IA"
+    },
     "step1": {
-      "title": "Parlez-nous de vous",
-      "name": "Nom complet",
+      "title": "Informations personnelles",
+      "nameLabel": "Votre nom *",
       "namePlaceholder": "Jean Dupont"
     },
     "step2": {
-      "title": "Dans quels secteurs investissez-vous ?",
-      "description": "Sélectionnez tous ceux qui s'appliquent",
-      "fintech": "FinTech",
-      "healthtech": "HealthTech",
-      "climate": "Climat",
-      "b2b": "B2B SaaS",
-      "marketplace": "Marketplace",
-      "other": "Autre"
+      "title": "Préférences d'investissement",
+      "sectorsLabel": "Dans quels secteurs investissez-vous ?",
+      "sectorsDescription": "Sélectionnez tous ceux qui s'appliquent (optionnel)"
     },
     "step3": {
-      "title": "Quelle est votre fourchette d'investissement typique ?",
-      "min": "Min",
-      "max": "Max"
+      "title": "Détails d'investissement",
+      "checkSizeLabel": "Quelle est votre fourchette de ticket typique ?",
+      "checkSizeDescription": "Optionnel",
+      "to": "à",
+      "minPlaceholder": "10",
+      "maxPlaceholder": "500"
     },
     "step4": {
-      "title": "Où êtes-vous basé ?",
-      "country": "Pays",
-      "countryPlaceholder": "Sélectionnez votre pays"
+      "title": "Localisation",
+      "locationLabel": "Où êtes-vous basé ?",
+      "locationDescription": "Optionnel",
+      "selectCountry": "Sélectionnez un pays"
     },
-    "next": "Suivant",
-    "previous": "Précédent",
-    "finish": "Terminer",
-    "skip": "Passer pour l'instant"
+    "continue": "Continuer",
+    "back": "Retour",
+    "getStarted": "Commencer",
+    "success": "Profil complété !",
+    "errors": {
+      "nameRequired": "Veuillez entrer votre nom",
+      "saveFailed": "Échec de l'enregistrement du profil"
+    }
   },
   "dashboard": {
     "title": "Mes Deals",
@@ -136,17 +141,25 @@
       "title": "Deal soumis !",
       "description": "L'analyse commence maintenant (~10 min)",
       "viewProgress": "Voir la Progression"
+    },
+    "errors": {
+      "pdfOnly": "Veuillez télécharger un fichier PDF",
+      "fileSize": "La taille du fichier doit être inférieure à 50 Mo",
+      "failed": "Échec de la soumission"
     }
   },
   "profile": {
     "title": "Profil",
     "personalInfo": "Informations Personnelles",
-    "investmentPreferences": "Préférences d'Investissement",
+    "personalInfoDesc": "Vos informations de base",
     "name": "Nom",
     "email": "Email",
+    "emailNotice": "L'email ne peut pas être modifié",
     "country": "Pays",
+    "investmentPreferences": "Préférences d'Investissement",
+    "investmentPreferencesDesc": "Vos critères d'investissement",
     "investmentFocus": "Focus d'Investissement",
-    "checkSize": "Fourchette d'Investissement",
+    "checkSize": "Fourchette d'Investissement (€)",
     "save": "Sauvegarder",
     "saving": "Sauvegarde..."
   },

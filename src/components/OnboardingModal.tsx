@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { CheckCircle2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 const SECTORS = ['FinTech', 'HealthTech', 'Climate', 'B2B SaaS', 'Marketplace', 'DeepTech', 'EdTech', 'PropTech'];
 
@@ -17,6 +18,7 @@ interface OnboardingModalProps {
 }
 
 export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
+  const { t } = useTranslation();
   const [step, setStep] = useState(1);
   const [data, setData] = useState({
     name: '',
@@ -28,7 +30,7 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
 
   const handleNext = () => {
     if (step === 1 && !data.name) {
-      toast.error('Please enter your name');
+      toast.error(t('onboarding.errors.nameRequired'));
       return;
     }
     setStep(step + 1);
@@ -60,10 +62,10 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
         .eq('id', user.id);
 
       if (error) throw error;
-      toast.success('Profile completed!');
+      toast.success(t('onboarding.success'));
       onComplete();
     } catch (error: any) {
-      toast.error(error.message || 'Failed to save profile');
+      toast.error(error.message || t('onboarding.errors.saveFailed'));
     }
   };
 
@@ -71,26 +73,26 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
     <Dialog open={open}>
       <DialogContent className="max-w-lg" onInteractOutside={(e) => e.preventDefault()}>
         <DialogHeader>
-          <DialogTitle className="text-2xl">Welcome to BA Deck Analyzer</DialogTitle>
+          <DialogTitle className="text-2xl">{t('onboarding.welcome.title')}</DialogTitle>
           <DialogDescription>
-            Let's set up your profile to get started with AI-powered deck analysis
+            {t('onboarding.welcome.description')}
           </DialogDescription>
         </DialogHeader>
 
         {step === 1 && (
           <div className="space-y-4">
             <div>
-              <Label htmlFor="name">Your Name *</Label>
+              <Label htmlFor="name">{t('onboarding.step1.nameLabel')}</Label>
               <Input
                 id="name"
                 value={data.name}
                 onChange={(e) => setData({ ...data, name: e.target.value })}
-                placeholder="John Doe"
+                placeholder={t('onboarding.step1.namePlaceholder')}
                 className="mt-2"
               />
             </div>
             <Button onClick={handleNext} className="w-full">
-              Continue
+              {t('onboarding.continue')}
             </Button>
           </div>
         )}
@@ -98,8 +100,8 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
         {step === 2 && (
           <div className="space-y-4">
             <div>
-              <Label>What sectors do you invest in?</Label>
-              <p className="text-sm text-muted-foreground mt-1 mb-3">Select all that apply (optional)</p>
+              <Label>{t('onboarding.step2.sectorsLabel')}</Label>
+              <p className="text-sm text-muted-foreground mt-1 mb-3">{t('onboarding.step2.sectorsDescription')}</p>
               <div className="flex flex-wrap gap-2">
                 {SECTORS.map(sector => (
                   <Badge
@@ -116,10 +118,10 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
             </div>
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => setStep(1)} className="flex-1">
-                Back
+                {t('onboarding.back')}
               </Button>
               <Button onClick={handleNext} className="flex-1">
-                Continue
+                {t('onboarding.continue')}
               </Button>
             </div>
           </div>
@@ -128,8 +130,8 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
         {step === 3 && (
           <div className="space-y-4">
             <div>
-              <Label>What's your typical check size?</Label>
-              <p className="text-sm text-muted-foreground mt-1 mb-3">Optional</p>
+              <Label>{t('onboarding.step3.checkSizeLabel')}</Label>
+              <p className="text-sm text-muted-foreground mt-1 mb-3">{t('onboarding.step3.checkSizeDescription')}</p>
               <div className="flex gap-2 items-center">
                 <Input
                   type="number"
@@ -138,7 +140,7 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
                   placeholder="10"
                   className="flex-1"
                 />
-                <span className="text-muted-foreground">to</span>
+                <span className="text-muted-foreground">{t('onboarding.step3.to')}</span>
                 <Input
                   type="number"
                   value={data.check_size_max}
@@ -151,10 +153,10 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
             </div>
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => setStep(2)} className="flex-1">
-                Back
+                {t('onboarding.back')}
               </Button>
               <Button onClick={handleNext} className="flex-1">
-                Continue
+                {t('onboarding.continue')}
               </Button>
             </div>
           </div>
@@ -163,11 +165,11 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
         {step === 4 && (
           <div className="space-y-4">
             <div>
-              <Label>Where are you based?</Label>
-              <p className="text-sm text-muted-foreground mt-1 mb-3">Optional</p>
+              <Label>{t('onboarding.step4.locationLabel')}</Label>
+              <p className="text-sm text-muted-foreground mt-1 mb-3">{t('onboarding.step4.locationDescription')}</p>
               <Select value={data.country} onValueChange={(value) => setData({ ...data, country: value })}>
                 <SelectTrigger className="mt-2">
-                  <SelectValue placeholder="Select country" />
+                  <SelectValue placeholder={t('onboarding.step4.selectCountry')} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="FR">France</SelectItem>
@@ -182,10 +184,10 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
             </div>
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => setStep(3)} className="flex-1">
-                Back
+                {t('onboarding.back')}
               </Button>
               <Button onClick={handleComplete} className="flex-1">
-                Get Started
+                {t('onboarding.getStarted')}
               </Button>
             </div>
           </div>

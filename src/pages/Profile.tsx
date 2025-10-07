@@ -89,7 +89,7 @@ export default function Profile() {
         <Card>
           <CardHeader>
             <CardTitle>{t('profile.personalInfo')}</CardTitle>
-            <CardDescription>Your basic information</CardDescription>
+            <CardDescription>{t('profile.personalInfoDesc')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
@@ -113,7 +113,7 @@ export default function Profile() {
                 className="mt-2 bg-muted"
               />
               <p className="text-sm text-muted-foreground mt-1">
-                Email cannot be changed
+                {t('profile.emailNotice')}
               </p>
             </div>
 
@@ -133,7 +133,7 @@ export default function Profile() {
         <Card>
           <CardHeader>
             <CardTitle>{t('profile.investmentPreferences')}</CardTitle>
-            <CardDescription>Your investment criteria</CardDescription>
+            <CardDescription>{t('profile.investmentPreferencesDesc')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">

@@ -26,11 +26,11 @@ export default function SubmitDeal() {
     const file = e.target.files?.[0];
     if (file) {
       if (file.type !== 'application/pdf') {
-        toast.error('Please upload a PDF file');
+        toast.error(t('submit.errors.pdfOnly'));
         return;
       }
       if (file.size > 50 * 1024 * 1024) {
-        toast.error('File size must be less than 50MB');
+        toast.error(t('submit.errors.fileSize'));
         return;
       }
       setDeckFile(file);
@@ -101,7 +101,7 @@ export default function SubmitDeal() {
 
     } catch (error: any) {
       console.error('Error:', error);
-      toast.error(error.message || 'Failed to submit');
+      toast.error(error.message || t('submit.errors.failed'));
     } finally {
       setLoading(false);
       setUploading(false);
