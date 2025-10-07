@@ -194,20 +194,20 @@ Use markdown formatting for:
 
 At the very end, provide the structured data JSON block labeled "STRUCTURED_DATA:".`;
 
-    // Call Claude API with correct beta format
+    // Call Claude API with correct beta header
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': anthropicApiKey,
         'anthropic-version': '2023-06-01',
+        'anthropic-beta': 'web-search-2025-03-05',
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-5-20250929',
         max_tokens: 20000,
         temperature: 1,
         system: systemPrompt,
-        betas: ['web-search-2025-03-05'],
         thinking: {
           type: 'enabled',
           budget_tokens: 8000,
