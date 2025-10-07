@@ -81,17 +81,37 @@ serve(async (req) => {
       );
     }
 
+    console.log('Starting analysis for deal:', dealId, 'user:', user.id);
+
+    // Start background analysis (don't await - let it run in background)
+    analyzeInBackground(supabaseClient, dealId).catch(error => {
+      console.error('Background analysis failed:', error);
+    });
+
+    return new Response(
+      JSON.stringify({ success: true, message: 'Analysis started' }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } catch (error) {
+    console.error('Error in analyze-deck:', error);
+    return new Response(
+      JSON.stringify({ error: 'An unexpected error occurred. Please try again.' }),
+      { 
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    );
+  }
+});
+
+async function analyzeInBackground(supabaseClient: any, dealId: string) {
+  try {
     const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY');
     
     if (!anthropicApiKey) {
       console.error('API key not configured');
-      return new Response(
-        JSON.stringify({ error: 'Service temporarily unavailable' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      throw new Error('API key not configured');
     }
-
-    console.log('Starting analysis for deal:', dealId, 'user:', user.id);
 
     // Create analysis record
     const { data: analysis, error: analysisError } = await supabaseClient
@@ -104,7 +124,10 @@ serve(async (req) => {
       .select()
       .single();
 
-    if (analysisError) throw analysisError;
+    if (analysisError) {
+      console.error('Failed to create analysis:', analysisError);
+      throw analysisError;
+    }
 
     // Get deck file
     const { data: deckFile, error: fileError } = await supabaseClient
@@ -205,23 +228,11 @@ At the very end, provide the structured data JSON block labeled "STRUCTURED_DATA
         'Content-Type': 'application/json',
         'x-api-key': anthropicApiKey,
         'anthropic-version': '2023-06-01',
-        'anthropic-beta': 'web-search-2025-03-05',
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-5-20250929',
-        max_tokens: 20000,
-        temperature: 1,
+        max_tokens: 16000,
         system: systemPrompt,
-        thinking: {
-          type: 'enabled',
-          budget_tokens: 8000,
-        },
-        tools: [
-          {
-            name: 'web_search',
-            type: 'web_search_20250305',
-          },
-        ],
         messages: [
           {
             role: 'user',
@@ -318,19 +329,8 @@ At the very end, provide the structured data JSON block labeled "STRUCTURED_DATA
     }
 
     console.log('Analysis completed successfully');
-
-    return new Response(
-      JSON.stringify({ success: true, analysis: analysisText }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
   } catch (error) {
-    console.error('Error in analyze-deck:', error);
-    return new Response(
-      JSON.stringify({ error: 'An unexpected error occurred. Please try again.' }),
-      { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
-    );
+    console.error('Error in background analysis:', error);
+    // Note: No response to return in background task
   }
-});
+}
