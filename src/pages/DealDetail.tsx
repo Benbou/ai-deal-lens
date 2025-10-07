@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -95,8 +96,8 @@ export default function DealDetail() {
         <div className="flex items-center gap-3">
           <Badge variant="outline">{deal.sector}</Badge>
           {deal.deck_files?.[0]?.storage_path && (
-            <button
-              className="text-sm underline text-muted-foreground"
+            <Button
+              variant="outline"
               onClick={async () => {
                 const { data } = await supabase.storage
                   .from('deck-files')
@@ -107,7 +108,7 @@ export default function DealDetail() {
               }}
             >
               Télécharger deck
-            </button>
+            </Button>
           )}
         </div>
       </div>

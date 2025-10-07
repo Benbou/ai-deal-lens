@@ -122,14 +122,14 @@ export default function Dashboard() {
   };
 
   const getStatusBadge = (status: string) => {
-    const variants: Record<string, { variant: any; label: string }> = {
-      pending: { variant: 'outline', label: 'Pending' },
-      analyzing: { variant: 'default', label: 'Analyzing...' },
-      completed: { variant: 'default', label: 'Completed' },
-      failed: { variant: 'destructive', label: 'Failed' },
+    const variants: Record<string, { className: string; label: string }> = {
+      pending: { className: 'bg-muted text-muted-foreground', label: 'Pending' },
+      analyzing: { className: 'bg-warning text-warning-foreground', label: 'Analyzing...' },
+      completed: { className: 'bg-success text-success-foreground', label: 'Completed' },
+      failed: { className: 'bg-destructive text-destructive-foreground', label: 'Failed' },
     };
     const config = variants[status] || variants.pending;
-    return <Badge variant={config.variant}>{config.label}</Badge>;
+    return <Badge className={config.className}>{config.label}</Badge>;
   };
 
   const filteredDeals = deals.filter(deal =>
@@ -224,14 +224,15 @@ export default function Dashboard() {
                         {formatDistanceToNow(new Date(deal.created_at), { addSuffix: true })}
                       </td>
                       <td className="p-4">
-                        <div className="flex gap-3 justify-end items-center">
+                        <div className="flex gap-2 justify-end items-center">
                           {deal.deck_files?.[0]?.storage_path && (
-                            <button
-                              className="text-xs underline text-muted-foreground"
+                            <Button
+                              size="sm"
+                              variant="outline"
                               onClick={(e) => { e.stopPropagation(); openDeck(deal.deck_files![0].storage_path); }}
                             >
-                              Télécharger deck
-                            </button>
+                              Télécharger
+                            </Button>
                           )}
                           <Button
                             size="sm"
