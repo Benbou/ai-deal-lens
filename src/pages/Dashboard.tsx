@@ -22,6 +22,7 @@ interface Deal {
   sector: string;
   stage?: string;
   amount_raised_cents?: number;
+  pre_money_valuation_cents?: number;
   status: string;
   solution_summary?: string;
   deck_files?: { storage_path: string; file_name: string }[];
@@ -63,7 +64,8 @@ export default function Dashboard() {
 
   const formatCurrency = (cents?: number) => {
     if (!cents) return '-';
-    return `€${(cents / 100 / 1000).toFixed(1)}M`;
+    const millions = cents / 100 / 1000000;
+    return `€${millions.toFixed(1)}M`;
   };
 
   const handleDownloadDeck = async (deal: Deal, e: React.MouseEvent) => {
@@ -146,10 +148,14 @@ export default function Dashboard() {
                         {displayName}
                       </h3>
                       <Badge variant="outline">{deal.sector}</Badge>
+                      {deal.stage && <Badge variant="outline">{deal.stage}</Badge>}
                       {getStatusBadge(analysisStatus)}
                     </div>
                     <div className="text-sm text-muted-foreground space-y-1">
-                      <div>Amount: {formatCurrency(deal.amount_raised_cents)}</div>
+                      <div className="flex gap-4">
+                        <span>Amount: {formatCurrency(deal.amount_raised_cents)}</span>
+                        <span>Valuation: {formatCurrency(deal.pre_money_valuation_cents)}</span>
+                      </div>
                       {deal.solution_summary && (
                         <div className="text-xs mt-2 line-clamp-2">{deal.solution_summary}</div>
                       )}

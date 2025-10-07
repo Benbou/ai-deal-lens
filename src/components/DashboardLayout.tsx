@@ -123,7 +123,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       </aside>
 
       {/* Main Content */}
-      <main className="md:ml-64 p-8 pt-20 md:pt-8">
+      <main className="md:ml-64 w-full p-8 pt-20 md:pt-8">
         {children}
       </main>
     </div>

@@ -79,10 +79,8 @@ export type Database = {
           id: string
           is_archived: boolean | null
           is_invested: boolean | null
-          maturity_level: string | null
           personal_notes: string | null
           pre_money_valuation_cents: number | null
-          risk_score: number | null
           sector: string
           solution_summary: string | null
           stage: string
@@ -90,7 +88,6 @@ export type Database = {
           status: string | null
           updated_at: string | null
           user_id: string
-          valuation_gap_percent: number | null
           website: string | null
         }
         Insert: {
@@ -104,10 +101,8 @@ export type Database = {
           id?: string
           is_archived?: boolean | null
           is_invested?: boolean | null
-          maturity_level?: string | null
           personal_notes?: string | null
           pre_money_valuation_cents?: number | null
-          risk_score?: number | null
           sector: string
           solution_summary?: string | null
           stage: string
@@ -115,7 +110,6 @@ export type Database = {
           status?: string | null
           updated_at?: string | null
           user_id: string
-          valuation_gap_percent?: number | null
           website?: string | null
         }
         Update: {
@@ -129,10 +123,8 @@ export type Database = {
           id?: string
           is_archived?: boolean | null
           is_invested?: boolean | null
-          maturity_level?: string | null
           personal_notes?: string | null
           pre_money_valuation_cents?: number | null
-          risk_score?: number | null
           sector?: string
           solution_summary?: string | null
           stage?: string
@@ -140,7 +132,6 @@ export type Database = {
           status?: string | null
           updated_at?: string | null
           user_id?: string
-          valuation_gap_percent?: number | null
           website?: string | null
         }
         Relationships: [
