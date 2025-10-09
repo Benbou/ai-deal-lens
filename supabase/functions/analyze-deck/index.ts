@@ -177,56 +177,94 @@ async function streamAnalysis(
 
     sendEvent('status', { message: 'Extraction OCR avec Mistral...' });
 
-    // Create a signed URL for Mistral OCR (valid for 1 hour)
-    const { data: signedUrlData, error: signedUrlError } = await supabaseClient.storage
-      .from('deck-files')
-      .createSignedUrl(deckFile.storage_path, 3600); // 1 hour expiry
+    // Step 1: Upload PDF to Mistral Files API
+    console.log('Uploading PDF to Mistral Files API...');
+    const arrayBuffer = await fileData.arrayBuffer();
+    const pdfBlob = new Blob([arrayBuffer], { type: 'application/pdf' });
+    
+    const formData = new FormData();
+    formData.append('file', pdfBlob, deckFile.file_name);
+    formData.append('purpose', 'ocr');
 
-    if (signedUrlError || !signedUrlData?.signedUrl) {
-      throw new Error('Failed to create signed URL for deck file');
+    const uploadResponse = await fetch('https://api.mistral.ai/v1/files', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${mistralApiKey}`,
+      },
+      body: formData,
+    });
+
+    if (!uploadResponse.ok) {
+      const errorText = await uploadResponse.text();
+      console.error('Mistral upload error:', uploadResponse.status, errorText);
+      throw new Error('Failed to upload PDF to Mistral');
     }
 
-    const signedUrl = signedUrlData.signedUrl;
-    console.log('Created signed URL for Mistral OCR');
+    const uploadData = await uploadResponse.json();
+    const mistralFileId = uploadData.id;
+    console.log('PDF uploaded to Mistral, file ID:', mistralFileId);
 
-    // Call Mistral OCR API
-    const mistralResponse = await fetch('https://api.mistral.ai/v1/chat/completions', {
+    // Step 2: Get signed URL from Mistral
+    console.log('Getting signed URL from Mistral...');
+    const signedUrlResponse = await fetch(`https://api.mistral.ai/v1/files/${mistralFileId}/url`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${mistralApiKey}`,
+      },
+    });
+
+    if (!signedUrlResponse.ok) {
+      const errorText = await signedUrlResponse.text();
+      console.error('Mistral signed URL error:', signedUrlResponse.status, errorText);
+      throw new Error('Failed to get signed URL from Mistral');
+    }
+
+    const signedUrlData = await signedUrlResponse.json();
+    const mistralSignedUrl = signedUrlData.url;
+    console.log('Got signed URL from Mistral');
+
+    // Step 3: Process OCR with Mistral dedicated OCR API
+    console.log('Processing OCR with Mistral...');
+    const ocrResponse = await fetch('https://api.mistral.ai/v1/ocr', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${mistralApiKey}`,
       },
       body: JSON.stringify({
-        model: 'pixtral-large-latest',
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: 'Extract all text content from this pitch deck PDF and return it in well-structured markdown format. Use proper headers (# ##), bullet points, and formatting. Preserve all numerical data, metrics, and key information.',
-              },
-              {
-                type: 'image_url',
-                image_url: signedUrl,
-              },
-            ],
-          },
-        ],
+        model: 'mistral-ocr-latest',
+        document: {
+          type: 'document_url',
+          document_url: mistralSignedUrl,
+        },
       }),
     });
 
-    if (!mistralResponse.ok) {
-      const errorText = await mistralResponse.text();
-      console.error('Mistral OCR error:', mistralResponse.status, errorText);
-      throw new Error('Mistral OCR failed');
+    if (!ocrResponse.ok) {
+      const errorText = await ocrResponse.text();
+      console.error('Mistral OCR error:', ocrResponse.status, errorText);
+      throw new Error('Mistral OCR processing failed');
     }
 
-    const mistralData = await mistralResponse.json();
-    const extractedMarkdown = mistralData.choices[0]?.message?.content || '';
+    const ocrData = await ocrResponse.json();
+    const extractedMarkdown = ocrData.text || ocrData.content || '';
+    console.log('OCR completed, extracted', extractedMarkdown.length, 'characters');
     
     if (!extractedMarkdown) {
       throw new Error('No content extracted from PDF');
+    }
+
+    // Step 4 (optional): Cleanup uploaded file from Mistral
+    try {
+      await fetch(`https://api.mistral.ai/v1/files/${mistralFileId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${mistralApiKey}`,
+        },
+      });
+      console.log('Cleaned up Mistral uploaded file');
+    } catch (cleanupError) {
+      console.error('Failed to cleanup Mistral file (non-critical):', cleanupError);
     }
 
     sendEvent('status', { message: 'Analyse en cours par Claude Haiku...' });
