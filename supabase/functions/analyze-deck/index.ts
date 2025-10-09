@@ -381,7 +381,7 @@ CRITICAL: Generate the COMPLETE memo in one go. Write the full analysis without 
       .from('analyses')
       .update({
         status: 'completed',
-        result: { text: fullText },
+        result: { full_text: fullText },
         completed_at: new Date().toISOString(),
         progress_percent: 80
       })
