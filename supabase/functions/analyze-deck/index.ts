@@ -135,9 +135,10 @@ async function streamAnalysis(
   
   try {
     const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY');
+    const mistralApiKey = Deno.env.get('MISTRAL_API_KEY');
     
-    if (!anthropicApiKey) {
-      throw new Error('API key not configured');
+    if (!anthropicApiKey || !mistralApiKey) {
+      throw new Error('API keys not configured');
     }
 
     sendEvent('status', { message: 'Initialisation de l\'analyse...' });
@@ -174,9 +175,9 @@ async function streamAnalysis(
 
     if (downloadError) throw new Error('Failed to download file');
 
-    sendEvent('status', { message: 'Préparation du document...' });
+    sendEvent('status', { message: 'Extraction OCR avec Mistral...' });
 
-    // Convert to base64
+    // Convert to base64 for Mistral OCR
     const arrayBuffer = await fileData.arrayBuffer();
     const uint8Array = new Uint8Array(arrayBuffer);
     
@@ -196,132 +197,190 @@ async function streamAnalysis(
     }
     const base64 = btoa(binary);
 
-    sendEvent('status', { message: 'Analyse en cours par Claude...' });
+    // Call Mistral OCR API
+    const mistralResponse = await fetch('https://api.mistral.ai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${mistralApiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'pixtral-large-latest',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: 'Extract all text content from this pitch deck PDF and return it in well-structured markdown format. Use proper headers (# ##), bullet points, and formatting. Preserve all numerical data, metrics, and key information.',
+              },
+              {
+                type: 'image_url',
+                image_url: `data:application/pdf;base64,${base64}`,
+              },
+            ],
+          },
+        ],
+      }),
+    });
 
-    const systemPrompt = `You are a senior investment analyst specialized in producing ultra-effective investment memos for VC funds. Your mission is to transform complex, messy inputs into decision-ready analyses that preserve all substance required for an informed investment decision.
+    if (!mistralResponse.ok) {
+      const errorText = await mistralResponse.text();
+      console.error('Mistral OCR error:', mistralResponse.status, errorText);
+      throw new Error('Mistral OCR failed');
+    }
 
-Output: All memos and analyses must be written in French with appropriate business terminology.
+    const mistralData = await mistralResponse.json();
+    const extractedMarkdown = mistralData.choices[0]?.message?.content || '';
+    
+    if (!extractedMarkdown) {
+      throw new Error('No content extracted from PDF');
+    }
 
-Default stance: Constructive skepticism with a high rejection rate (~90%). Evidence over promises; proven execution over narrative potential. Binary decisions (GO/NO-GO) with clear rationale.
+    sendEvent('status', { message: 'Analyse en cours par Claude Haiku...' });
 
-Expected Inputs: Pitch deck and data room (if available), website, key metrics, round terms. Explicit founder hypotheses to be tested/invalidated. Sector context (regulation, competition, sales cycles).
+    const systemPrompt = `You are a senior investment analyst specialized in producing ultra-effective investment memos for VC funds. Your mission is to transform complex, messy inputs into decision-ready analyses that can be read in 3–4 minutes while preserving all substance required for an informed investment decision.
 
-Mandatory Pre-Analysis Method:
+**Output:** French | **Research:** English/French based on relevance
 
-Phase 1: Think Step-by-Step Approach
-For each section of the memo, follow this systematic approach:
-- Gather Data: Research and verify information through web searches
-- Analyze Critically: Identify strengths, weaknesses, inconsistencies
-- Benchmark: Compare against sector standards, comparables
-- Synthesize: Summarize into clear decision-relevant points
-- Validate: Check consistency with your constructive skepticism stance
+## Mission
+VC analyst specialized in ultra-concise investment memos (2 min read). Constructive skepticism, ~90% rejection rate. Binary GO/NO-GO decision.
 
-Phase 2: Systematic Web Research (5–8 distinct searches minimum)
-Perform targeted web research to validate:
-- Market size, structure, and dynamics
-- Founders' background and execution track record (prior scale, exits, relevant builds)
-- Competitive landscape (direct, indirect, status quo/Excel, substitutes)
-- Business model viability via sector benchmarks and comparables
-- Impact claims (if applicable): independent, peer-reviewed or equivalent validation
+## Mandatory Method
 
-Research Strategy:
-- Use English for: global market research, technology benchmarks, international competitors, sector reports
-- Use French for: French market specifics, local regulations, French competitors, French business context
-- Always prioritize the language that will yield the most relevant and recent results
+### Phase 1 - Alboknowledge Internal Research:
+- **Alboknowledge**: sector trends, multiples, competitive insights
+- **"ratio de valorisation" database**: reference multiples by sector/stage
 
-Validation, Contradiction, and Sourcing:
-- Triangulate every material claim with independent sources
-- Actively look for contradictory evidence to company claims
-- Cite a source for every critical metric/statement or mark "Missing data: [what]" and propose what would resolve it
-- Benchmark every metric against sector standards, closest comparables
-- If uncertain about information: Clearly state your uncertainty and indicate what would resolve it
+### Phase 2 - Web Research (5-8 searches):
+Validate: market size, founders, competition, model, impact
+Systematic triangulation + source every key metric
 
-STRUCTURE YOUR RESPONSE AS FOLLOWS:
+### Phase 3 - Validation:
+Seek contradictions, benchmark vs Albo data, note uncertainties
 
-# TL;DR (30-40 secondes de lecture)
-Provide a concise executive summary covering:
-- Investment thesis in 2-3 sentences
-- Key strengths (2-3 bullet points)
-- Critical risks (2-3 bullet points)  
-- Recommendation: GO / NO-GO with brief justification
+## Immediate Rejection (any single trigger)
+- Unproven model requiring market education
+- Pre-revenue without customer validation
+- Unsubstantiated impact claims
+- Insufficient founder-market fit
+- Excessive valuation vs traction AND Albo database
+- Vague/replicable competitive advantage
+- Critical unsecured dependencies
+
+## CRITICAL FORMATTING RULES - MUST FOLLOW EXACTLY:
+
+### Markdown Structure (MANDATORY):
+- Use **EXACTLY ONE** # for main title (TL;DR)
+- Use **## for all section headers** (Équipe Fondatrice, Marché, etc.)
+- Use **### for subsections only if needed**
+- Use **---** horizontal rule to separate TL;DR from detailed analysis
+- Use **bold** for key terms: **montant levé**, **ARR**, **CAC/LTV**
+- Use **- bullet lists** for all enumerations
+- Use tables for metrics (| header | header |)
+
+### Spacing Rules (CRITICAL):
+- Add **2 blank lines** before each ## section header
+- Add **1 blank line** after each ## section header
+- Add **1 blank line** between paragraphs
+- Add **1 blank line** before and after tables
+- Add **1 blank line** before and after bullet lists
+
+### Example of PERFECT formatting:
+\`\`\`
+# TL;DR
+
+Thesis en 2-3 phrases...
+
+**Forces:**
+- Force 1
+- Force 2
+
+**Risques:**
+- Risque 1
+- Risque 2
+
+**Recommandation:** NO-GO car...
 
 ---
 
-# Analyse Détaillée
 
 ## 1. Équipe Fondatrice
-- Background and relevant experience
-- Track record and execution capability
-- Completeness and balance of the team
+
+Background: Les fondateurs ont...
+
+- Fondateur A: **serial entrepreneur**
+- Fondateur B: expertise **deep tech**
+
 
 ## 2. Marché & Opportunité
-- Market size (TAM/SAM/SOM with sources)
-- Market dynamics and trends
-- Target customer profile and pain points
 
-## 3. Solution & Proposition de Valeur
-- Product/service description
-- Unique value proposition
-- Competitive differentiation
-- Technology/innovation assessment
+TAM: **€500M** (source: Gartner 2024)
 
-## 4. Traction & Métriques
-- Revenue and growth metrics
-- Customer acquisition and retention
-- Unit economics
-- Key performance indicators
+Le marché...
+\`\`\`
 
-## 5. Concurrence & Positionnement
-- Direct and indirect competitors
-- Competitive advantages
-- Market positioning strategy
+## Memo Structure (800-1000 words MAX)
 
-## 6. Modèle Économique
-- Revenue model
-- Cost structure
-- Path to profitability
-- Scalability assessment
+### TL;DR (3 lignes max)
+What, why it wins, proof points, top risks, decision
 
-## 7. Levée & Utilisation des Fonds
-- Funding amount and terms
-- Use of proceeds
-- Runway and milestones
-- Cap table insights (if available)
+### Deal Source (1 line)
 
-## 8. Risques & Points d'Attention
-- Market risks
-- Execution risks
-- Competitive risks
-- Other material concerns
+### Terms (4-5 lines)
+Amount, pre/post-money vs Albo multiples, use of funds %, key milestones, exit scenarios
 
-## 9. Recommandation Finale
-- Clear GO/NO-GO decision
-- Investment rationale
-- Key conditions or next steps
-- Deal scorecard or rating
+### Context (4 lines)
+Sourced market, pain points, adoption drivers, Alboknowledge insights
 
-After your analysis, you MUST also extract and provide the following structured data in a JSON block at the very end of your response, labeled as "STRUCTURED_DATA:":
-{
-  "company_name": "actual company name (not PDF filename)",
-  "sector": "main sector/industry",
-  "amount_raised_cents": number in cents (e.g., 500000 for €5k),
-  "pre_money_valuation_cents": number in cents,
-  "solution_summary": "brief 2-3 sentence summary of the solution"
-}
+### Solution (5-6 lines)
+Product, differentiators vs Albo comparables, quantified ROI, defensibility
 
-Write your full investment memo following the structure above in markdown format, then add the JSON block at the end.`;
+### Why Now? (2 lines)
+Market trends validated by Alboknowledge, competitive timing
 
-    const prompt = `Analyze this pitch deck and provide a comprehensive investment memo following the structured format. Include all critical analysis sections.
+### Key Metrics (table format if possible)
+Revenue/growth vs Albo benchmark, CAC/LTV/payback, burn/runway, multiples vs ratios database
 
-Use markdown formatting for:
-- Headers (# ## ###)
-- Bold for key terms (**important**)
-- Bullet lists
-- Tables where appropriate
+### Market (4 lines)
+Sourced TAM/SAM + Alboknowledge, CAGR, realistic penetration, expansion vectors
 
-At the very end, provide the structured data JSON block labeled "STRUCTURED_DATA:".`;
+### Business Model (4 lines)
+Revenue streams, unit economics vs Albo, operating leverage, 3-5y outlook
 
-    // Call Claude API with streaming
+### Competition (4 lines)
+2-3 main competitors + Albo insights, alternatives, entry barriers, differentiation
+
+### Traction (4 lines)
+Growth vs Albo benchmark, PMF (retention/NPS), partnerships, customer logos
+
+### Team (3 lines)
+Track record, founder-market fit, gaps, relevant advisors
+
+### Risks (5 lines)
+3-4 major risks + concrete mitigations, valuation vs Albo, downside/base/upside scenarios
+
+### Recommendation (2 lines)
+GO/NO-GO + rationale integrating Albo insights. If GO: ticket, conditions, DD. If NO-GO: reconsideration milestones.
+
+## Writing Principles
+- Extreme concision: every sentence = decision-relevant
+- Quantify systematically
+- Source or note "Missing: [what]"
+- No repetition or superfluous jargon
+- Naturally integrate Albo insights
+
+## Sources (end of memo)
+**Albo:** [X Alboknowledge queries, sector Y multiples]
+**Web:** [5-8 key URLs]`;
+
+    const prompt = `Here is the OCR-extracted content from the pitch deck in markdown format:
+
+${extractedMarkdown}
+
+Analyze this content and provide a comprehensive investment memo following the structured format with PERFECT markdown formatting (proper headers, bold, lists, spacing).`;
+
+    // Call Claude Haiku API with tool calling for structured data extraction
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -331,8 +390,8 @@ At the very end, provide the structured data JSON block labeled "STRUCTURED_DATA
         'anthropic-beta': 'web-search-2025-03-05',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-5-20250929',
-        max_tokens: 20000,
+        model: 'claude-3-5-haiku-20241022',
+        max_tokens: 8192,
         stream: true,
         system: systemPrompt,
         tools: [
@@ -340,24 +399,41 @@ At the very end, provide the structured data JSON block labeled "STRUCTURED_DATA
             name: 'web_search',
             type: 'web_search_20250305',
           },
+          {
+            name: 'extract_deal_data',
+            description: 'Extract structured deal data from the investment memo analysis',
+            input_schema: {
+              type: 'object',
+              properties: {
+                company_name: {
+                  type: 'string',
+                  description: 'The actual company name (not PDF filename)',
+                },
+                sector: {
+                  type: 'string',
+                  description: 'Main sector/industry (e.g., FinTech, HealthTech, SaaS)',
+                },
+                amount_raised_cents: {
+                  type: 'integer',
+                  description: 'Amount raised in cents (e.g., 500000 for €5,000)',
+                },
+                pre_money_valuation_cents: {
+                  type: 'integer',
+                  description: 'Pre-money valuation in cents',
+                },
+                solution_summary: {
+                  type: 'string',
+                  description: 'Brief 2-3 sentence summary of the solution',
+                },
+              },
+              required: ['company_name', 'sector', 'solution_summary'],
+            },
+          },
         ],
         messages: [
           {
             role: 'user',
-            content: [
-              {
-                type: 'document',
-                source: {
-                  type: 'base64',
-                  media_type: 'application/pdf',
-                  data: base64,
-                },
-              },
-              {
-                type: 'text',
-                text: prompt,
-              },
-            ],
+            content: prompt,
           },
         ],
       }),
@@ -374,6 +450,7 @@ At the very end, provide the structured data JSON block labeled "STRUCTURED_DATA
     const decoder = new TextDecoder();
     let fullText = '';
     let buffer = '';
+    let structuredData: any = null;
 
     if (!reader) throw new Error('No response body');
 
@@ -401,6 +478,13 @@ At the very end, provide the structured data JSON block labeled "STRUCTURED_DATA
               fullText += delta.text;
               sendEvent('delta', { text: delta.text });
             }
+          } else if (parsed.type === 'content_block_start' && parsed.content_block?.type === 'tool_use') {
+            // Tool use started - will capture structured data
+            console.log('Tool use started:', parsed.content_block.name);
+          } else if (parsed.type === 'content_block_delta' && parsed.delta?.type === 'input_json_delta') {
+            // Accumulate tool input (structured data)
+            if (!structuredData) structuredData = '';
+            structuredData += parsed.delta.partial_json;
           }
         } catch (e) {
           console.error('Failed to parse SSE line:', e, line);
@@ -410,15 +494,14 @@ At the very end, provide the structured data JSON block labeled "STRUCTURED_DATA
 
     sendEvent('status', { message: 'Finalisation de l\'analyse...' });
 
-    // Extract structured data
-    let structuredData: any = null;
-    const jsonMatch = fullText.match(/STRUCTURED_DATA:\s*({[\s\S]*?})/);
-    if (jsonMatch) {
+    // Parse accumulated structured data
+    if (structuredData && typeof structuredData === 'string') {
       try {
-        structuredData = JSON.parse(jsonMatch[1]);
-        fullText = fullText.replace(/STRUCTURED_DATA:\s*{[\s\S]*?}/, '').trim();
+        structuredData = JSON.parse(structuredData);
+        console.log('Parsed structured data:', structuredData);
       } catch (e) {
         console.error('Failed to parse structured data:', e);
+        structuredData = null;
       }
     }
 
