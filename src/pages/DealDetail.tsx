@@ -9,6 +9,7 @@ import { Download, Trash2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
+import { useStreamAnalysis } from '@/hooks/useStreamAnalysis';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -52,6 +53,7 @@ export default function DealDetail() {
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
   const { t } = useTranslation();
+  const { streamingText, isStreaming, startAnalysis, reset } = useStreamAnalysis();
 
   useEffect(() => {
     if (!id) return;
@@ -74,6 +76,11 @@ export default function DealDetail() {
           .maybeSingle();
 
         setAnalysis(analysisData);
+
+        // Auto-start streaming if analysis is processing
+        if (analysisData?.status === 'processing') {
+          startAnalysis(id);
+        }
       } finally {
         setLoading(false);
       }
@@ -95,6 +102,11 @@ export default function DealDetail() {
           console.log('Analysis update:', payload);
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
             setAnalysis(payload.new as any);
+            
+            // If analysis just completed, reset streaming
+            if (payload.new.status === 'completed') {
+              reset();
+            }
           }
         }
       )
@@ -124,7 +136,7 @@ export default function DealDetail() {
       supabase.removeChannel(analysisChannel);
       supabase.removeChannel(dealChannel);
     };
-  }, [id]);
+  }, [id, startAnalysis, reset]);
 
   const formatCurrency = (cents?: number | null) => {
     if (!cents) return '-';
@@ -203,9 +215,10 @@ export default function DealDetail() {
   };
 
   const analysisStatus = analysis?.status || 'pending';
-  const isProcessing = analysisStatus === 'processing';
-  const isCompleted = analysisStatus === 'completed';
+  const isProcessing = analysisStatus === 'processing' || isStreaming;
+  const isCompleted = analysisStatus === 'completed' && !isStreaming;
   const displayName = deal.company_name || deal.startup_name;
+  const displayText = isStreaming ? streamingText : (analysis?.result?.full_text || '');
 
   return (
     <div className="space-y-6 max-w-full overflow-x-hidden">
@@ -272,7 +285,7 @@ export default function DealDetail() {
         )}
       </Card>
 
-      {isProcessing && (
+      {isStreaming && !displayText && (
         <Card className="p-12 text-center">
           <div className="flex flex-col items-center gap-4">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -286,9 +299,16 @@ export default function DealDetail() {
         </Card>
       )}
 
-      {isCompleted && analysis?.result?.full_text && (
+      {(isStreaming || isCompleted) && displayText && (
         <Card className="p-8">
-          <h2 className="text-2xl font-semibold mb-6">Mémo d'Investissement</h2>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-semibold">Mémo d'Investissement</h2>
+            {isStreaming && (
+              <Badge className="bg-primary animate-pulse">
+                Analyse en cours...
+              </Badge>
+            )}
+          </div>
           <div className="prose prose-base max-w-none dark:prose-invert 
             prose-headings:font-bold prose-headings:text-foreground prose-headings:tracking-tight
             prose-h1:text-3xl prose-h1:border-b prose-h1:pb-3 prose-h1:mb-6
@@ -306,7 +326,7 @@ export default function DealDetail() {
             prose-code:rounded prose-code:text-sm prose-code:font-mono
             prose-pre:bg-muted prose-pre:text-foreground prose-pre:p-4 prose-pre:rounded-lg prose-pre:my-4
             prose-hr:border-border prose-hr:my-8">
-            <ReactMarkdown>{analysis.result.full_text}</ReactMarkdown>
+            <ReactMarkdown>{displayText}</ReactMarkdown>
           </div>
         </Card>
       )}

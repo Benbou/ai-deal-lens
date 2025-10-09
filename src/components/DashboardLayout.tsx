@@ -43,7 +43,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex">
       {/* Mobile menu button */}
       <Button
         variant="ghost"
@@ -65,7 +65,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       {/* Sidebar */}
       <aside
         className={`
-        fixed left-0 top-0 h-full w-64 border-r bg-card flex flex-col z-40 transition-transform duration-200
+        w-64 border-r bg-card flex flex-col z-40 transition-transform duration-200
+        fixed md:sticky top-0 h-screen flex-shrink-0
         ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
         md:translate-x-0
       `}
@@ -74,7 +75,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           <img src={logo} alt="Albo" className="h-8 w-auto" />
         </div>
 
-        <nav className="flex-1 p-4 space-y-2">
+        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
           {navItems.map((item) => (
             <Link key={item.path} to={item.path} onClick={() => setSidebarOpen(false)}>
               <Button variant={isActive(item.path) ? "default" : "ghost"} className="w-full justify-start">
@@ -120,11 +121,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 w-full md:ml-64">
-        <div className="w-full h-full">
-          <div className="container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 pt-20 md:pt-8">
-            {children}
-          </div>
+      <main className="flex-1 w-full min-w-0">
+        <div className="container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 pt-20 md:pt-8">
+          {children}
         </div>
       </main>
     </div>

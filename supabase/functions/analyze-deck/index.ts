@@ -81,17 +81,39 @@ serve(async (req) => {
       );
     }
 
-    console.log('Starting analysis for deal:', dealId, 'user:', user.id);
+    console.log('Starting streaming analysis for deal:', dealId, 'user:', user.id);
 
-    // Start background analysis (don't await - let it run in background)
-    analyzeInBackground(supabaseClient, dealId).catch(error => {
-      console.error('Background analysis failed:', error);
+    // Return SSE stream
+    const stream = new ReadableStream({
+      async start(controller) {
+        const encoder = new TextEncoder();
+        
+        const sendEvent = (event: string, data: any) => {
+          const message = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+          controller.enqueue(encoder.encode(message));
+        };
+
+        try {
+          await streamAnalysis(supabaseClient, dealId, sendEvent);
+          controller.close();
+        } catch (error) {
+          console.error('Streaming error:', error);
+          sendEvent('error', { 
+            message: error instanceof Error ? error.message : 'Analysis failed' 
+          });
+          controller.close();
+        }
+      }
     });
 
-    return new Response(
-      JSON.stringify({ success: true, message: 'Analysis started' }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return new Response(stream, {
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      }
+    });
   } catch (error) {
     console.error('Error in analyze-deck:', error);
     return new Response(
@@ -104,18 +126,21 @@ serve(async (req) => {
   }
 });
 
-async function analyzeInBackground(supabaseClient: any, dealId: string) {
+async function streamAnalysis(
+  supabaseClient: any, 
+  dealId: string, 
+  sendEvent: (event: string, data: any) => void
+) {
   let analysisId: string | null = null;
   
   try {
     const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY');
     
     if (!anthropicApiKey) {
-      console.error('API key not configured');
       throw new Error('API key not configured');
     }
 
-    console.log('Creating analysis record for deal:', dealId);
+    sendEvent('status', { message: 'Initialisation de l\'analyse...' });
 
     // Create analysis record
     const { data: analysis, error: analysisError } = await supabaseClient
@@ -128,13 +153,10 @@ async function analyzeInBackground(supabaseClient: any, dealId: string) {
       .select()
       .single();
 
-    if (analysisError) {
-      console.error('Failed to create analysis:', analysisError);
-      throw analysisError;
-    }
-
+    if (analysisError) throw analysisError;
     analysisId = analysis.id;
-    console.log('Analysis record created:', analysisId);
+
+    sendEvent('status', { message: 'Récupération du deck...' });
 
     // Get deck file
     const { data: deckFile, error: fileError } = await supabaseClient
@@ -143,54 +165,29 @@ async function analyzeInBackground(supabaseClient: any, dealId: string) {
       .eq('deal_id', dealId)
       .single();
 
-    if (fileError) {
-      console.error('Deck file not found:', fileError.message);
-      return new Response(
-        JSON.stringify({ error: 'File not found' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    if (fileError) throw new Error('Deck file not found');
 
     // Download file
     const { data: fileData, error: downloadError } = await supabaseClient.storage
       .from('deck-files')
       .download(deckFile.storage_path);
 
-    if (downloadError) {
-      console.error('File download failed:', downloadError.message);
-      return new Response(
-        JSON.stringify({ error: 'Failed to access file' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    if (downloadError) throw new Error('Failed to download file');
 
-    // Convert to base64 and validate PDF
+    sendEvent('status', { message: 'Préparation du document...' });
+
+    // Convert to base64
     const arrayBuffer = await fileData.arrayBuffer();
     const uint8Array = new Uint8Array(arrayBuffer);
     
-    // Validate PDF magic number (%PDF-)
+    // Validate PDF
     const isPDF = uint8Array[0] === 0x25 && uint8Array[1] === 0x50 && 
                   uint8Array[2] === 0x44 && uint8Array[3] === 0x46 && 
                   uint8Array[4] === 0x2D;
     
-    if (!isPDF) {
-      console.error('Invalid PDF file detected for deal:', dealId);
-      await supabaseClient
-        .from('analyses')
-        .update({ 
-          status: 'failed', 
-          error_message: 'Invalid file format',
-          completed_at: new Date().toISOString()
-        })
-        .eq('id', analysis.id);
-      
-      return new Response(
-        JSON.stringify({ error: 'Invalid file format' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    if (!isPDF) throw new Error('Invalid PDF file');
     
-    // Convert to base64 in chunks to avoid stack overflow
+    // Convert to base64
     let binary = '';
     const chunkSize = 8192;
     for (let i = 0; i < uint8Array.length; i += chunkSize) {
@@ -199,7 +196,9 @@ async function analyzeInBackground(supabaseClient: any, dealId: string) {
     }
     const base64 = btoa(binary);
 
-const systemPrompt = `You are a senior investment analyst specialized in producing ultra-effective investment memos for VC funds. Your mission is to transform complex, messy inputs into decision-ready analyses that preserve all substance required for an informed investment decision.
+    sendEvent('status', { message: 'Analyse en cours par Claude...' });
+
+    const systemPrompt = `You are a senior investment analyst specialized in producing ultra-effective investment memos for VC funds. Your mission is to transform complex, messy inputs into decision-ready analyses that preserve all substance required for an informed investment decision.
 
 Output: All memos and analyses must be written in French with appropriate business terminology.
 
@@ -322,11 +321,7 @@ Use markdown formatting for:
 
 At the very end, provide the structured data JSON block labeled "STRUCTURED_DATA:".`;
 
-    console.log('Preparing to call Claude API...');
-    console.log('PDF size (base64):', base64.length, 'characters');
-    console.log('Model:', 'claude-sonnet-4-5-20250929');
-
-    // Call Claude API with correct beta header
+    // Call Claude API with streaming
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -338,6 +333,7 @@ At the very end, provide the structured data JSON block labeled "STRUCTURED_DATA
       body: JSON.stringify({
         model: 'claude-sonnet-4-5-20250929',
         max_tokens: 20000,
+        stream: true,
         system: systemPrompt,
         tools: [
           {
@@ -367,77 +363,77 @@ At the very end, provide the structured data JSON block labeled "STRUCTURED_DATA
       }),
     });
 
-    console.log('Claude API response status:', response.status);
-
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('External API error:', response.status, errorText);
-      
-      await supabaseClient
-        .from('analyses')
-        .update({ 
-          status: 'failed', 
-          error_message: 'Analysis service error',
-          completed_at: new Date().toISOString()
-        })
-        .eq('id', analysis.id);
-      
-      return new Response(
-        JSON.stringify({ error: 'Analysis failed. Please try again later.' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      console.error('Claude API error:', response.status, errorText);
+      throw new Error('Claude API error');
     }
 
-    const result = await response.json();
-    console.log('Claude API response received, processing result...');
+    // Stream the response
+    const reader = response.body?.getReader();
+    const decoder = new TextDecoder();
+    let fullText = '';
+    let buffer = '';
 
-    // Extract text from all content blocks
-    let analysisText = '';
-    if (result.content && Array.isArray(result.content)) {
-      analysisText = result.content
-        .filter((block: any) => block.type === 'text')
-        .map((block: any) => block.text)
-        .join('\n\n');
-      console.log('Extracted analysis text, length:', analysisText.length);
-    } else {
-      console.error('Unexpected result format:', JSON.stringify(result).substring(0, 500));
-      throw new Error('Unexpected API response format');
+    if (!reader) throw new Error('No response body');
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (!line.trim() || line.startsWith(':')) continue;
+        if (!line.startsWith('data: ')) continue;
+
+        const data = line.slice(6);
+        if (data === '[DONE]') continue;
+
+        try {
+          const parsed = JSON.parse(data);
+          
+          if (parsed.type === 'content_block_delta') {
+            const delta = parsed.delta;
+            if (delta.type === 'text_delta' && delta.text) {
+              fullText += delta.text;
+              sendEvent('delta', { text: delta.text });
+            }
+          }
+        } catch (e) {
+          console.error('Failed to parse SSE line:', e, line);
+        }
+      }
     }
+
+    sendEvent('status', { message: 'Finalisation de l\'analyse...' });
 
     // Extract structured data
     let structuredData: any = null;
-    const jsonMatch = analysisText.match(/STRUCTURED_DATA:\s*({[\s\S]*?})/);
+    const jsonMatch = fullText.match(/STRUCTURED_DATA:\s*({[\s\S]*?})/);
     if (jsonMatch) {
       try {
         structuredData = JSON.parse(jsonMatch[1]);
-        // Remove the JSON block from the analysis text
-        analysisText = analysisText.replace(/STRUCTURED_DATA:\s*{[\s\S]*?}/, '').trim();
+        fullText = fullText.replace(/STRUCTURED_DATA:\s*{[\s\S]*?}/, '').trim();
       } catch (e) {
         console.error('Failed to parse structured data:', e);
       }
     }
 
     // Update analysis
-    console.log('Updating analysis record to completed...');
-    const { error: updateError } = await supabaseClient
+    await supabaseClient
       .from('analyses')
       .update({
         status: 'completed',
-        result: { full_text: analysisText },
+        result: { full_text: fullText },
         completed_at: new Date().toISOString(),
       })
       .eq('id', analysisId);
 
-    if (updateError) {
-      console.error('Failed to update analysis:', updateError);
-      throw updateError;
-    }
-
-    console.log('Analysis record updated successfully');
-
-    // Update deal with structured data if extracted
+    // Update deal with structured data
     if (structuredData) {
-      console.log('Updating deal with structured data:', structuredData);
       const dealUpdate: any = {};
       if (structuredData.company_name) dealUpdate.company_name = structuredData.company_name;
       if (structuredData.sector) dealUpdate.sector = structuredData.sector;
@@ -446,46 +442,28 @@ At the very end, provide the structured data JSON block labeled "STRUCTURED_DATA
       if (structuredData.solution_summary) dealUpdate.solution_summary = structuredData.solution_summary;
 
       if (Object.keys(dealUpdate).length > 0) {
-        const { error: dealUpdateError } = await supabaseClient
+        await supabaseClient
           .from('deals')
           .update(dealUpdate)
           .eq('id', dealId);
-
-        if (dealUpdateError) {
-          console.error('Failed to update deal:', dealUpdateError);
-          // Don't throw here, analysis is already complete
-        } else {
-          console.log('Deal updated successfully with structured data');
-        }
       }
     }
 
-    console.log('Analysis completed successfully for deal:', dealId);
+    sendEvent('done', { message: 'Analyse terminée' });
   } catch (error) {
-    console.error('CRITICAL ERROR in background analysis:', error);
-    console.error('Error details:', error instanceof Error ? error.message : String(error));
-    console.error('Stack trace:', error instanceof Error ? error.stack : 'No stack trace');
+    console.error('Error in streamAnalysis:', error);
     
-    // Try to update analysis status to failed
     if (analysisId) {
-      try {
-        console.log('Updating analysis status to failed for:', analysisId);
-        await supabaseClient
-          .from('analyses')
-          .update({ 
-            status: 'failed', 
-            error_message: error instanceof Error ? error.message : 'Unknown error occurred',
-            error_details: { 
-              error: String(error),
-              stack: error instanceof Error ? error.stack : undefined 
-            },
-            completed_at: new Date().toISOString()
-          })
-          .eq('id', analysisId);
-        console.log('Analysis status updated to failed');
-      } catch (updateError) {
-        console.error('Failed to update analysis status:', updateError);
-      }
+      await supabaseClient
+        .from('analyses')
+        .update({ 
+          status: 'failed', 
+          error_message: error instanceof Error ? error.message : 'Unknown error',
+          completed_at: new Date().toISOString()
+        })
+        .eq('id', analysisId);
     }
+    
+    throw error;
   }
 }
