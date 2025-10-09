@@ -495,7 +495,8 @@ Analyze this content and provide a comprehensive investment memo following the s
     const decoder = new TextDecoder();
     let fullText = '';
     let buffer = '';
-    let structuredData: any = null;
+    let structuredData: string = '';
+    let toolInputComplete: boolean = false;
 
     if (!reader) throw new Error('No response body');
 
@@ -528,8 +529,12 @@ Analyze this content and provide a comprehensive investment memo following the s
             console.log('Tool use started:', parsed.content_block.name);
           } else if (parsed.type === 'content_block_delta' && parsed.delta?.type === 'input_json_delta') {
             // Accumulate tool input (structured data)
-            if (!structuredData) structuredData = '';
             structuredData += parsed.delta.partial_json;
+            console.log('Accumulated tool data length:', structuredData.length);
+          } else if (parsed.type === 'content_block_stop') {
+            // Tool input is complete
+            toolInputComplete = true;
+            console.log('Tool input complete, total length:', structuredData.length);
           }
         } catch (e) {
           console.error('Failed to parse SSE line:', e, line);
@@ -537,16 +542,21 @@ Analyze this content and provide a comprehensive investment memo following the s
       }
     }
 
+    console.log('Streaming completed. Full text length:', fullText.length);
+    console.log('Full text preview (first 200 chars):', fullText.substring(0, 200));
+    console.log('Full text preview (last 200 chars):', fullText.substring(fullText.length - 200));
+
     sendEvent('status', { message: 'Finalisation de l\'analyse...' });
 
     // Parse accumulated structured data
-    if (structuredData && typeof structuredData === 'string') {
+    let parsedStructuredData: any = null;
+    if (structuredData && structuredData.length > 0) {
       try {
-        structuredData = JSON.parse(structuredData);
-        console.log('Parsed structured data:', structuredData);
+        parsedStructuredData = JSON.parse(structuredData);
+        console.log('Parsed structured data:', JSON.stringify(parsedStructuredData, null, 2));
       } catch (e) {
         console.error('Failed to parse structured data:', e);
-        structuredData = null;
+        console.error('Raw structured data:', structuredData);
       }
     }
 
@@ -561,19 +571,27 @@ Analyze this content and provide a comprehensive investment memo following the s
       .eq('id', analysisId);
 
     // Update deal with structured data
-    if (structuredData) {
+    if (parsedStructuredData) {
       const dealUpdate: any = {};
-      if (structuredData.company_name) dealUpdate.company_name = structuredData.company_name;
-      if (structuredData.sector) dealUpdate.sector = structuredData.sector;
-      if (structuredData.amount_raised_cents) dealUpdate.amount_raised_cents = structuredData.amount_raised_cents;
-      if (structuredData.pre_money_valuation_cents) dealUpdate.pre_money_valuation_cents = structuredData.pre_money_valuation_cents;
-      if (structuredData.solution_summary) dealUpdate.solution_summary = structuredData.solution_summary;
+      if (parsedStructuredData.company_name) dealUpdate.company_name = parsedStructuredData.company_name;
+      if (parsedStructuredData.sector) dealUpdate.sector = parsedStructuredData.sector;
+      if (parsedStructuredData.amount_raised_cents) dealUpdate.amount_raised_cents = parsedStructuredData.amount_raised_cents;
+      if (parsedStructuredData.pre_money_valuation_cents) dealUpdate.pre_money_valuation_cents = parsedStructuredData.pre_money_valuation_cents;
+      if (parsedStructuredData.solution_summary) dealUpdate.solution_summary = parsedStructuredData.solution_summary;
+
+      console.log('Updating deal with:', dealUpdate);
 
       if (Object.keys(dealUpdate).length > 0) {
-        await supabaseClient
+        const { error: updateError } = await supabaseClient
           .from('deals')
           .update(dealUpdate)
           .eq('id', dealId);
+
+        if (updateError) {
+          console.error('Failed to update deal:', updateError);
+        } else {
+          console.log('Deal updated successfully');
+        }
       }
     }
 
