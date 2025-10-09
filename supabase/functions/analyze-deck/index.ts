@@ -284,197 +284,41 @@ async function streamAnalysis(
 
     sendEvent('status', { message: 'Analyse en cours par Claude Haiku...' });
 
-    const systemPrompt = `You are a senior investment analyst specialized in producing ultra-effective investment memos for VC funds. Your mission is to transform complex, messy inputs into decision-ready analyses that can be read in 3–4 minutes while preserving all substance required for an informed investment decision.
+    // ============= FIRST AI CALL: GENERATE MEMO ONLY =============
+    const systemPrompt = `You are an expert investment analyst. Your task is to create a comprehensive, detailed investment memo in French based on the pitch deck content provided.
 
-**Output:** French | **Research:** English/French based on relevance
+Structure your memo with these sections:
+1. **Résumé Exécutif** - Vue d'ensemble de l'opportunité
+2. **Problème & Solution** - Le problème adressé et la solution proposée
+3. **Marché & Opportunité** - Taille du marché, croissance, positionnement
+4. **Modèle d'Affaires** - Comment l'entreprise génère des revenus
+5. **Traction & KPIs** - Métriques clés, croissance, clients
+6. **Équipe** - Fondateurs et membres clés
+7. **Concurrence** - Analyse concurrentielle et avantages compétitifs
+8. **Levée de Fonds** - Montant, utilisation des fonds, valorisation
+9. **Risques** - Principaux risques identifiés
+10. **Conclusion** - Recommandation d'investissement
 
-## Mission
-VC analyst specialized in ultra-concise investment memos (2 min read). Constructive skepticism, ~90% rejection rate. Binary GO/NO-GO decision.
+Write a thorough, professional analysis (minimum 800 words). Use markdown formatting for clarity.
+Be detailed and specific based on the deck content.
 
-## Mandatory Method
+CRITICAL: Generate the COMPLETE memo in one go. Write the full analysis without interruption.`;
 
-### Phase 1 - Alboknowledge Internal Research:
-- **Alboknowledge**: sector trends, multiples, competitive insights
-- **"ratio de valorisation" database**: reference multiples by sector/stage
+    const prompt = `Voici le contenu du pitch deck à analyser:\n\n${extractedMarkdown}\n\nCrée un mémo d'investissement complet et détaillé en français.`;
 
-### Phase 2 - Web Research (5-8 searches):
-Validate: market size, founders, competition, model, impact
-Systematic triangulation + source every key metric
-
-### Phase 3 - Validation:
-Seek contradictions, benchmark vs Albo data, note uncertainties
-
-## Immediate Rejection (any single trigger)
-- Unproven model requiring market education
-- Pre-revenue without customer validation
-- Unsubstantiated impact claims
-- Insufficient founder-market fit
-- Excessive valuation vs traction AND Albo database
-- Vague/replicable competitive advantage
-- Critical unsecured dependencies
-
-## CRITICAL FORMATTING RULES - MUST FOLLOW EXACTLY:
-
-### Markdown Structure (MANDATORY):
-- Use **EXACTLY ONE** # for main title (TL;DR)
-- Use **## for all section headers** (Équipe Fondatrice, Marché, etc.)
-- Use **### for subsections only if needed**
-- Use **---** horizontal rule to separate TL;DR from detailed analysis
-- Use **bold** for key terms: **montant levé**, **ARR**, **CAC/LTV**
-- Use **- bullet lists** for all enumerations
-- Use tables for metrics (| header | header |)
-
-### Spacing Rules (CRITICAL):
-- Add **2 blank lines** before each ## section header
-- Add **1 blank line** after each ## section header
-- Add **1 blank line** between paragraphs
-- Add **1 blank line** before and after tables
-- Add **1 blank line** before and after bullet lists
-
-### Example of PERFECT formatting:
-\`\`\`
-# TL;DR
-
-Thesis en 2-3 phrases...
-
-**Forces:**
-- Force 1
-- Force 2
-
-**Risques:**
-- Risque 1
-- Risque 2
-
-**Recommandation:** NO-GO car...
-
----
-
-
-## 1. Équipe Fondatrice
-
-Background: Les fondateurs ont...
-
-- Fondateur A: **serial entrepreneur**
-- Fondateur B: expertise **deep tech**
-
-
-## 2. Marché & Opportunité
-
-TAM: **€500M** (source: Gartner 2024)
-
-Le marché...
-\`\`\`
-
-## Memo Structure (800-1000 words MAX)
-
-### TL;DR (3 lignes max)
-What, why it wins, proof points, top risks, decision
-
-### Deal Source (1 line)
-
-### Terms (4-5 lines)
-Amount, pre/post-money vs Albo multiples, use of funds %, key milestones, exit scenarios
-
-### Context (4 lines)
-Sourced market, pain points, adoption drivers, Alboknowledge insights
-
-### Solution (5-6 lines)
-Product, differentiators vs Albo comparables, quantified ROI, defensibility
-
-### Why Now? (2 lines)
-Market trends validated by Alboknowledge, competitive timing
-
-### Key Metrics (table format if possible)
-Revenue/growth vs Albo benchmark, CAC/LTV/payback, burn/runway, multiples vs ratios database
-
-### Market (4 lines)
-Sourced TAM/SAM + Alboknowledge, CAGR, realistic penetration, expansion vectors
-
-### Business Model (4 lines)
-Revenue streams, unit economics vs Albo, operating leverage, 3-5y outlook
-
-### Competition (4 lines)
-2-3 main competitors + Albo insights, alternatives, entry barriers, differentiation
-
-### Traction (4 lines)
-Growth vs Albo benchmark, PMF (retention/NPS), partnerships, customer logos
-
-### Team (3 lines)
-Track record, founder-market fit, gaps, relevant advisors
-
-### Risks (5 lines)
-3-4 major risks + concrete mitigations, valuation vs Albo, downside/base/upside scenarios
-
-### Recommendation (2 lines)
-GO/NO-GO + rationale integrating Albo insights. If GO: ticket, conditions, DD. If NO-GO: reconsideration milestones.
-
-## Writing Principles
-- Extreme concision: every sentence = decision-relevant
-- Quantify systematically
-- Source or note "Missing: [what]"
-- No repetition or superfluous jargon
-- Naturally integrate Albo insights
-
-## Sources (end of memo)
-**Albo:** [X Alboknowledge queries, sector Y multiples]
-**Web:** [5-8 key URLs]`;
-
-    const prompt = `Here is the OCR-extracted content from the pitch deck in markdown format:
-
-${extractedMarkdown}
-
-Analyze this content and provide a comprehensive investment memo following the structured format with PERFECT markdown formatting (proper headers, bold, lists, spacing).`;
-
-    // Call Claude Haiku API with tool calling for structured data extraction
+    // Call Claude Haiku API - NO TOOLS, just generate the memo
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': anthropicApiKey,
         'anthropic-version': '2023-06-01',
-        'anthropic-beta': 'web-search-2025-03-05',
       },
       body: JSON.stringify({
         model: 'claude-3-5-haiku-20241022',
-        max_tokens: 8192,
+        max_tokens: 4096,
         stream: true,
         system: systemPrompt,
-        tools: [
-          {
-            name: 'web_search',
-            type: 'web_search_20250305',
-          },
-          {
-            name: 'extract_deal_data',
-            description: 'Extract structured deal data from the investment memo analysis',
-            input_schema: {
-              type: 'object',
-              properties: {
-                company_name: {
-                  type: 'string',
-                  description: 'The actual company name (not PDF filename)',
-                },
-                sector: {
-                  type: 'string',
-                  description: 'Main sector/industry (e.g., FinTech, HealthTech, SaaS)',
-                },
-                amount_raised_cents: {
-                  type: 'integer',
-                  description: 'Amount raised in cents (e.g., 500000 for €5,000)',
-                },
-                pre_money_valuation_cents: {
-                  type: 'integer',
-                  description: 'Pre-money valuation in cents',
-                },
-                solution_summary: {
-                  type: 'string',
-                  description: 'Brief 2-3 sentence summary of the solution',
-                },
-              },
-              required: ['company_name', 'sector', 'solution_summary'],
-            },
-          },
-        ],
         messages: [
           {
             role: 'user',
@@ -490,13 +334,11 @@ Analyze this content and provide a comprehensive investment memo following the s
       throw new Error('Claude API error');
     }
 
-    // Stream the response
+    // Stream the response - simplified parsing (no tools)
     const reader = response.body?.getReader();
     const decoder = new TextDecoder();
     let fullText = '';
     let buffer = '';
-    let structuredData: string = '';
-    let toolInputComplete: boolean = false;
 
     if (!reader) throw new Error('No response body');
 
@@ -518,23 +360,11 @@ Analyze this content and provide a comprehensive investment memo following the s
         try {
           const parsed = JSON.parse(data);
           
-          if (parsed.type === 'content_block_delta') {
-            const delta = parsed.delta;
-            if (delta.type === 'text_delta' && delta.text) {
-              fullText += delta.text;
-              sendEvent('delta', { text: delta.text });
-            }
-          } else if (parsed.type === 'content_block_start' && parsed.content_block?.type === 'tool_use') {
-            // Tool use started - will capture structured data
-            console.log('Tool use started:', parsed.content_block.name);
-          } else if (parsed.type === 'content_block_delta' && parsed.delta?.type === 'input_json_delta') {
-            // Accumulate tool input (structured data)
-            structuredData += parsed.delta.partial_json;
-            console.log('Accumulated tool data length:', structuredData.length);
-          } else if (parsed.type === 'content_block_stop') {
-            // Tool input is complete
-            toolInputComplete = true;
-            console.log('Tool input complete, total length:', structuredData.length);
+          // Simple text streaming only
+          if (parsed.type === 'content_block_delta' && parsed.delta?.type === 'text_delta') {
+            const text = parsed.delta.text;
+            fullText += text;
+            sendEvent('delta', { text });
           }
         } catch (e) {
           console.error('Failed to parse SSE line:', e, line);
@@ -542,42 +372,92 @@ Analyze this content and provide a comprehensive investment memo following the s
       }
     }
 
-    console.log('Streaming completed. Full text length:', fullText.length);
-    console.log('Full text preview (first 200 chars):', fullText.substring(0, 200));
-    console.log('Full text preview (last 200 chars):', fullText.substring(fullText.length - 200));
+    console.log('✅ Memo generation completed. Full text length:', fullText.length);
+    console.log('First 300 chars:', fullText.substring(0, 300));
+    console.log('Last 300 chars:', fullText.substring(fullText.length - 300));
 
-    sendEvent('status', { message: 'Finalisation de l\'analyse...' });
-
-    // Parse accumulated structured data
-    let parsedStructuredData: any = null;
-    if (structuredData && structuredData.length > 0) {
-      try {
-        parsedStructuredData = JSON.parse(structuredData);
-        console.log('Parsed structured data:', JSON.stringify(parsedStructuredData, null, 2));
-      } catch (e) {
-        console.error('Failed to parse structured data:', e);
-        console.error('Raw structured data:', structuredData);
-      }
-    }
-
-    // Update analysis
+    // Save the complete memo
     await supabaseClient
       .from('analyses')
       .update({
         status: 'completed',
-        result: { full_text: fullText },
+        result: { text: fullText },
         completed_at: new Date().toISOString(),
+        progress_percent: 80
       })
       .eq('id', analysisId);
 
-    // Update deal with structured data
-    if (parsedStructuredData) {
+    console.log('✅ Memo saved to database');
+    sendEvent('status', { message: 'Mémo généré, extraction des données...' });
+
+    // ============= SECOND AI CALL: EXTRACT STRUCTURED DATA =============
+    console.log('Starting structured data extraction...');
+
+    const extractionPrompt = `Analyze this pitch deck content and extract key data points.
+Return ONLY valid JSON with these exact fields (use null if not found):
+
+{
+  "company_name": "Legal company name",
+  "sector": "Main industry sector",
+  "solution_summary": "One sentence describing the solution (max 200 chars)",
+  "amount_raised_cents": integer in cents (or null),
+  "pre_money_valuation_cents": integer in cents (or null)
+}
+
+IMPORTANT: 
+- Return ONLY the JSON object, no additional text
+- Convert all amounts to cents (multiply by 100)
+- If a value is not found, use null`;
+
+    const extractionResponse = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': anthropicApiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'claude-3-5-haiku-20241022',
+        max_tokens: 1024,
+        temperature: 0,
+        messages: [
+          { 
+            role: 'user', 
+            content: `${extractionPrompt}\n\nPitch deck content:\n\n${extractedMarkdown}` 
+          }
+        ],
+      }),
+    });
+
+    if (!extractionResponse.ok) {
+      console.error('Extraction API call failed:', await extractionResponse.text());
+      throw new Error('Failed to extract structured data');
+    }
+
+    const extractionData = await extractionResponse.json();
+    const extractedJson = extractionData.content[0].text;
+
+    console.log('Raw extraction response:', extractedJson);
+
+    // Parse extracted data
+    let parsedData: any = null;
+    try {
+      parsedData = JSON.parse(extractedJson);
+      console.log('✅ Parsed structured data:', JSON.stringify(parsedData, null, 2));
+    } catch (e) {
+      console.error('❌ Failed to parse extraction JSON:', e);
+      console.error('Raw text:', extractedJson);
+    }
+
+    // Update deal with extracted data
+    if (parsedData) {
       const dealUpdate: any = {};
-      if (parsedStructuredData.company_name) dealUpdate.company_name = parsedStructuredData.company_name;
-      if (parsedStructuredData.sector) dealUpdate.sector = parsedStructuredData.sector;
-      if (parsedStructuredData.amount_raised_cents) dealUpdate.amount_raised_cents = parsedStructuredData.amount_raised_cents;
-      if (parsedStructuredData.pre_money_valuation_cents) dealUpdate.pre_money_valuation_cents = parsedStructuredData.pre_money_valuation_cents;
-      if (parsedStructuredData.solution_summary) dealUpdate.solution_summary = parsedStructuredData.solution_summary;
+      
+      if (parsedData.company_name) dealUpdate.company_name = parsedData.company_name;
+      if (parsedData.sector) dealUpdate.sector = parsedData.sector;
+      if (parsedData.solution_summary) dealUpdate.solution_summary = parsedData.solution_summary;
+      if (parsedData.amount_raised_cents) dealUpdate.amount_raised_cents = parsedData.amount_raised_cents;
+      if (parsedData.pre_money_valuation_cents) dealUpdate.pre_money_valuation_cents = parsedData.pre_money_valuation_cents;
 
       console.log('Updating deal with:', dealUpdate);
 
@@ -588,12 +468,25 @@ Analyze this content and provide a comprehensive investment memo following the s
           .eq('id', dealId);
 
         if (updateError) {
-          console.error('Failed to update deal:', updateError);
+          console.error('❌ Failed to update deal:', updateError);
         } else {
-          console.log('Deal updated successfully');
+          console.log('✅ Deal updated successfully with', Object.keys(dealUpdate).length, 'fields');
         }
       }
+    } else {
+      console.warn('⚠️ No structured data extracted, deal not updated');
     }
+
+    // Final status update
+    await supabaseClient
+      .from('analyses')
+      .update({
+        progress_percent: 100
+      })
+      .eq('id', analysisId);
+
+    sendEvent('status', { message: 'Analyse terminée !' });
+    console.log('✅ Complete analysis pipeline finished');
 
     sendEvent('done', { message: 'Analyse terminée' });
   } catch (error) {
