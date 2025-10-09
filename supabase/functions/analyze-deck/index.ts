@@ -235,7 +235,7 @@ async function streamAnalysis(
         model: 'mistral-ocr-latest',
         document: {
           type: 'document_url',
-          documentUrl: mistralSignedUrl,
+          document_url: mistralSignedUrl,
         },
       }),
     });
