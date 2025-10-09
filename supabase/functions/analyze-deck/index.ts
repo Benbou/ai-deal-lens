@@ -254,7 +254,7 @@ async function streamAnalysis(
 
     if (ocrData.pages && Array.isArray(ocrData.pages)) {
       extractedMarkdown = ocrData.pages
-        .map((page: any) => page.content || page.text || '')
+        .map((page: any) => page.markdown || '')
         .join('\n\n');
     } else if (ocrData.content) {
       extractedMarkdown = ocrData.content;
