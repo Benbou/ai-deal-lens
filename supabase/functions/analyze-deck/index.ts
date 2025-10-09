@@ -177,25 +177,17 @@ async function streamAnalysis(
 
     sendEvent('status', { message: 'Extraction OCR avec Mistral...' });
 
-    // Convert to base64 for Mistral OCR
-    const arrayBuffer = await fileData.arrayBuffer();
-    const uint8Array = new Uint8Array(arrayBuffer);
-    
-    // Validate PDF
-    const isPDF = uint8Array[0] === 0x25 && uint8Array[1] === 0x50 && 
-                  uint8Array[2] === 0x44 && uint8Array[3] === 0x46 && 
-                  uint8Array[4] === 0x2D;
-    
-    if (!isPDF) throw new Error('Invalid PDF file');
-    
-    // Convert to base64
-    let binary = '';
-    const chunkSize = 8192;
-    for (let i = 0; i < uint8Array.length; i += chunkSize) {
-      const chunk = uint8Array.subarray(i, Math.min(i + chunkSize, uint8Array.length));
-      binary += String.fromCharCode.apply(null, Array.from(chunk));
+    // Create a signed URL for Mistral OCR (valid for 1 hour)
+    const { data: signedUrlData, error: signedUrlError } = await supabaseClient.storage
+      .from('deck-files')
+      .createSignedUrl(deckFile.storage_path, 3600); // 1 hour expiry
+
+    if (signedUrlError || !signedUrlData?.signedUrl) {
+      throw new Error('Failed to create signed URL for deck file');
     }
-    const base64 = btoa(binary);
+
+    const signedUrl = signedUrlData.signedUrl;
+    console.log('Created signed URL for Mistral OCR');
 
     // Call Mistral OCR API
     const mistralResponse = await fetch('https://api.mistral.ai/v1/chat/completions', {
@@ -216,7 +208,7 @@ async function streamAnalysis(
               },
               {
                 type: 'image_url',
-                image_url: `data:application/pdf;base64,${base64}`,
+                image_url: signedUrl,
               },
             ],
           },
