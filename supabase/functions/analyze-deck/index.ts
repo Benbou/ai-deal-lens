@@ -235,7 +235,7 @@ async function streamAnalysis(
         model: 'mistral-ocr-latest',
         document: {
           type: 'document_url',
-          document_url: mistralSignedUrl,
+          documentUrl: mistralSignedUrl,
         },
       }),
     });
@@ -247,14 +247,29 @@ async function streamAnalysis(
     }
 
     const ocrData = await ocrResponse.json();
-    const extractedMarkdown = ocrData.text || ocrData.content || '';
+    console.log('OCR response structure:', JSON.stringify(ocrData, null, 2));
+
+    // Step 4: Extract text from pages array
+    let extractedMarkdown = '';
+
+    if (ocrData.pages && Array.isArray(ocrData.pages)) {
+      extractedMarkdown = ocrData.pages
+        .map((page: any) => page.content || page.text || '')
+        .join('\n\n');
+    } else if (ocrData.content) {
+      extractedMarkdown = ocrData.content;
+    } else if (ocrData.text) {
+      extractedMarkdown = ocrData.text;
+    }
+
     console.log('OCR completed, extracted', extractedMarkdown.length, 'characters');
+    console.log('First 500 characters:', extractedMarkdown.substring(0, 500));
     
-    if (!extractedMarkdown) {
+    if (!extractedMarkdown || extractedMarkdown.trim().length === 0) {
       throw new Error('No content extracted from PDF');
     }
 
-    // Step 4 (optional): Cleanup uploaded file from Mistral
+    // Step 5 (optional): Cleanup uploaded file from Mistral
     try {
       await fetch(`https://api.mistral.ai/v1/files/${mistralFileId}`, {
         method: 'DELETE',
