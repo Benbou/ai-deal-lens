@@ -50,74 +50,35 @@ serve(async (req) => {
 
     console.log('✅ Downloaded deck file successfully');
 
-    // 3. Upload to Mistral for OCR
+    // 3. Convert PDF to base64 for Mistral OCR API
     const mistralApiKey = Deno.env.get('MISTRAL_API_KEY');
     if (!mistralApiKey) {
       throw new Error('MISTRAL_API_KEY not configured');
     }
 
-    console.log('⬆️ Uploading to Mistral for OCR...');
-    console.log('File details:', {
-      name: deckFile.file_name,
-      size: fileData.size,
-      type: fileData.type
-    });
+    console.log('🔄 Converting PDF to base64...');
+    const arrayBuffer = await fileData.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
+    const base64Pdf = btoa(String.fromCharCode(...uint8Array));
+    
+    console.log('📄 Base64 conversion complete, size:', base64Pdf.length);
 
-    const formData = new FormData();
-    formData.append('file', fileData, deckFile.file_name);
-    formData.append('purpose', 'ocr');
+    // 4. Process with Mistral OCR API
+    console.log('🔄 Processing OCR with Mistral OCR API...');
 
-    const uploadResponse = await fetch('https://api.mistral.ai/v1/files', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${mistralApiKey}`,
-      },
-      body: formData,
-    });
-
-    console.log('Mistral upload response status:', uploadResponse.status);
-
-    if (!uploadResponse.ok) {
-      const errorText = await uploadResponse.text();
-      console.error('Mistral upload error:', errorText);
-      console.error('Response status:', uploadResponse.status);
-      console.error('Response headers:', Object.fromEntries(uploadResponse.headers.entries()));
-      throw new Error(`Mistral upload failed: ${uploadResponse.status} - ${errorText}`);
-    }
-
-    const uploadResult = await uploadResponse.json();
-    const fileId = uploadResult.id;
-    console.log('✅ File uploaded to Mistral, file ID:', fileId);
-    console.log('Upload result details:', uploadResult);
-
-    // 4. Process with Mistral OCR
-    console.log('🔄 Processing OCR with Mistral...');
-
-    const ocrResponse = await fetch('https://api.mistral.ai/v1/chat/completions', {
+    const ocrResponse = await fetch('https://api.mistral.ai/v1/ocr', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${mistralApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'pixtral-12b-2409',
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: 'Extract all text content from this pitch deck in markdown format. Preserve structure, titles, and key information.'
-              },
-              {
-                type: 'file_url',
-                file_url: fileId,
-                file_name: deckFile.file_name,
-                file_type: 'pdf'
-              }
-            ]
-          }
-        ]
+        model: 'mistral-ocr-latest',
+        document: {
+          type: 'document_url',
+          document_url: `data:application/pdf;base64,${base64Pdf}`
+        },
+        include_image_base64: false
       }),
     });
 
@@ -132,29 +93,17 @@ serve(async (req) => {
 
     const ocrResult = await ocrResponse.json();
     console.log('OCR result structure:', {
-      hasChoices: !!ocrResult.choices,
-      choicesLength: ocrResult.choices?.length,
-      hasMessage: !!ocrResult.choices?.[0]?.message,
-      hasContent: !!ocrResult.choices?.[0]?.message?.content
+      hasPages: !!ocrResult.pages,
+      pageCount: ocrResult.pages?.length
     });
     
-    const markdownText = ocrResult.choices[0]?.message?.content || '';
+    // Combine markdown from all pages
+    const markdownText = ocrResult.pages
+      ?.map((page: any) => page.markdown || '')
+      .join('\n\n---\n\n') || '';
     
-    console.log('✅ OCR completed, extracted', markdownText.length, 'characters');
+    console.log('✅ OCR completed, extracted', markdownText.length, 'characters from', ocrResult.pages?.length, 'pages');
     console.log('First 500 characters:', markdownText.substring(0, 500));
-
-    // 5. Cleanup: Delete file from Mistral
-    try {
-      const deleteResponse = await fetch(`https://api.mistral.ai/v1/files/${fileId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${mistralApiKey}`,
-        },
-      });
-      console.log('🧹 Cleaned up Mistral file, status:', deleteResponse.status);
-    } catch (cleanupError) {
-      console.warn('Failed to cleanup Mistral file:', cleanupError);
-    }
 
     return new Response(
       JSON.stringify({
