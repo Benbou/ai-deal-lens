@@ -121,15 +121,13 @@
     "form": {
       "deckUpload": {
         "label": "Pitch Deck",
-        "description": "Téléchargez un PDF ou fournissez un lien Docsend",
+        "description": "Télécharger un PDF",
         "dragDrop": "Glissez-déposez votre deck ici, ou cliquez pour parcourir",
         "uploading": "Téléchargement...",
         "uploaded": "Téléchargé"
       },
       "additionalInfo": {
         "label": "Informations Supplémentaires",
-        "email": "Email du Fondateur",
-        "emailPlaceholder": "fondateur@startup.com",
         "context": "Contexte Additionnel",
         "contextPlaceholder": "Toute information supplémentaire sur le deal, le fondateur ou le contexte qui serait utile pour l'analyse...",
         "contextDescription": "Fournissez tout contexte qui aiderait l'analyse"

@@ -121,15 +121,13 @@
     "form": {
       "deckUpload": {
         "label": "Pitch Deck",
-        "description": "Upload PDF or provide Docsend link",
+        "description": "Upload PDF",
         "dragDrop": "Drag and drop your deck here, or click to browse",
         "uploading": "Uploading...",
         "uploaded": "Uploaded"
       },
       "additionalInfo": {
         "label": "Additional Information",
-        "email": "Founder Email",
-        "emailPlaceholder": "founder@startup.com",
         "context": "Additional Context",
         "contextPlaceholder": "Any additional information about the deal, founder, or context that would be helpful for the analysis...",
         "contextDescription": "Provide any context that would help with the analysis"

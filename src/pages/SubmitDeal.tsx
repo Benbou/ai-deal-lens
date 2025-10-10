@@ -7,13 +7,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Upload, FileText, Loader2 } from 'lucide-react';
+import { Upload, FileType, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
 
 const dealSubmissionSchema = z.object({
-  founderEmail: z.string().email('Invalid email format').max(255, 'Email too long').optional().or(z.literal('')),
   additionalContext: z.string().max(5000, 'Additional context must be less than 5000 characters').optional()
 });
 
@@ -25,7 +24,6 @@ export default function SubmitDeal() {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [deckFile, setDeckFile] = useState<File | null>(null);
-  const [founderEmail, setFounderEmail] = useState('');
   const [additionalContext, setAdditionalContext] = useState('');
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -53,7 +51,6 @@ export default function SubmitDeal() {
 
     // Validate inputs
     const validation = dealSubmissionSchema.safeParse({
-      founderEmail: founderEmail || '',
       additionalContext
     });
 
@@ -83,7 +80,7 @@ export default function SubmitDeal() {
       if (uploadError) throw uploadError;
       setUploadProgress(50);
 
-      const personalNotes = `Founder Email: ${founderEmail || 'Not provided'}\n\nAdditional Context:\n${additionalContext || 'No additional context'}`;
+      const personalNotes = additionalContext || 'No additional context';
 
       const { data: deal, error: dealError } = await supabase
         .from('deals')
@@ -163,7 +160,7 @@ export default function SubmitDeal() {
               <label htmlFor="deck-upload" className="cursor-pointer">
                 {deckFile ? (
                   <div className="flex flex-col items-center gap-2">
-                    <FileText className="h-12 w-12 text-success" />
+                    <FileType className="h-12 w-12 text-primary" />
                     <p className="font-medium">{deckFile.name}</p>
                     <p className="text-sm text-muted-foreground">
                       {(deckFile.size / 1024 / 1024).toFixed(2)} MB
@@ -200,19 +197,7 @@ export default function SubmitDeal() {
             <CardTitle>{t('submit.form.additionalInfo.label')}</CardTitle>
             <CardDescription>{t('submit.form.additionalInfo.contextDescription')}</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label htmlFor="founder-email">{t('submit.form.additionalInfo.email')}</Label>
-              <Input
-                id="founder-email"
-                type="email"
-                value={founderEmail}
-                onChange={(e) => setFounderEmail(e.target.value)}
-                placeholder={t('submit.form.additionalInfo.emailPlaceholder')}
-                className="mt-2"
-              />
-            </div>
-
+          <CardContent>
             <div>
               <Label htmlFor="context">{t('submit.form.additionalInfo.context')}</Label>
               <Textarea
