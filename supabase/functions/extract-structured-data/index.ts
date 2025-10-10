@@ -50,8 +50,8 @@ serve(async (req) => {
 
 {
   "company_name": "string - The company/startup name",
-  "sector": "string - The primary sector/industry",
-  "solution_summary": "string - Brief 1-sentence description of the solution (max 150 characters)",
+  "sector": "string - The primary sector/industry in French",
+  "solution_summary": "string - Brief 1-sentence description of the solution in French (max 150 characters)",
   "amount_raised_cents": number - Amount being raised in euro cents (or null if not mentioned),
   "pre_money_valuation_cents": number - Pre-money valuation in euro cents (or null if not mentioned),
   "current_arr_cents": number - Current ARR/revenue in euro cents (or null if not mentioned),
@@ -64,6 +64,7 @@ Important:
 - Growth percentages should be as numbers (e.g., 150 for 150%)
 - Use null for missing values
 - Ensure JSON is valid and parseable
+- **CRITICAL: solution_summary and sector must be in French**
 
 Investment Memo:
 ${memoText}`;
