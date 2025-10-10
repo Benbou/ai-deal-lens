@@ -38,40 +38,23 @@ serve(async (req) => {
 
     console.log('📄 Found deck file:', deckFile.file_name);
 
-    // 2. Download deck from storage
-    const { data: fileData, error: downloadError } = await supabaseClient
+    // 2. Create a signed URL for the deck file (valid for 1 hour)
+    const { data: signedUrlData, error: signedUrlError } = await supabaseClient
       .storage
       .from('deck-files')
-      .download(deckFile.storage_path);
+      .createSignedUrl(deckFile.storage_path, 3600); // 3600 seconds = 1 hour
 
-    if (downloadError || !fileData) {
-      throw new Error('Failed to download deck file');
+    if (signedUrlError || !signedUrlData) {
+      throw new Error('Failed to create signed URL');
     }
 
-    console.log('✅ Downloaded deck file successfully');
+    console.log('✅ Signed URL created successfully');
 
-    // 3. Convert PDF to base64 for Mistral OCR API
+    // 3. Process with Mistral OCR API using the signed URL
     const mistralApiKey = Deno.env.get('MISTRAL_API_KEY');
     if (!mistralApiKey) {
       throw new Error('MISTRAL_API_KEY not configured');
     }
-
-    console.log('🔄 Converting PDF to base64...');
-    const arrayBuffer = await fileData.arrayBuffer();
-    const uint8Array = new Uint8Array(arrayBuffer);
-    
-    // Convert to base64 in chunks to avoid "Maximum call stack size exceeded"
-    let binary = '';
-    const chunkSize = 8192;
-    for (let i = 0; i < uint8Array.length; i += chunkSize) {
-      const chunk = uint8Array.subarray(i, i + chunkSize);
-      binary += String.fromCharCode(...chunk);
-    }
-    const base64Pdf = btoa(binary);
-    
-    console.log('📄 Base64 conversion complete, size:', base64Pdf.length);
-
-    // 4. Process with Mistral OCR API
     console.log('🔄 Processing OCR with Mistral OCR API...');
 
     const ocrResponse = await fetch('https://api.mistral.ai/v1/ocr', {
@@ -84,7 +67,7 @@ serve(async (req) => {
         model: 'mistral-ocr-latest',
         document: {
           type: 'document_url',
-          document_url: `data:application/pdf;base64,${base64Pdf}`
+          document_url: signedUrlData.signedUrl
         },
         include_image_base64: false
       }),
