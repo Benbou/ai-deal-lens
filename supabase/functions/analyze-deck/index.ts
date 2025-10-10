@@ -535,12 +535,16 @@ Return ONLY valid JSON with these exact fields (use null if not found):
   "sector": "Main industry sector",
   "solution_summary": "One sentence describing the solution (max 200 chars)",
   "amount_raised_cents": integer in cents (or null),
-  "pre_money_valuation_cents": integer in cents (or null)
+  "pre_money_valuation_cents": integer in cents (or null),
+  "current_arr_cents": integer in cents representing current ARR or annual revenue (or null),
+  "yoy_growth_percent": decimal number for Year-over-Year growth % (e.g., 150.5 for 150.5% growth, or null),
+  "mom_growth_percent": decimal number for Month-over-Month growth % (e.g., 25.3 for 25.3% growth, or null)
 }
 
 IMPORTANT: 
 - Return ONLY the JSON object, no additional text
 - Convert all amounts to cents (multiply by 100)
+- Growth percentages should be numbers without % sign (e.g., 150.5, not "150.5%")
 - If a value is not found, use null`;
 
     const extractionResponse = await fetch('https://api.anthropic.com/v1/messages', {
@@ -592,6 +596,17 @@ IMPORTANT:
       if (parsedData.solution_summary) dealUpdate.solution_summary = parsedData.solution_summary;
       if (parsedData.amount_raised_cents) dealUpdate.amount_raised_cents = parsedData.amount_raised_cents;
       if (parsedData.pre_money_valuation_cents) dealUpdate.pre_money_valuation_cents = parsedData.pre_money_valuation_cents;
+      
+      // Nouveaux champs de traction
+      if (parsedData.current_arr_cents !== undefined && parsedData.current_arr_cents !== null) {
+        dealUpdate.current_arr_cents = parsedData.current_arr_cents;
+      }
+      if (parsedData.yoy_growth_percent !== undefined && parsedData.yoy_growth_percent !== null) {
+        dealUpdate.yoy_growth_percent = parsedData.yoy_growth_percent;
+      }
+      if (parsedData.mom_growth_percent !== undefined && parsedData.mom_growth_percent !== null) {
+        dealUpdate.mom_growth_percent = parsedData.mom_growth_percent;
+      }
 
       console.log('Updating deal with:', dealUpdate);
 

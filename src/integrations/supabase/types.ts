@@ -76,9 +76,11 @@ export type Database = {
           country: string
           created_at: string | null
           currency: string | null
+          current_arr_cents: number | null
           id: string
           is_archived: boolean | null
           is_invested: boolean | null
+          mom_growth_percent: number | null
           personal_notes: string | null
           pre_money_valuation_cents: number | null
           sector: string
@@ -89,6 +91,7 @@ export type Database = {
           updated_at: string | null
           user_id: string
           website: string | null
+          yoy_growth_percent: number | null
         }
         Insert: {
           amount_raised_cents?: number | null
@@ -98,9 +101,11 @@ export type Database = {
           country: string
           created_at?: string | null
           currency?: string | null
+          current_arr_cents?: number | null
           id?: string
           is_archived?: boolean | null
           is_invested?: boolean | null
+          mom_growth_percent?: number | null
           personal_notes?: string | null
           pre_money_valuation_cents?: number | null
           sector: string
@@ -111,6 +116,7 @@ export type Database = {
           updated_at?: string | null
           user_id: string
           website?: string | null
+          yoy_growth_percent?: number | null
         }
         Update: {
           amount_raised_cents?: number | null
@@ -120,9 +126,11 @@ export type Database = {
           country?: string
           created_at?: string | null
           currency?: string | null
+          current_arr_cents?: number | null
           id?: string
           is_archived?: boolean | null
           is_invested?: boolean | null
+          mom_growth_percent?: number | null
           personal_notes?: string | null
           pre_money_valuation_cents?: number | null
           sector?: string
@@ -133,6 +141,7 @@ export type Database = {
           updated_at?: string | null
           user_id?: string
           website?: string | null
+          yoy_growth_percent?: number | null
         }
         Relationships: [
           {

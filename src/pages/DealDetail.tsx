@@ -41,7 +41,11 @@ interface Deal {
   stage?: string | null;
   amount_raised_cents?: number | null;
   pre_money_valuation_cents?: number | null;
+  current_arr_cents?: number | null;
+  yoy_growth_percent?: number | null;
+  mom_growth_percent?: number | null;
   solution_summary?: string | null;
+  currency?: string;
   deck_files?: DeckFile[];
 }
 
@@ -138,10 +142,11 @@ export default function DealDetail() {
     };
   }, [id, startAnalysis, reset]);
 
-  const formatCurrency = (cents?: number | null) => {
+  const formatCurrency = (cents?: number | null, currency?: string) => {
     if (!cents) return '-';
     const millions = cents / 100 / 1000000;
-    return `€${millions.toFixed(1)}M`;
+    const symbol = currency === 'USD' ? '$' : '€';
+    return `${symbol}${millions.toFixed(1)}M`;
   };
 
   if (loading) {
@@ -267,15 +272,33 @@ export default function DealDetail() {
 
       <Card className="p-6">
         <h2 className="text-2xl font-semibold mb-4">Informations du Deal</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <div>
             <p className="text-sm text-muted-foreground mb-1">Montant levé</p>
-            <p className="text-xl font-semibold">{formatCurrency(deal.amount_raised_cents)}</p>
+            <p className="text-xl font-semibold">{formatCurrency(deal.amount_raised_cents, deal.currency)}</p>
           </div>
           <div>
             <p className="text-sm text-muted-foreground mb-1">Valorisation pré-money</p>
-            <p className="text-xl font-semibold">{formatCurrency(deal.pre_money_valuation_cents)}</p>
+            <p className="text-xl font-semibold">{formatCurrency(deal.pre_money_valuation_cents, deal.currency)}</p>
           </div>
+          {deal.current_arr_cents !== undefined && deal.current_arr_cents !== null && (
+            <div>
+              <p className="text-sm text-muted-foreground mb-1">CA / ARR actuel</p>
+              <p className="text-xl font-semibold">{formatCurrency(deal.current_arr_cents, deal.currency)}</p>
+            </div>
+          )}
+          {deal.yoy_growth_percent !== undefined && deal.yoy_growth_percent !== null && (
+            <div>
+              <p className="text-sm text-muted-foreground mb-1">Croissance YoY</p>
+              <p className="text-xl font-semibold text-green-600">+{deal.yoy_growth_percent.toFixed(1)}%</p>
+            </div>
+          )}
+          {deal.mom_growth_percent !== undefined && deal.mom_growth_percent !== null && (
+            <div>
+              <p className="text-sm text-muted-foreground mb-1">Croissance MoM</p>
+              <p className="text-xl font-semibold text-green-600">+{deal.mom_growth_percent.toFixed(1)}%</p>
+            </div>
+          )}
         </div>
         {deal.solution_summary && (
           <div className="mt-6 pt-6 border-t">
