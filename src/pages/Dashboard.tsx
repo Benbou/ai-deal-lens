@@ -201,7 +201,7 @@ export default function Dashboard() {
         ) : (
           <div className="space-y-4">
             {/* Header Row */}
-            <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_auto] gap-4 px-6 py-3 bg-muted/50 rounded-lg text-sm font-medium">
+            <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_auto] gap-4 px-6 py-3 bg-muted/50 rounded-lg text-sm font-medium items-center">
               <div>Entreprise</div>
               <div>Secteur</div>
               <div>Stage</div>

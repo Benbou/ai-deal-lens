@@ -225,8 +225,8 @@ ${markdownText}
           console.log('🤖 Calling Claude API for memo generation...');
 
           const messageStream = await anthropic.messages.stream({
-            model: 'claude-opus-4-20250514',
-            max_tokens: 16000,
+            model: 'claude-3-5-haiku-20241022',
+            max_tokens: 8000,
             temperature: 0.3,
             system: systemPrompt,
             messages: [
