@@ -285,22 +285,70 @@ async function streamAnalysis(
     sendEvent('status', { message: 'Analyse en cours par Claude Haiku...' });
 
     // ============= FIRST AI CALL: GENERATE MEMO ONLY =============
-    const systemPrompt = `You are an expert investment analyst. Your task is to create a comprehensive, detailed investment memo in French based on the pitch deck content provided.
+    const systemPrompt = `You are an expert investment analyst. Your task is to create a comprehensive, well-structured investment memo in French based on the pitch deck content provided.
 
-Structure your memo with these sections:
-1. **Résumé Exécutif** - Vue d'ensemble de l'opportunité
-2. **Problème & Solution** - Le problème adressé et la solution proposée
-3. **Marché & Opportunité** - Taille du marché, croissance, positionnement
-4. **Modèle d'Affaires** - Comment l'entreprise génère des revenus
-5. **Traction & KPIs** - Métriques clés, croissance, clients
-6. **Équipe** - Fondateurs et membres clés
-7. **Concurrence** - Analyse concurrentielle et avantages compétitifs
-8. **Levée de Fonds** - Montant, utilisation des fonds, valorisation
-9. **Risques** - Principaux risques identifiés
-10. **Conclusion** - Recommandation d'investissement
+CRITICAL FORMATTING RULES:
+- Use clear visual hierarchy with headings (##) for EACH major section
+- Add spacing between sections with blank lines
+- Start each section with a ## heading
+- Use bullet points (- or *) for lists
+- Use **bold** for key metrics and important points
+- Add a horizontal rule (---) between major parts if needed
 
-Write a thorough, professional analysis (minimum 800 words). Use markdown formatting for clarity.
-Be detailed and specific based on the deck content.
+REQUIRED STRUCTURE (use these exact section titles with ## headings):
+
+## 1. Résumé Exécutif
+Brief overview of the investment opportunity (2-3 paragraphs)
+
+## 2. Problème & Solution  
+- Problem being solved
+- Proposed solution
+- Unique value proposition
+
+## 3. Marché & Opportunité
+- Market size and growth
+- Target segments
+- Market positioning
+
+## 4. Modèle d'Affaires
+- Revenue streams
+- Pricing strategy
+- Unit economics
+
+## 5. Traction & KPIs
+- Key metrics and growth
+- Customer acquisition
+- Revenue milestones
+
+## 6. Équipe
+- Founders and key team members
+- Relevant experience
+- Advisory board if applicable
+
+## 7. Concurrence & Différenciation
+- Competitive landscape
+- Competitive advantages
+- Barriers to entry
+
+## 8. Levée de Fonds
+- Amount being raised
+- Use of funds
+- Valuation details
+
+## 9. Risques Identifiés
+- Market risks
+- Execution risks
+- Competitive risks
+
+## 10. Recommandation d'Investissement
+Final assessment and recommendation
+
+IMPORTANT: 
+- Minimum 1000 words total
+- Use markdown formatting extensively
+- Make it visually scannable with clear sections
+- Each section should have 2-4 paragraphs minimum
+- Use concrete data from the deck
 
 CRITICAL: Generate the COMPLETE memo in one go. Write the full analysis without interruption.`;
 
@@ -315,8 +363,8 @@ CRITICAL: Generate the COMPLETE memo in one go. Write the full analysis without 
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-3-5-haiku-20241022',
-        max_tokens: 4096,
+        model: 'claude-sonnet-4-5-20250929',
+        max_tokens: 8000,
         stream: true,
         system: systemPrompt,
         messages: [
@@ -417,7 +465,7 @@ IMPORTANT:
         'content-type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'claude-3-5-haiku-20241022',
+        model: 'claude-sonnet-4-5-20250929',
         max_tokens: 1024,
         temperature: 0,
         messages: [

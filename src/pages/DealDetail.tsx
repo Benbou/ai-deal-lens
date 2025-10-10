@@ -309,24 +309,30 @@ export default function DealDetail() {
               </Badge>
             )}
           </div>
-          <div className="prose prose-base max-w-none dark:prose-invert 
-            prose-headings:font-bold prose-headings:text-foreground prose-headings:tracking-tight
-            prose-h1:text-3xl prose-h1:border-b-2 prose-h1:border-primary/20 prose-h1:pb-4 prose-h1:mb-8
-            prose-h2:text-2xl prose-h2:mt-16 prose-h2:mb-6 prose-h2:border-b-2 prose-h2:border-border prose-h2:pb-3
-            prose-h3:text-xl prose-h3:mt-8 prose-h3:mb-4 prose-h3:text-primary
-            prose-p:text-foreground prose-p:leading-relaxed prose-p:mb-5 prose-p:text-base
-            prose-p:first-of-type:text-lg prose-p:first-of-type:font-medium prose-p:first-of-type:text-muted-foreground
-            prose-strong:text-foreground prose-strong:font-bold prose-strong:text-primary
-            prose-ul:my-5 prose-ul:text-foreground prose-ul:space-y-2 prose-ol:my-5 prose-ol:text-foreground prose-ol:space-y-2
-            prose-li:text-foreground prose-li:my-2 prose-li:leading-relaxed prose-li:marker:text-primary prose-li:marker:font-bold
-            prose-table:text-sm prose-table:my-8 prose-table:border-collapse prose-th:font-bold prose-th:py-3 prose-th:px-4 prose-th:bg-muted
-            prose-td:border prose-td:border-border prose-td:py-3 prose-td:px-4 prose-th:border prose-th:border-border
-            prose-blockquote:border-l-4 prose-blockquote:border-l-primary prose-blockquote:pl-6 prose-blockquote:py-2
-            prose-blockquote:italic prose-blockquote:text-muted-foreground prose-blockquote:my-6 prose-blockquote:bg-muted/30
-            prose-code:text-foreground prose-code:bg-muted prose-code:px-2 prose-code:py-1 
-            prose-code:rounded prose-code:text-sm prose-code:font-mono prose-code:font-semibold
-            prose-pre:bg-muted prose-pre:text-foreground prose-pre:p-4 prose-pre:rounded-lg prose-pre:my-6
-            prose-hr:border-2 prose-hr:border-primary/30 prose-hr:my-12">
+          <div className="prose prose-lg max-w-none dark:prose-invert
+            prose-headings:scroll-mt-16
+            prose-h1:text-4xl prose-h1:font-extrabold prose-h1:mb-8 prose-h1:pb-6 prose-h1:border-b-4 prose-h1:border-primary/40
+            prose-h2:text-3xl prose-h2:font-bold prose-h2:mt-16 prose-h2:mb-8 prose-h2:pb-4 prose-h2:border-b-2 prose-h2:border-primary/20
+            prose-h2:bg-gradient-to-r prose-h2:from-primary/5 prose-h2:to-transparent prose-h2:px-4 prose-h2:py-3 prose-h2:rounded-md prose-h2:-mx-4
+            prose-h3:text-2xl prose-h3:font-semibold prose-h3:mt-10 prose-h3:mb-5 prose-h3:text-primary
+            prose-h4:text-xl prose-h4:font-semibold prose-h4:mt-8 prose-h4:mb-4
+            prose-p:text-base prose-p:leading-relaxed prose-p:mb-6 prose-p:text-foreground/90
+            prose-p:first-of-type:text-lg prose-p:first-of-type:font-medium prose-p:first-of-type:leading-relaxed
+            prose-strong:font-bold prose-strong:text-primary prose-strong:bg-primary/5 prose-strong:px-1 prose-strong:rounded
+            prose-ul:my-6 prose-ul:space-y-3 prose-ul:pl-6
+            prose-ol:my-6 prose-ol:space-y-3 prose-ol:pl-6
+            prose-li:text-base prose-li:leading-relaxed prose-li:text-foreground/90
+            prose-li:marker:text-primary prose-li:marker:font-bold
+            prose-blockquote:border-l-4 prose-blockquote:border-primary prose-blockquote:bg-primary/5 
+            prose-blockquote:pl-6 prose-blockquote:pr-6 prose-blockquote:py-4 prose-blockquote:my-8
+            prose-blockquote:italic prose-blockquote:rounded-r-md
+            prose-code:bg-muted prose-code:text-primary prose-code:px-2 prose-code:py-1 prose-code:rounded prose-code:text-sm prose-code:font-mono
+            prose-pre:bg-muted prose-pre:border prose-pre:border-border prose-pre:p-4 prose-pre:rounded-lg prose-pre:my-6
+            prose-table:my-8 prose-table:border-collapse prose-table:w-full
+            prose-th:bg-primary/10 prose-th:font-bold prose-th:text-left prose-th:py-3 prose-th:px-4 prose-th:border prose-th:border-border
+            prose-td:border prose-td:border-border prose-td:py-3 prose-td:px-4
+            prose-hr:border-2 prose-hr:border-primary/20 prose-hr:my-12
+            prose-a:text-primary prose-a:font-medium prose-a:underline prose-a:decoration-primary/30 hover:prose-a:decoration-primary">
             <ReactMarkdown>{displayText}</ReactMarkdown>
           </div>
         </Card>
