@@ -258,13 +258,13 @@ export default function Dashboard() {
                     {/* Status */}
                     <div>
                       {deal.status === 'processing' && (
-                        <Badge className="bg-primary flex items-center gap-2">
-                          <div className="animate-spin rounded-full h-3 w-3 border-2 border-white border-t-transparent" />
+                        <Badge className="bg-warning text-warning-foreground flex items-center gap-1">
                           Analyse en cours
+                          <span className="animate-pulse">...</span>
                         </Badge>
                       )}
                       {deal.status === 'completed' && (
-                        <Badge className="bg-success flex items-center gap-2 animate-fade-in">
+                        <Badge className="bg-success text-success-foreground flex items-center gap-2 animate-fade-in">
                           <CheckCircle className="h-3 w-3" />
                           Analysé
                         </Badge>

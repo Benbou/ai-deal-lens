@@ -234,13 +234,13 @@ export default function DealDetail() {
             <Badge>{deal.sector}</Badge>
             {deal.stage && <Badge variant="outline">{deal.stage}</Badge>}
             {isProcessing && (
-              <Badge className="bg-primary flex items-center gap-2">
-                <div className="animate-spin rounded-full h-3 w-3 border-2 border-white border-t-transparent" />
+              <Badge className="bg-warning text-warning-foreground flex items-center gap-1">
                 Analyse en cours
+                <span className="animate-pulse">...</span>
               </Badge>
             )}
             {isCompleted && (
-              <Badge className="bg-success flex items-center gap-2 animate-fade-in">
+              <Badge className="bg-success text-success-foreground flex items-center gap-2 animate-fade-in">
                 <CheckCircle className="h-3 w-3" />
                 Analysé
               </Badge>
