@@ -87,21 +87,36 @@ serve(async (req) => {
     const stream = new ReadableStream({
       async start(controller) {
         const encoder = new TextEncoder();
+        let streamClosed = false;
         
         const sendEvent = (event: string, data: any) => {
-          const message = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
-          controller.enqueue(encoder.encode(message));
+          if (streamClosed) {
+            console.warn('⚠️ Attempted to send event after stream closed:', event);
+            return;
+          }
+          try {
+            const message = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+            controller.enqueue(encoder.encode(message));
+          } catch (error) {
+            console.error('Error sending event:', error);
+            streamClosed = true;
+          }
         };
 
         try {
           await streamAnalysis(supabaseClient, dealId, sendEvent);
-          controller.close();
         } catch (error) {
           console.error('Streaming error:', error);
           sendEvent('error', { 
             message: error instanceof Error ? error.message : 'Analysis failed' 
           });
-          controller.close();
+        } finally {
+          streamClosed = true;
+          try {
+            controller.close();
+          } catch (e) {
+            console.warn('Stream already closed');
+          }
         }
       }
     });
@@ -641,16 +656,37 @@ IMPORTANT:
     console.error('Error in streamAnalysis:', error);
     
     if (analysisId) {
-      await supabaseClient
+      // Check current status before marking as failed
+      const { data: currentAnalysis } = await supabaseClient
         .from('analyses')
-        .update({ 
-          status: 'failed', 
-          error_message: error instanceof Error ? error.message : 'Unknown error',
-          completed_at: new Date().toISOString()
-        })
-        .eq('id', analysisId);
+        .select('status')
+        .eq('id', analysisId)
+        .single();
+
+      // Only mark as failed if not already completed
+      if (currentAnalysis?.status !== 'completed') {
+        await supabaseClient
+          .from('analyses')
+          .update({ 
+            status: 'failed', 
+            error_message: error instanceof Error ? error.message : 'Unknown error',
+            completed_at: new Date().toISOString()
+          })
+          .eq('id', analysisId);
+      } else {
+        console.log('ℹ️ Analysis already completed, not marking as failed');
+      }
     }
     
-    throw error;
+    // Don't re-throw if analysis was successful
+    const { data: finalAnalysis } = await supabaseClient
+      .from('analyses')
+      .select('status')
+      .eq('id', analysisId)
+      .single();
+    
+    if (finalAnalysis?.status !== 'completed') {
+      throw error;
+    }
   }
 }
