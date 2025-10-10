@@ -59,7 +59,15 @@ serve(async (req) => {
     console.log('🔄 Converting PDF to base64...');
     const arrayBuffer = await fileData.arrayBuffer();
     const uint8Array = new Uint8Array(arrayBuffer);
-    const base64Pdf = btoa(String.fromCharCode(...uint8Array));
+    
+    // Convert to base64 in chunks to avoid "Maximum call stack size exceeded"
+    let binary = '';
+    const chunkSize = 8192;
+    for (let i = 0; i < uint8Array.length; i += chunkSize) {
+      const chunk = uint8Array.subarray(i, i + chunkSize);
+      binary += String.fromCharCode(...chunk);
+    }
+    const base64Pdf = btoa(binary);
     
     console.log('📄 Base64 conversion complete, size:', base64Pdf.length);
 
