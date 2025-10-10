@@ -17,7 +17,7 @@ export function useStreamAnalysis() {
       }
 
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-deck`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-deck-orchestrator`,
         {
           method: 'POST',
           headers: {
@@ -83,7 +83,11 @@ export function useStreamAnalysis() {
     } catch (error) {
       console.error('Analysis error:', error);
       setIsStreaming(false);
-      toast.error('Erreur lors de l\'analyse');
+      const errorMessage = error instanceof Error ? error.message : 'Erreur lors de l\'analyse';
+      toast.error(errorMessage);
+      
+      // Notify user of failure
+      toast.error('L\'analyse a échoué. Veuillez réessayer ou contacter le support si le problème persiste.');
     }
   }, []);
 

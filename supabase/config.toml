@@ -2,3 +2,18 @@ project_id = "lnybmpzrrpxzwkqsiaic"
 
 [functions.analyze-deck]
 verify_jwt = true
+
+[functions.analyze-deck-orchestrator]
+verify_jwt = true
+
+[functions.process-pdf-ocr]
+verify_jwt = false
+
+[functions.generate-investment-memo]
+verify_jwt = false
+
+[functions.extract-structured-data]
+verify_jwt = false
+
+[functions.finalize-analysis]
+verify_jwt = false
