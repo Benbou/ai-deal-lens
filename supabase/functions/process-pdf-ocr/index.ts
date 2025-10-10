@@ -65,7 +65,7 @@ serve(async (req) => {
 
     const formData = new FormData();
     formData.append('file', fileData, deckFile.file_name);
-    formData.append('purpose', 'vision');
+    formData.append('purpose', 'ocr');
 
     const uploadResponse = await fetch('https://api.mistral.ai/v1/files', {
       method: 'POST',

@@ -320,16 +320,19 @@ serve(async (req) => {
         } catch (error) {
           console.error('Error in orchestrator:', error);
           
+          const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+          const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+          
           // Update analysis to failed
           if (analysisId) {
             const supabaseServiceClient = createClient(
-              Deno.env.get('SUPABASE_URL') ?? '',
-              Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+              supabaseUrl,
+              supabaseServiceKey
             );
 
             const { data: currentAnalysis } = await supabaseServiceClient
               .from('analyses')
-              .select('status')
+              .select('status, current_step')
               .eq('id', analysisId)
               .single();
 
@@ -342,6 +345,28 @@ serve(async (req) => {
                   completed_at: new Date().toISOString()
                 })
                 .eq('id', analysisId);
+            }
+
+            // Send admin alert
+            try {
+              console.log('📧 Sending admin alert...');
+              await fetch(`${supabaseUrl}/functions/v1/send-admin-alert`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${supabaseServiceKey}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  dealId,
+                  error: error instanceof Error ? error.message : 'Unknown error',
+                  step: currentAnalysis?.current_step || 'Unknown',
+                  timestamp: new Date().toISOString(),
+                  stackTrace: error instanceof Error ? error.stack : undefined
+                })
+              });
+              console.log('✅ Admin alert sent');
+            } catch (alertError) {
+              console.error('Failed to send admin alert:', alertError);
             }
           }
 

@@ -5,9 +5,11 @@ import { toast } from 'sonner';
 export function useStreamAnalysis() {
   const [streamingText, setStreamingText] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const startAnalysis = useCallback(async (dealId: string) => {
     try {
+      setError(null); // Reset error
       setIsStreaming(true);
       setStreamingText('');
 
@@ -84,21 +86,21 @@ export function useStreamAnalysis() {
       console.error('Analysis error:', error);
       setIsStreaming(false);
       const errorMessage = error instanceof Error ? error.message : 'Erreur lors de l\'analyse';
-      toast.error(errorMessage);
-      
-      // Notify user of failure
-      toast.error('L\'analyse a échoué. Veuillez réessayer ou contacter le support si le problème persiste.');
+      setError(errorMessage);
+      toast.error('L\'analyse a échoué. Notre équipe a été notifiée.');
     }
   }, []);
 
   const reset = useCallback(() => {
     setStreamingText('');
     setIsStreaming(false);
+    setError(null);
   }, []);
 
   return {
     streamingText,
     isStreaming,
+    error,
     startAnalysis,
     reset,
   };

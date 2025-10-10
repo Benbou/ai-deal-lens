@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Download, Trash2, CheckCircle } from 'lucide-react';
+import { Download, Trash2, CheckCircle, AlertCircle } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useTranslation } from 'react-i18next';
@@ -58,7 +58,7 @@ export default function DealDetail() {
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
   const { t } = useTranslation();
-  const { streamingText, isStreaming, startAnalysis, reset } = useStreamAnalysis();
+  const { streamingText, isStreaming, error, startAnalysis, reset } = useStreamAnalysis();
 
   useEffect(() => {
     if (!id) return;
@@ -320,7 +320,36 @@ export default function DealDetail() {
         )}
       </Card>
 
-      {(isDealProcessing || isStreaming) && !displayText && (
+      {error && (
+        <Card className="p-8 border-destructive bg-destructive/10">
+          <div className="flex flex-col items-center gap-4 text-center">
+            <AlertCircle className="h-12 w-12 text-destructive" />
+            <div>
+              <h3 className="text-xl font-semibold mb-2 text-destructive">
+                Erreur lors de l'analyse
+              </h3>
+              <p className="text-muted-foreground mb-4">
+                {error}
+              </p>
+              <p className="text-sm text-muted-foreground mb-4">
+                Notre équipe technique a été automatiquement notifiée. 
+                Vous pouvez réessayer ou nous contacter si le problème persiste.
+              </p>
+              <Button 
+                onClick={() => {
+                  reset();
+                  if (id) startAnalysis(id);
+                }}
+                variant="outline"
+              >
+                Réessayer l'analyse
+              </Button>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {!error && (isDealProcessing || isStreaming) && !displayText && (
         <Card className="p-12 text-center">
           <div className="flex flex-col items-center gap-4">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>

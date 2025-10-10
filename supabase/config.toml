@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.finalize-analysis]
 verify_jwt = false
+
+[functions.send-admin-alert]
+verify_jwt = false
