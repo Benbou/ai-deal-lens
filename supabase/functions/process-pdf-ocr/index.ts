@@ -111,7 +111,9 @@ serve(async (req) => {
               },
               {
                 type: 'file_url',
-                file_url: fileId
+                file_url: fileId,
+                file_name: deckFile.file_name,
+                file_type: 'pdf'
               }
             ]
           }

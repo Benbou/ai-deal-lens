@@ -98,7 +98,7 @@ serve(async (req) => {
     `;
 
     const { data, error: emailError } = await resend.emails.send({
-      from: 'DealFlow Alerts <alerts@updates.lovable.app>',
+      from: 'DealFlow Alerts <onboarding@resend.dev>',
       to: ['benjamin@alboteam.com'],
       subject: `🚨 Erreur analyse - Deal ${dealId.substring(0, 8)}...`,
       html: emailHtml,
