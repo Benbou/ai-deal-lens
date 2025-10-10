@@ -454,11 +454,10 @@ Generate the COMPLETE memo in one go. Write the full analysis without interrupti
         ],
         tools: [
           {
-            name: 'web_search',
-            type: 'web_search_20250305'
+            type: 'web_search_20250305',
+            name: 'web_search'
           }
-        ],
-        betas: ['web-search-2025-03-05']
+        ]
       }),
     });
 
