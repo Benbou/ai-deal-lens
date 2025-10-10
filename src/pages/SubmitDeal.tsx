@@ -109,16 +109,19 @@ export default function SubmitDeal() {
 
       setUploadProgress(90);
 
-      await supabase.functions.invoke('analyze-deck', {
+      // Launch analysis in background (don't await - it's a long-running stream)
+      supabase.functions.invoke('analyze-deck', {
         body: { dealId: deal.id },
+      }).catch(err => {
+        console.error('Analysis invocation error:', err);
+        // Don't block user flow - analysis will retry
       });
 
       setUploadProgress(100);
       toast.success(t('submit.success.title'));
       
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 1000);
+      // Redirect immediately - user can see progress on dashboard
+      navigate('/dashboard');
 
     } catch (error: any) {
       console.error('Error:', error);
