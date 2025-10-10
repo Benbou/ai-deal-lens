@@ -107,21 +107,11 @@ export default function SubmitDeal() {
         mime_type: deckFile.type,
       });
 
-      setUploadProgress(90);
-
-      // Launch analysis in background (don't await - it's a long-running stream)
-      supabase.functions.invoke('analyze-deck', {
-        body: { dealId: deal.id },
-      }).catch(err => {
-        console.error('Analysis invocation error:', err);
-        // Don't block user flow - analysis will retry
-      });
-
       setUploadProgress(100);
       toast.success(t('submit.success.title'));
       
-      // Redirect immediately - user can see progress on dashboard
-      navigate('/dashboard');
+      // Redirect to deal detail page - it will auto-start streaming analysis
+      navigate(`/deal/${deal.id}`);
 
     } catch (error: any) {
       console.error('Error:', error);

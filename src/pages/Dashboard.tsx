@@ -52,12 +52,31 @@ export default function Dashboard() {
   useEffect(() => {
     loadDeals();
 
-    // Poll for updates every 5 seconds to catch status changes
-    const interval = setInterval(() => {
-      loadDeals();
-    }, 5000);
+    // Subscribe to real-time updates on deals table
+    const channel = supabase
+      .channel('deals-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'deals'
+        },
+        (payload) => {
+          console.log('Deal updated:', payload);
+          // Update the specific deal in state
+          setDeals(prev => 
+            prev.map(deal => 
+              deal.id === payload.new.id ? { ...deal, ...payload.new } as Deal : deal
+            )
+          );
+        }
+      )
+      .subscribe();
 
-    return () => clearInterval(interval);
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const loadDeals = async () => {

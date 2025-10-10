@@ -146,3 +146,88 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+
+/* Notion-like Markdown styles */
+@layer components {
+  .prose {
+    @apply text-foreground;
+  }
+
+  .prose h1 {
+    @apply text-5xl font-extrabold mt-12 mb-8 pb-6 border-b-4 border-primary/30 leading-tight;
+  }
+
+  .prose h2 {
+    @apply text-3xl font-bold mt-16 mb-8 pb-4 border-b-2 border-primary/20 leading-tight px-4 py-3 rounded-md -mx-4;
+    background: linear-gradient(to right, hsl(var(--primary) / 0.08), transparent);
+  }
+
+  .prose h3 {
+    @apply text-2xl font-semibold mt-10 mb-5 text-primary leading-snug;
+  }
+
+  .prose h4 {
+    @apply text-xl font-semibold mt-8 mb-4 leading-snug;
+  }
+
+  .prose p {
+    @apply text-base leading-relaxed mb-6 text-foreground/90;
+  }
+
+  .prose p + p {
+    @apply mt-6;
+  }
+
+  .prose ul,
+  .prose ol {
+    @apply my-6 space-y-3 pl-6;
+  }
+
+  .prose li {
+    @apply text-base leading-relaxed text-foreground/90;
+  }
+
+  .prose li::marker {
+    @apply text-primary font-bold;
+  }
+
+  .prose strong {
+    @apply font-bold text-primary bg-primary/5 px-1 rounded;
+  }
+
+  .prose blockquote {
+    @apply border-l-4 border-primary bg-primary/5 pl-6 pr-6 py-4 my-8 italic rounded-r-md;
+  }
+
+  .prose code {
+    @apply bg-muted text-primary px-2 py-1 rounded text-sm font-mono;
+  }
+
+  .prose pre {
+    @apply bg-muted border border-border p-4 rounded-lg my-6 overflow-x-auto;
+  }
+
+  .prose table {
+    @apply my-8 border-collapse w-full;
+  }
+
+  .prose th {
+    @apply bg-primary/10 font-bold text-left py-3 px-4 border border-border;
+  }
+
+  .prose td {
+    @apply border border-border py-3 px-4;
+  }
+
+  .prose hr {
+    @apply border-2 border-primary/20 my-12;
+  }
+
+  .prose a {
+    @apply text-primary font-medium underline decoration-primary/30;
+  }
+
+  .prose a:hover {
+    @apply decoration-primary;
+  }
+}

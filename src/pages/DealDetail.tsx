@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Download, Trash2, CheckCircle } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { useStreamAnalysis } from '@/hooks/useStreamAnalysis';
@@ -81,8 +82,8 @@ export default function DealDetail() {
 
         setAnalysis(analysisData);
 
-        // Auto-start streaming if analysis is processing (even during OCR phase)
-        if (analysisData?.status === 'processing' && dealData?.status === 'processing') {
+        // Auto-start analysis if no analysis exists yet OR if processing
+        if (dealData && (!analysisData || analysisData.status === 'processing')) {
           startAnalysis(id);
         }
       } finally {
@@ -220,7 +221,8 @@ export default function DealDetail() {
   };
 
   const analysisStatus = analysis?.status || 'pending';
-  const isProcessing = analysisStatus === 'processing' || isStreaming;
+  const isDealProcessing = (deal as any)?.status === 'processing';
+  const isProcessing = isDealProcessing || analysisStatus === 'processing' || isStreaming;
   const isCompleted = analysisStatus === 'completed' && !isStreaming;
   const displayName = deal.company_name || deal.startup_name;
   const displayText = isStreaming ? streamingText : (analysis?.result?.full_text || '');
@@ -318,7 +320,7 @@ export default function DealDetail() {
         )}
       </Card>
 
-      {isStreaming && !displayText && (
+      {(isDealProcessing || isStreaming) && !displayText && (
         <Card className="p-12 text-center">
           <div className="flex flex-col items-center gap-4">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -366,7 +368,7 @@ export default function DealDetail() {
             prose-td:border prose-td:border-border prose-td:py-3 prose-td:px-4
             prose-hr:border-2 prose-hr:border-primary/20 prose-hr:my-12
             prose-a:text-primary prose-a:font-medium prose-a:underline prose-a:decoration-primary/30 hover:prose-a:decoration-primary">
-            <ReactMarkdown>{displayText}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{displayText}</ReactMarkdown>
           </div>
         </Card>
       )}
