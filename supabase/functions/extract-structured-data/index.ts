@@ -50,8 +50,8 @@ serve(async (req) => {
 
 {
   "company_name": "string - The company/startup name",
-  "sector": "string - The primary sector/industry in French",
-  "solution_summary": "string - Brief 1-sentence description of the solution in French (max 150 characters)",
+  "sector": "string - The primary sector/industry **IN FRENCH** (e.g., "FinTech", "SaaS B2B", "PropTech", "HealthTech")",
+  "solution_summary": "string - Brief 1-sentence description of the solution **IN FRENCH** (max 150 characters, e.g., "Fontaine à eau haut de gamme pour l'hôtellerie")",
   "amount_raised_cents": number - Amount being raised in euro cents (or null if not mentioned),
   "pre_money_valuation_cents": number - Pre-money valuation in euro cents (or null if not mentioned),
   "current_arr_cents": number - Current ARR/revenue in euro cents (or null if not mentioned),
@@ -59,12 +59,14 @@ serve(async (req) => {
   "mom_growth_percent": number - Month-over-month growth percentage (or null if not mentioned)
 }
 
-Important:
+**CRITICAL RULES:**
 - All monetary values must be in euro cents (multiply euros by 100)
 - Growth percentages should be as numbers (e.g., 150 for 150%)
 - Use null for missing values
 - Ensure JSON is valid and parseable
-- **CRITICAL: solution_summary and sector must be in French**
+- **MANDATORY: solution_summary and sector MUST BE IN FRENCH. DO NOT use English.**
+- **Example sector: "SaaS B2B", "FinTech", "Sustainability"**
+- **Example solution_summary: "Plateforme SaaS pour automatiser la gestion RH des PME"**
 
 Investment Memo:
 ${memoText}`;

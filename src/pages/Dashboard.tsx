@@ -51,6 +51,13 @@ export default function Dashboard() {
 
   useEffect(() => {
     loadDeals();
+
+    // Poll for updates every 5 seconds to catch status changes
+    const interval = setInterval(() => {
+      loadDeals();
+    }, 5000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const loadDeals = async () => {
