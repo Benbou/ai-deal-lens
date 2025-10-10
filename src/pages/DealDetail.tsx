@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Download, Trash2 } from 'lucide-react';
+import { Download, Trash2, CheckCircle } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -81,8 +81,8 @@ export default function DealDetail() {
 
         setAnalysis(analysisData);
 
-        // Auto-start streaming if analysis is processing
-        if (analysisData?.status === 'processing') {
+        // Auto-start streaming if analysis is processing (even during OCR phase)
+        if (analysisData?.status === 'processing' && dealData?.status === 'processing') {
           startAnalysis(id);
         }
       } finally {
@@ -233,8 +233,18 @@ export default function DealDetail() {
           <div className="flex gap-2 mt-2">
             <Badge>{deal.sector}</Badge>
             {deal.stage && <Badge variant="outline">{deal.stage}</Badge>}
-            {isProcessing && <Badge className="bg-primary">Analyse en cours...</Badge>}
-            {isCompleted && <Badge className="bg-success">Analysé</Badge>}
+            {isProcessing && (
+              <Badge className="bg-primary flex items-center gap-2">
+                <div className="animate-spin rounded-full h-3 w-3 border-2 border-white border-t-transparent" />
+                Analyse en cours
+              </Badge>
+            )}
+            {isCompleted && (
+              <Badge className="bg-success flex items-center gap-2 animate-fade-in">
+                <CheckCircle className="h-3 w-3" />
+                Analysé
+              </Badge>
+            )}
           </div>
         </div>
         <div className="flex gap-2">

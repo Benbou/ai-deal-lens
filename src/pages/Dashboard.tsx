@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Eye, Plus, Download, Trash2 } from 'lucide-react';
+import { Eye, Plus, Download, Trash2, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import {
@@ -33,6 +33,9 @@ interface Deal {
   stage?: string;
   amount_raised_cents?: number;
   pre_money_valuation_cents?: number;
+  current_arr_cents?: number;
+  yoy_growth_percent?: number;
+  mom_growth_percent?: number;
   status: string;
   solution_summary?: string;
   deck_files?: { storage_path: string; file_name: string }[];
@@ -172,14 +175,17 @@ export default function Dashboard() {
         ) : (
           <div className="space-y-4">
             {/* Header Row */}
-            <div className="grid grid-cols-12 gap-4 px-6 py-3 bg-muted/50 rounded-lg text-sm font-medium">
-              <div className="col-span-3">Entreprise</div>
-              <div className="col-span-1">Secteur</div>
-              <div className="col-span-1">Stage</div>
-              <div className="col-span-2">Montant levé</div>
-              <div className="col-span-2">Valorisation</div>
-              <div className="col-span-2">Status</div>
-              <div className="col-span-1 text-right">Actions</div>
+            <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_auto] gap-4 px-6 py-3 bg-muted/50 rounded-lg text-sm font-medium">
+              <div>Entreprise</div>
+              <div>Secteur</div>
+              <div>Stage</div>
+              <div>Levé</div>
+              <div>Valorisation</div>
+              <div>ARR</div>
+              <div>YoY</div>
+              <div>MoM</div>
+              <div>Status</div>
+              <div className="text-right">Actions</div>
             </div>
 
             {/* Data Rows */}
@@ -190,9 +196,9 @@ export default function Dashboard() {
               
               return (
                 <Card key={deal.id} className="hover:shadow-md transition-shadow">
-                  <div className="grid grid-cols-12 gap-4 px-6 py-4 items-center">
+                  <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_auto] gap-4 px-6 py-4 items-center">
                     {/* Company Name + Summary */}
-                    <div className="col-span-3">
+                    <div>
                       <h3 
                         className="text-base font-semibold hover:underline cursor-pointer mb-1"
                         onClick={() => navigate(`/deal/${deal.id}`)}
@@ -207,42 +213,72 @@ export default function Dashboard() {
                     </div>
 
                     {/* Sector */}
-                    <div className="col-span-1">
+                    <div>
                       <Badge variant="outline" className="text-xs">{deal.sector}</Badge>
                     </div>
 
                     {/* Stage */}
-                    <div className="col-span-1">
+                    <div>
                       {deal.stage && <Badge variant="outline" className="text-xs">{deal.stage}</Badge>}
                     </div>
 
                     {/* Amount Raised */}
-                    <div className="col-span-2">
+                    <div>
                       <p className="text-sm font-medium">{formatCurrency(deal.amount_raised_cents)}</p>
                     </div>
 
                     {/* Valuation */}
-                    <div className="col-span-2">
+                    <div>
                       <p className="text-sm font-medium">{formatCurrency(deal.pre_money_valuation_cents)}</p>
                     </div>
 
+                    {/* ARR */}
+                    <div>
+                      <p className="text-sm font-medium">{formatCurrency(deal.current_arr_cents)}</p>
+                    </div>
+
+                    {/* YoY Growth */}
+                    <div>
+                      {deal.yoy_growth_percent !== undefined && deal.yoy_growth_percent !== null ? (
+                        <p className="text-sm font-medium text-success">+{deal.yoy_growth_percent.toFixed(0)}%</p>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">-</p>
+                      )}
+                    </div>
+
+                    {/* MoM Growth */}
+                    <div>
+                      {deal.mom_growth_percent !== undefined && deal.mom_growth_percent !== null ? (
+                        <p className="text-sm font-medium text-success">+{deal.mom_growth_percent.toFixed(0)}%</p>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">-</p>
+                      )}
+                    </div>
+
                     {/* Status */}
-                    <div className="col-span-2">
-                      <Badge 
-                        className={
-                          deal.status === 'completed' ? 'bg-[hsl(var(--success))] text-[hsl(var(--success-foreground))]' : 
-                          deal.status === 'processing' ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]' : 
-                          'bg-[hsl(var(--destructive))] text-[hsl(var(--destructive-foreground))]'
-                        }
-                      >
-                        {deal.status === 'completed' && t('dashboard.status.completed')}
-                        {deal.status === 'processing' && t('dashboard.status.analyzing')}
-                        {deal.status === 'pending' && t('dashboard.status.pending')}
-                      </Badge>
+                    <div>
+                      {deal.status === 'processing' && (
+                        <Badge className="bg-primary flex items-center gap-2">
+                          <div className="animate-spin rounded-full h-3 w-3 border-2 border-white border-t-transparent" />
+                          Analyse en cours
+                        </Badge>
+                      )}
+                      {deal.status === 'completed' && (
+                        <Badge className="bg-success flex items-center gap-2 animate-fade-in">
+                          <CheckCircle className="h-3 w-3" />
+                          Analysé
+                        </Badge>
+                      )}
+                      {deal.status === 'pending' && (
+                        <Badge variant="outline">En attente</Badge>
+                      )}
+                      {deal.status === 'failed' && (
+                        <Badge variant="destructive">Échoué</Badge>
+                      )}
                     </div>
 
                     {/* Actions */}
-                    <div className="col-span-1 flex items-center justify-end gap-2">
+                    <div className="flex items-center justify-end gap-2">
                       {deal.deck_files?.[0] && (
                         <TooltipProvider>
                           <Tooltip>

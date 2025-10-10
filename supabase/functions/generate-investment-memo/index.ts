@@ -46,6 +46,8 @@ serve(async (req) => {
 
     const systemPrompt = `You are a senior investment analyst specialized in venture capital. Your task is to analyze startup pitch decks and create comprehensive, professional investment memos in French.
 
+**CRITICAL: You MUST respond in French, regardless of the language used in the pitch deck or source materials. All sections, analysis, and commentary must be written in French.**
+
 **CONTEXT FROM INVESTOR:**
 ${deal.personal_notes ? `\n${deal.personal_notes}\n` : 'No additional context provided'}
 
