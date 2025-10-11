@@ -119,22 +119,54 @@ Produis un mémo d'investissement détaillé et structuré en Markdown.`,
           const conversationData = await conversationResponse.json();
           console.log('✅ Conversation created:', conversationData.conversation?.sId);
 
-          // Step 2: Extract conversation and message IDs
+          // Helper function to poll for agent message
+          const pollForAgentMessage = async (conversationId: string, maxAttempts = 10, intervalMs = 500): Promise<string> => {
+            console.log('🔄 Polling for agent message...');
+            
+            for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+              console.log(`   Attempt ${attempt}/${maxAttempts}`);
+              
+              const pollUrl = `https://dust.tt/api/v1/w/${DUST_WORKSPACE_ID}/assistant/conversations/${conversationId}`;
+              const pollResponse = await fetch(pollUrl, {
+                headers: {
+                  'Authorization': `Bearer ${dustApiKey}`,
+                  'Content-Type': 'application/json'
+                }
+              });
+
+              if (!pollResponse.ok) {
+                console.warn(`⚠️ Polling attempt ${attempt} failed: ${pollResponse.status}`);
+                await new Promise(resolve => setTimeout(resolve, intervalMs));
+                continue;
+              }
+
+              const pollData = await pollResponse.json();
+              const agentMessage = pollData.conversation?.content?.find(
+                (item: any) => item.type === 'agent_message'
+              );
+
+              if (agentMessage) {
+                console.log(`✅ Agent message found after ${attempt} attempt(s)`);
+                return agentMessage.sId;
+              }
+
+              // Wait before next attempt
+              if (attempt < maxAttempts) {
+                await new Promise(resolve => setTimeout(resolve, intervalMs));
+              }
+            }
+
+            throw new Error(`Timeout: No agent message found after ${maxAttempts} attempts (${maxAttempts * intervalMs / 1000}s)`);
+          };
+
+          // Step 2: Extract conversation ID and poll for message ID
           const conversationId = conversationData.conversation?.sId;
           if (!conversationId) {
             throw new Error('No conversation ID returned from Dust');
           }
 
-          // Find the agent message in the conversation content
-          const agentMessage = conversationData.conversation?.content?.find(
-            (item: any) => item.type === 'agent_message'
-          );
-
-          if (!agentMessage) {
-            throw new Error('No agent message found in conversation');
-          }
-
-          const messageId = agentMessage.sId;
+          // Poll for agent message (max 5 seconds)
+          const messageId = await pollForAgentMessage(conversationId, 10, 500);
           console.log('📨 Agent message ID:', messageId);
 
           // Step 3: Stream the response using SSE
