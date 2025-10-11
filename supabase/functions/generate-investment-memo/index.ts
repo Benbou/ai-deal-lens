@@ -102,14 +102,9 @@ serve(async (req) => {
         };
 
         try {
-          console.log('🤖 Calling Dust API for memo generation...');
+          console.log('🤖 Starting Dust API conversation with streaming...');
 
-          // Step 1: Create conversation with Dust agent
-          const createConversationUrl = `https://dust.tt/api/v1/w/${DUST_WORKSPACE_ID}/assistant/conversations`;
-          
-          const conversationPayload = {
-            message: {
-              content: `Tu dois analyser ce pitch deck et produire un mémo d'investissement complet en français.
+          const userMessage = `Tu dois analyser ce pitch deck et produire un mémo d'investissement complet en français.
 
 **FORMAT DE SORTIE REQUIS :**
 - Utilise le format Markdown avec une structure claire
@@ -126,102 +121,42 @@ ${markdownText}
 **CONTEXTE ADDITIONNEL DE L'INVESTISSEUR :**
 ${deal.personal_notes || 'Aucun contexte additionnel fourni'}
 
-Produis un mémo d'investissement détaillé et structuré en Markdown.`,
-              mentions: [{ configurationId: DUST_AGENT_ID }],
-              context: {
-                username: "deck_analyzer",
-                timezone: "Europe/Paris",
-                origin: "api"
-              }
-            },
-            blocking: false
-          };
+Produis un mémo d'investissement détaillé et structuré en Markdown.`;
 
-          console.log('📤 Creating Dust conversation...');
-          const conversationResponse = await fetch(createConversationUrl, {
+          // Create conversation with streaming enabled
+          const createUrl = `https://dust.tt/api/v1/w/${DUST_WORKSPACE_ID}/assistant/conversations`;
+          
+          console.log('📤 Creating Dust conversation with streaming...');
+          const response = await fetch(createUrl, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${dustApiKey}`,
               'Content-Type': 'application/json'
             },
-            body: JSON.stringify(conversationPayload)
-          });
-
-          if (!conversationResponse.ok) {
-            const errorText = await conversationResponse.text();
-            throw new Error(`Failed to create Dust conversation: ${conversationResponse.status} ${errorText}`);
-          }
-
-          const conversationData = await conversationResponse.json();
-          console.log('✅ Conversation created:', conversationData.conversation?.sId);
-
-          // Helper function to poll for agent message
-          const pollForAgentMessage = async (conversationId: string, maxAttempts = 10, intervalMs = 500): Promise<string> => {
-            console.log('🔄 Polling for agent message...');
-            
-            for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-              console.log(`   Attempt ${attempt}/${maxAttempts}`);
-              
-              const pollUrl = `https://dust.tt/api/v1/w/${DUST_WORKSPACE_ID}/assistant/conversations/${conversationId}`;
-              const pollResponse = await fetch(pollUrl, {
-                headers: {
-                  'Authorization': `Bearer ${dustApiKey}`,
-                  'Content-Type': 'application/json'
+            body: JSON.stringify({
+              message: {
+                content: userMessage,
+                mentions: [{ configurationId: DUST_AGENT_ID }],
+                context: {
+                  username: "deck_analyzer",
+                  timezone: "Europe/Paris",
+                  origin: "api"
                 }
-              });
-
-              if (!pollResponse.ok) {
-                console.warn(`⚠️ Polling attempt ${attempt} failed: ${pollResponse.status}`);
-                await new Promise(resolve => setTimeout(resolve, intervalMs));
-                continue;
-              }
-
-              const pollData = await pollResponse.json();
-              const agentMessage = pollData.conversation?.content?.find(
-                (item: any) => item.type === 'agent_message'
-              );
-
-              if (agentMessage) {
-                console.log(`✅ Agent message found after ${attempt} attempt(s)`);
-                return agentMessage.sId;
-              }
-
-              // Wait before next attempt
-              if (attempt < maxAttempts) {
-                await new Promise(resolve => setTimeout(resolve, intervalMs));
-              }
-            }
-
-            throw new Error(`Timeout: No agent message found after ${maxAttempts} attempts (${maxAttempts * intervalMs / 1000}s)`);
-          };
-
-          // Step 2: Extract conversation ID and poll for message ID
-          const conversationId = conversationData.conversation?.sId;
-          if (!conversationId) {
-            throw new Error('No conversation ID returned from Dust');
-          }
-
-          // Poll for agent message (max 15 minutes - accounts for MCP tools and web research)
-          const messageId = await pollForAgentMessage(conversationId, 450, 2000);
-          console.log('📨 Agent message ID:', messageId);
-
-          // Step 3: Stream the response using SSE
-          const streamUrl = `https://dust.tt/api/v1/w/${DUST_WORKSPACE_ID}/assistant/conversations/${conversationId}/messages/${messageId}/events`;
-          
-          console.log('🌊 Starting SSE stream from Dust...');
-          const streamResponse = await fetch(streamUrl, {
-            headers: {
-              'Authorization': `Bearer ${dustApiKey}`
-            }
+              },
+              blocking: false,
+              stream: true
+            })
           });
 
-          if (!streamResponse.ok) {
-            const errorText = await streamResponse.text();
-            throw new Error(`Failed to stream from Dust: ${streamResponse.status} ${errorText}`);
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Dust API error: ${response.status} ${errorText}`);
           }
 
-          // Parse SSE stream
-          const reader = streamResponse.body?.getReader();
+          console.log('✅ Streaming started from Dust');
+
+          // Parse SSE stream directly
+          const reader = response.body?.getReader();
           if (!reader) {
             throw new Error('No stream reader available');
           }
@@ -230,7 +165,7 @@ Produis un mémo d'investissement détaillé et structuré en Markdown.`,
           let buffer = '';
           let streamComplete = false;
 
-          while (!streamComplete) {
+          while (!streamComplete && !streamClosed) {
             const { done, value } = await reader.read();
             if (done) break;
 
@@ -245,7 +180,7 @@ Produis un mémo d'investissement détaillé et structuré en Markdown.`,
                 try {
                   const jsonData = JSON.parse(line.slice(6));
                   
-                  // Handle generation tokens (the actual streamed text)
+                  // Handle generation tokens (streamed text)
                   if (jsonData.type === 'generation_tokens' && jsonData.content?.tokens) {
                     const textChunk = jsonData.content.tokens.text || '';
                     if (textChunk) {
@@ -256,7 +191,7 @@ Produis un mémo d'investissement détaillé et structuré en Markdown.`,
                   
                   // Handle completion
                   if (jsonData.type === 'agent_message_success') {
-                    console.log('✅ Dust agent message completed successfully');
+                    console.log('✅ Dust agent completed successfully');
                     streamComplete = true;
                     break;
                   }
@@ -266,7 +201,7 @@ Produis un mémo d'investissement détaillé et structuré en Markdown.`,
                     throw new Error(`Dust agent error: ${JSON.stringify(jsonData.content)}`);
                   }
                 } catch (parseError) {
-                  console.warn('Failed to parse SSE line:', line, parseError);
+                  console.warn('Failed to parse SSE line:', line.substring(0, 100), parseError);
                 }
               }
             }
