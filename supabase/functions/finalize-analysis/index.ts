@@ -1,3 +1,29 @@
+/**
+ * Analysis Finalization Edge Function
+ * 
+ * Updates deal record with extracted data and marks analysis as completed.
+ * 
+ * @param {string} dealId - UUID of the deal
+ * @param {string} analysisId - UUID of the analysis record
+ * @param {object} extractedData - Structured data from Claude
+ * @returns {object} { success: boolean, fieldsUpdated: number }
+ * 
+ * Steps:
+ * 1. Verify user authorization
+ * 2. Update deals table with all extracted fields
+ * 3. Set deal status to 'completed'
+ * 4. Update analysis status to 'completed' and progress to 100%
+ * 5. Set completed_at timestamp
+ * 
+ * Database updates:
+ * - deals: company_name, sector, solution_summary, metrics, status='completed'
+ * - analyses: status='completed', progress_percent=100, completed_at
+ * 
+ * Error handling:
+ * - 401: Unauthorized
+ * - 403: Forbidden (user doesn't own deal)
+ * - 500: Database update error
+ */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 

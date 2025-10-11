@@ -1,3 +1,34 @@
+/**
+ * Structured Data Extraction Edge Function
+ * 
+ * Extracts structured fields from investment memo using Claude Haiku.
+ * 
+ * @param {string} dealId - UUID of the deal
+ * @param {string} analysisId - UUID of the analysis record
+ * @returns {object} { success: boolean, extractedData: {...} }
+ * 
+ * Extracted fields:
+ * - company_name: string
+ * - sector: string (in French)
+ * - solution_summary: string (in French, max 150 chars)
+ * - amount_raised_cents: number (in euro cents)
+ * - pre_money_valuation_cents: number (in euro cents)
+ * - current_arr_cents: number (in euro cents)
+ * - yoy_growth_percent: number
+ * - mom_growth_percent: number
+ * 
+ * Steps:
+ * 1. Verify user authorization
+ * 2. Retrieve memo from analyses.result.full_text
+ * 3. Send to Claude Haiku with JSON schema
+ * 4. Parse and validate extracted data
+ * 5. Return structured JSON
+ * 
+ * Error handling:
+ * - 401: Unauthorized
+ * - 404: Memo not found
+ * - 500: Claude API error or invalid JSON response
+ */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import Anthropic from 'https://esm.sh/@anthropic-ai/sdk@0.24.3';

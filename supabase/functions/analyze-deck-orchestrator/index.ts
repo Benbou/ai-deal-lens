@@ -1,3 +1,23 @@
+/**
+ * Analyze Deck Orchestrator Edge Function
+ * 
+ * Orchestrates the complete pitch deck analysis pipeline.
+ * Coordinates multiple edge functions and streams progress via SSE.
+ * 
+ * Pipeline Steps:
+ * 1. OCR Extraction (0% → 25%): Extract text from PDF using Mistral OCR
+ * 2. Memo Generation (25% → 75%): Generate investment memo using Dust AI
+ * 3. Data Extraction (75% → 90%): Extract structured fields using Claude
+ * 4. Finalization (90% → 100%): Update deal record and mark complete
+ * 
+ * @param {string} dealId - UUID of the deal to analyze
+ * @returns {Stream} SSE stream with status, delta, and error events
+ * 
+ * Error Handling:
+ * - Failed analyses are marked as 'failed' with error messages
+ * - Admin alerts are sent on failures
+ * - Progress tracking ensures resumability
+ */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -102,8 +122,17 @@ serve(async (req) => {
           const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
           const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 
-          // Step 1: OCR Processing (25%)
-          sendEvent('status', { 
+          // ============================================================================
+          // STEP 1: OCR EXTRACTION (Progress: 0% → 25%)
+          // ============================================================================
+          // Extract text from PDF deck using Mistral OCR API
+          // - Retrieves deck file from Supabase Storage
+          // - Creates signed URL (valid for 1 hour)
+          // - Sends to Mistral OCR API (mistral-ocr-latest model)
+          // - Receives markdown-formatted text with page separators
+          // - Updates progress: 0% → 10% → 25%
+          // ============================================================================
+          sendEvent('status', {
             message: 'Extraction du texte du deck via OCR...', 
             progress: 0,
             step: 1,
@@ -154,8 +183,16 @@ serve(async (req) => {
             })
             .eq('id', analysisId);
 
-          // Step 2: Memo Generation with Streaming (50%)
-          sendEvent('status', { 
+          // ============================================================================
+          // STEP 2: INVESTMENT MEMO GENERATION (Progress: 25% → 75%)
+          // ============================================================================
+          // Generate detailed investment memo using Dust AI agent
+          // - Sends OCR markdown + deal context to Dust
+          // - Streams agent response back to client
+          // - Saves complete memo to database
+          // - Waits for 'memo_saved' confirmation before proceeding
+          // ============================================================================
+          sendEvent('status', {
             message: 'Génération du mémo d\'investissement...', 
             progress: 25,
             step: 2,
@@ -238,8 +275,16 @@ serve(async (req) => {
             totalSteps: 4
           });
 
-          // Step 3: Extract Structured Data (25%)
-          sendEvent('status', { 
+          // ============================================================================
+          // STEP 3: STRUCTURED DATA EXTRACTION (Progress: 75% → 90%)
+          // ============================================================================
+          // Extract structured fields from memo using Claude Haiku
+          // - Parses memo for company_name, sector, metrics, etc.
+          // - Returns JSON with validated fields
+          // - All monetary values in euro cents
+          // - Handles missing/null values gracefully
+          // ============================================================================
+          sendEvent('status', {
             message: 'Extraction des données structurées...', 
             progress: 75,
             step: 3,
@@ -281,8 +326,16 @@ serve(async (req) => {
             totalSteps: 4
           });
 
-          // Step 4: Finalize Analysis
-          sendEvent('status', { 
+          // ============================================================================
+          // STEP 4: FINALIZATION (Progress: 90% → 100%)
+          // ============================================================================
+          // Update deal record with extracted data and mark analysis complete
+          // - Updates deals table with all structured fields
+          // - Sets deal status to 'completed'
+          // - Updates analysis status and timestamps
+          // - Finalizes progress to 100%
+          // ============================================================================
+          sendEvent('status', {
             message: 'Finalisation de l\'analyse...', 
             progress: 90,
             step: 4,

@@ -1,3 +1,25 @@
+/**
+ * OCR Processing Edge Function
+ * 
+ * Extracts text from PDF pitch decks using Mistral OCR API.
+ * 
+ * @param {string} dealId - UUID of the deal to process
+ * @returns {object} { success: boolean, markdownText: string, characterCount: number }
+ * 
+ * Steps:
+ * 1. Verify user authorization (JWT + deal ownership)
+ * 2. Retrieve deck file from Supabase Storage
+ * 3. Create signed URL (valid 1 hour)
+ * 4. Send to Mistral OCR API (mistral-ocr-latest model)
+ * 5. Parse markdown response from all pages
+ * 6. Return combined markdown text
+ * 
+ * Error handling:
+ * - 401: Unauthorized (no auth token)
+ * - 403: Forbidden (user doesn't own deal)
+ * - 404: Deck file not found
+ * - 500: Mistral OCR API error
+ */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 

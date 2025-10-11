@@ -1,3 +1,33 @@
+/**
+ * Investment Memo Generation Edge Function
+ * 
+ * Generates detailed investment memos using Dust AI agent.
+ * Streams the generation progress via Server-Sent Events (SSE).
+ * 
+ * @param {string} dealId - UUID of the deal
+ * @param {string} markdownText - OCR-extracted text from deck
+ * @param {string} analysisId - UUID of the analysis record
+ * @returns {Stream} SSE stream with events: delta, status, memo_saved, error
+ * 
+ * Steps:
+ * 1. Verify user authorization and retrieve user profile
+ * 2. Fetch deal details and personal notes
+ * 3. Create Dust conversation with formatted prompt
+ * 4. Stream agent response (filter tokens vs chain-of-thought)
+ * 5. Save complete memo to analyses.result.full_text
+ * 6. Send 'memo_saved' confirmation event
+ * 
+ * Events emitted:
+ * - delta: { text: string } - Text chunk from Dust agent
+ * - status: { message: string } - Status updates
+ * - memo_saved: { success: true, textLength: number, conversationId: string }
+ * - error: { message: string } - Error details
+ * 
+ * Requirements:
+ * - DUST_API_KEY environment variable
+ * - User profile with name and email
+ * - Deal with OCR-extracted markdown
+ */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -113,6 +143,17 @@ serve(async (req) => {
         };
 
         try {
+          // ============================================================================
+          // DEBUG LOGS - Track execution flow and variable state
+          // ============================================================================
+          console.log('🔍 [DEBUG] Starting memo generation');
+          console.log('🔍 [DEBUG] dustApiKey present:', !!dustApiKey);
+          console.log('🔍 [DEBUG] DUST_WORKSPACE_ID:', DUST_WORKSPACE_ID);
+          console.log('🔍 [DEBUG] DUST_AGENT_ID:', DUST_AGENT_ID);
+          console.log('🔍 [DEBUG] markdownText length:', markdownText?.length || 0);
+          console.log('🔍 [DEBUG] userName:', userName);
+          console.log('🔍 [DEBUG] userEmail:', userEmail);
+          
           console.log('🤖 Starting Dust conversation...');
           console.log('👤 User context:', { userName, userEmail });
 
@@ -137,6 +178,9 @@ ${deal.personal_notes || 'Aucun contexte additionnel fourni'}
 Produis un mémo d'investissement détaillé et structuré en Markdown.`;
 
           // Create conversation
+          console.log('🌐 [DEBUG] About to call Dust API...');
+          console.log('🌐 [DEBUG] URL:', `https://dust.tt/api/v1/w/${DUST_WORKSPACE_ID}/assistant/conversations`);
+          
           const createConvResp = await fetch(
             `https://dust.tt/api/v1/w/${DUST_WORKSPACE_ID}/assistant/conversations`,
             {
@@ -166,6 +210,7 @@ Produis un mémo d'investissement détaillé et structuré en Markdown.`;
 
           if (!createConvResp.ok) {
             const errorText = await createConvResp.text();
+            console.error('❌ [ERROR] Dust API failed:', createConvResp.status, errorText);
             throw new Error(`Failed to create Dust conversation: ${errorText}`);
           }
 
@@ -264,7 +309,8 @@ Produis un mémo d'investissement détaillé et structuré en Markdown.`;
           });
 
         } catch (error) {
-          console.error('💥 Error in memo generation:', error);
+          console.error('💥 [ERROR] Memo generation failed:', error);
+          console.error('💥 [ERROR] Stack trace:', error instanceof Error ? error.stack : 'No stack');
           sendEvent('error', { 
             message: error instanceof Error ? error.message : 'Unknown error' 
           });
