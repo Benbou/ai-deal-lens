@@ -121,7 +121,7 @@ serve(async (req) => {
           const ocrResponse = await fetch(`${supabaseUrl}/functions/v1/process-pdf-ocr`, {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${supabaseServiceKey}`,
+              'Authorization': authHeader,
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({ dealId }),
@@ -165,7 +165,7 @@ serve(async (req) => {
           const memoResponse = await fetch(`${supabaseUrl}/functions/v1/generate-investment-memo`, {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${supabaseServiceKey}`,
+              'Authorization': authHeader,
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({ dealId, markdownText, analysisId }),
@@ -245,7 +245,7 @@ serve(async (req) => {
           const extractionResponse = await fetch(`${supabaseUrl}/functions/v1/extract-structured-data`, {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${supabaseServiceKey}`,
+              'Authorization': authHeader,
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({ dealId, analysisId }),
@@ -288,7 +288,7 @@ serve(async (req) => {
           const finalizationResponse = await fetch(`${supabaseUrl}/functions/v1/finalize-analysis`, {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${supabaseServiceKey}`,
+              'Authorization': authHeader,
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({ 
