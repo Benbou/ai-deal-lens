@@ -183,9 +183,9 @@ Produis un mémo d'investissement détaillé et structuré en Markdown.`;
           
           const abortController = new AbortController();
           const timeoutId = setTimeout(() => {
-            console.error('⏱️ [ERROR] Dust stream timeout after 120s');
+            console.error('⏱️ [ERROR] Dust API timeout after 900s (15 minutes)');
             abortController.abort();
-          }, 120000); // 2 minutes timeout
+          }, 900000); // 15 minutes timeout
 
           const streamResp = await fetch(
             `https://dust.tt/api/v1/w/${DUST_WORKSPACE_ID}/assistant/conversations`,
@@ -217,6 +217,8 @@ Produis un mémo d'investissement détaillé et structuré en Markdown.`;
           );
 
           clearTimeout(timeoutId);
+          console.log('✅ [DEBUG] Dust API response received in blocking mode');
+          console.log('⏱️ [DEBUG] Request completed successfully before 15min timeout');
 
           if (!streamResp.ok) {
             const errorText = await streamResp.text();
@@ -287,6 +289,19 @@ Produis un mémo d'investissement détaillé et structuré en Markdown.`;
         } catch (error) {
           console.error('💥 [ERROR] Memo generation failed:', error);
           console.error('💥 [ERROR] Stack trace:', error instanceof Error ? error.stack : 'No stack');
+          
+          // Update deal status to error
+          const { error: dealUpdateError } = await supabaseClient
+            .from('deals')
+            .update({ status: 'error' })
+            .eq('id', dealId);
+          
+          if (dealUpdateError) {
+            console.error('❌ Failed to update deal status to error:', dealUpdateError);
+          } else {
+            console.log('✅ Deal status updated to error');
+          }
+          
           sendEvent('error', { 
             message: error instanceof Error ? error.message : 'Unknown error' 
           });
