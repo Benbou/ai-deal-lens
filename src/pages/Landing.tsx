@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Sparkles, BarChart3, Zap } from 'lucide-react';
 import { useEffect } from 'react';
+import logo from '@/assets/logo.svg';
 const DotPattern = () => {
   return <div className="absolute inset-0 -z-10 h-full w-full bg-background">
       <div className="absolute h-full w-full bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-primary/5 via-background to-background" style={{
@@ -28,9 +29,7 @@ export default function Landing() {
       <header className="relative z-50 border-b bg-background/50 backdrop-blur-sm sticky top-0">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <span className="text-2xl font-bold text-foreground">
-              albo
-            </span>
+            <img src={logo} alt="albo" className="h-8" />
           </div>
           <Button onClick={() => navigate('/auth')} className="bg-foreground text-background hover:bg-foreground/90">
             Start Analysing
