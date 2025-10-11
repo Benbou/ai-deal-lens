@@ -201,8 +201,8 @@ Produis un mémo d'investissement détaillé et structuré en Markdown.`,
             throw new Error('No conversation ID returned from Dust');
           }
 
-          // Poll for agent message (max 5 seconds)
-          const messageId = await pollForAgentMessage(conversationId, 10, 500);
+          // Poll for agent message (max 2 minutes)
+          const messageId = await pollForAgentMessage(conversationId, 60, 2000);
           console.log('📨 Agent message ID:', messageId);
 
           // Step 3: Stream the response using SSE
