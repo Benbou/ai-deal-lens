@@ -3,33 +3,25 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Sparkles, BarChart3, Zap } from 'lucide-react';
 import { useEffect } from 'react';
-
 const DotPattern = () => {
-  return (
-    <div className="absolute inset-0 -z-10 h-full w-full bg-background">
-      <div
-        className="absolute h-full w-full bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-primary/5 via-background to-background"
-        style={{
-          backgroundImage: `radial-gradient(circle at 25px 25px, hsl(var(--color-primary) / 0.15) 2px, transparent 0)`,
-          backgroundSize: '50px 50px',
-        }}
-      />
-    </div>
-  );
+  return <div className="absolute inset-0 -z-10 h-full w-full bg-background">
+      <div className="absolute h-full w-full bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-primary/5 via-background to-background" style={{
+      backgroundImage: `radial-gradient(circle at 25px 25px, hsl(var(--color-primary) / 0.15) 2px, transparent 0)`,
+      backgroundSize: '50px 50px'
+    }} />
+    </div>;
 };
-
 export default function Landing() {
-  const { user } = useAuth();
+  const {
+    user
+  } = useAuth();
   const navigate = useNavigate();
-
   useEffect(() => {
     if (user) {
       navigate('/dashboard');
     }
   }, [user, navigate]);
-
-  return (
-    <div className="relative min-h-screen w-full overflow-hidden">
+  return <div className="relative min-h-screen w-full overflow-hidden">
       <DotPattern />
       
       {/* Header */}
@@ -40,10 +32,7 @@ export default function Landing() {
               albo
             </span>
           </div>
-          <Button 
-            onClick={() => navigate('/auth')} 
-            className="bg-foreground text-background hover:bg-foreground/90"
-          >
+          <Button onClick={() => navigate('/auth')} className="bg-foreground text-background hover:bg-foreground/90">
             Start Analysing
           </Button>
         </div>
@@ -57,21 +46,12 @@ export default function Landing() {
             <span className="text-muted-foreground">AI-Powered Deck Analysis</span>
           </div>
           
-          <h1 className="mb-6 bg-gradient-to-br from-foreground to-foreground/70 bg-clip-text text-5xl font-bold tracking-tight text-transparent sm:text-6xl lg:text-7xl">
-            Transform Your Pitch Deck with AI
-          </h1>
+          <h1 className="mb-6 bg-gradient-to-br from-foreground to-foreground/70 bg-clip-text text-5xl font-bold tracking-tight text-transparent sm:text-6xl lg:text-7xl">Analyse your pitch deck!</h1>
           
-          <p className="mb-10 text-lg text-muted-foreground sm:text-xl lg:text-2xl">
-            Get instant, actionable insights to make your presentation stand out.
-            Analyze structure, design, and messaging in seconds.
-          </p>
+          <p className="mb-10 text-lg text-muted-foreground sm:text-xl lg:text-2xl">Get instant, actionable insights of the market and company directly from the pitch deck</p>
           
           <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
-            <Button 
-              size="lg" 
-              className="group gap-2 text-base bg-foreground text-background hover:bg-foreground/90"
-              onClick={() => navigate('/auth')}
-            >
+            <Button size="lg" className="group gap-2 text-base bg-foreground text-background hover:bg-foreground/90" onClick={() => navigate('/auth')}>
               Start Analyzing
               <Zap className="h-4 w-4 transition-transform group-hover:scale-110" />
             </Button>
@@ -110,6 +90,5 @@ export default function Landing() {
           </div>
         </div>
       </div>
-    </div>
-  );
+    </div>;
 }
