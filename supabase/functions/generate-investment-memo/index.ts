@@ -224,15 +224,27 @@ Produis un mémo d'investissement détaillé et structuré en Markdown.`;
 
           console.log('✅ Conversation created:', conversationId);
 
-          // Stream agent response
+          // Stream agent response with timeout protection
+          console.log('🌐 [DEBUG] About to stream Dust events from:', conversationId);
+          
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => {
+            console.error('⏱️ [ERROR] Dust stream timeout after 120s');
+            controller.abort();
+          }, 120000); // 2 minutes timeout
+
           const streamResp = await fetch(
             `https://dust.tt/api/v1/w/${DUST_WORKSPACE_ID}/assistant/conversations/${conversationId}/messages/${messageId}/events`,
             {
               headers: {
                 'Authorization': `Bearer ${dustApiKey}`,
               },
+              signal: controller.signal
             }
           );
+
+          clearTimeout(timeoutId);
+          console.log('✅ [DEBUG] Stream response OK, starting to read...');
 
           if (!streamResp.ok) {
             throw new Error('Failed to stream Dust response');
@@ -247,8 +259,12 @@ Produis un mémo d'investissement détaillé et structuré en Markdown.`;
           let buffer = '';
 
           while (true) {
+            console.log('🔄 [DEBUG] Reading stream chunk...');
             const { done, value } = await reader.read();
-            if (done) break;
+            if (done) {
+              console.log('✅ [DEBUG] Stream reading complete');
+              break;
+            }
 
             buffer += decoder.decode(value, { stream: true });
             const lines = buffer.split('\n');
@@ -263,6 +279,7 @@ Produis un mémo d'investissement détaillé et structuré en Markdown.`;
                 if (data.type === 'generation_tokens' && data.classification === 'tokens') {
                   const textChunk = data.text || '';
                   if (textChunk) {
+                    console.log('📝 [DEBUG] Received token chunk:', textChunk.substring(0, 50) + '...');
                     fullText += textChunk;
                     sendEvent('delta', { text: textChunk });
                   }
@@ -275,7 +292,8 @@ Produis un mémo d'investissement détaillé et structuré en Markdown.`;
                   throw new Error(`Dust error: ${data.error?.message || 'Unknown error'}`);
                 }
               } catch (parseError) {
-                console.warn('Failed to parse SSE line:', line);
+                console.warn('⚠️ [WARN] Failed to parse SSE line:', line);
+                console.warn('⚠️ [WARN] Parse error:', parseError);
               }
             }
           }
