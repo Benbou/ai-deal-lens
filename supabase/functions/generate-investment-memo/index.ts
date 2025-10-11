@@ -247,11 +247,20 @@ Produis un mémo d'investissement détaillé et structuré en Markdown.`;
           console.log('✅ [DEBUG] Stream response OK, starting to read...');
 
           if (!streamResp.ok) {
+            const errorText = await streamResp.text();
+            console.error('❌ [ERROR] Dust stream failed:', streamResp.status, errorText);
             throw new Error('Failed to stream Dust response');
           }
 
+          console.log('🔍 [DEBUG] Content-Type:', streamResp.headers.get('content-type'));
+          console.log('🔍 [DEBUG] Stream body present:', !!streamResp.body);
+          
           const reader = streamResp.body?.getReader();
+          console.log('🔍 [DEBUG] Reader created:', !!reader);
+          
           if (!reader) {
+            console.error('❌ [ERROR] No stream body in Dust response');
+            console.error('❌ [ERROR] Response headers:', Object.fromEntries(streamResp.headers.entries()));
             throw new Error('No stream available');
           }
 
