@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { DustAPI } from "npm:@dust-tt/client@1.1.17";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -92,16 +91,6 @@ serve(async (req) => {
     const DUST_WORKSPACE_ID = '7475ab5b7b';
     const DUST_AGENT_ID = 'mPgSQmdqBb';
 
-    // Initialize Dust SDK
-    const dustAPI = new DustAPI(
-      { url: "https://dust.tt" },
-      {
-        workspaceId: DUST_WORKSPACE_ID,
-        apiKey: dustApiKey,
-      },
-      console
-    );
-
     // Start streaming response
     const stream = new ReadableStream({
       async start(controller) {
@@ -124,7 +113,8 @@ serve(async (req) => {
         };
 
         try {
-          console.log('🤖 Starting Dust conversation with SDK...');
+          console.log('🤖 Starting Dust conversation...');
+          console.log('👤 User context:', { userName, userEmail });
 
           const userMessage = `Tu dois analyser ce pitch deck et produire un mémo d'investissement complet en français.
 
@@ -146,84 +136,103 @@ ${deal.personal_notes || 'Aucun contexte additionnel fourni'}
 
 Produis un mémo d'investissement détaillé et structuré en Markdown.`;
 
-          // Create conversation with SDK
-          const conversationResult = await dustAPI.createConversation({
-            title: `Analysis: ${deal.startup_name || dealId}`,
-            visibility: "unlisted",
-            message: {
-              content: userMessage,
-              mentions: [{ configurationId: DUST_AGENT_ID }],
-              context: {
-                timezone: "Europe/Paris",
-                username: userName,
-                email: userEmail,
-                fullName: userName,
-                profilePictureUrl: user.user_metadata?.avatar_url || undefined,
-                origin: "api"
-              }
+          // Create conversation
+          const createConvResp = await fetch(
+            `https://dust.tt/api/v1/w/${DUST_WORKSPACE_ID}/assistant/conversations`,
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${dustApiKey}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                title: `Analysis: ${deal.startup_name || dealId}`,
+                visibility: 'unlisted',
+                message: {
+                  content: userMessage,
+                  mentions: [{ configurationId: DUST_AGENT_ID }],
+                  context: {
+                    timezone: 'Europe/Paris',
+                    username: userName,
+                    email: userEmail,
+                    fullName: userName,
+                    profilePictureUrl: user.user_metadata?.avatar_url || undefined,
+                    origin: 'api',
+                  },
+                },
+              }),
             }
-          });
+          );
 
-          if (conversationResult.isErr()) {
-            throw new Error(`Dust conversation failed: ${conversationResult.error.message}`);
+          if (!createConvResp.ok) {
+            const errorText = await createConvResp.text();
+            throw new Error(`Failed to create Dust conversation: ${errorText}`);
           }
 
-          const { conversation, message: userMsg } = conversationResult.value;
-          console.log('✅ Conversation created:', conversation.sId);
+          const convData = await createConvResp.json();
+          const conversationId = convData.conversation?.sId;
+          const messageId = convData.message?.sId;
+
+          if (!conversationId || !messageId) {
+            throw new Error('Invalid Dust API response');
+          }
+
+          console.log('✅ Conversation created:', conversationId);
 
           // Stream agent response
-          const streamResult = await dustAPI.streamAgentAnswerEvents({
-            conversation,
-            userMessageId: userMsg.sId,
-          });
+          const streamResp = await fetch(
+            `https://dust.tt/api/v1/w/${DUST_WORKSPACE_ID}/assistant/conversations/${conversationId}/messages/${messageId}/events`,
+            {
+              headers: {
+                'Authorization': `Bearer ${dustApiKey}`,
+              },
+            }
+          );
 
-          if (streamResult.isErr()) {
-            throw new Error(`Dust stream failed: ${streamResult.error.message}`);
+          if (!streamResp.ok) {
+            throw new Error('Failed to stream Dust response');
           }
 
-          const { eventStream } = streamResult.value;
-          let streamComplete = false;
+          const reader = streamResp.body?.getReader();
+          if (!reader) {
+            throw new Error('No stream available');
+          }
 
-          // Native iteration over stream
-          for await (const event of eventStream) {
-            if (streamClosed) break;
-            if (!event) continue;
+          const decoder = new TextDecoder();
+          let buffer = '';
 
-            switch (event.type) {
-              case 'user_message_error':
-                console.error('❌ User message error:', event.error);
-                throw new Error(`Dust error: ${event.error.message}`);
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
 
-              case 'agent_error':
-                console.error('❌ Agent error:', event.error);
-                throw new Error(`Agent error: ${event.error.message}`);
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
 
-              case 'generation_tokens':
-                // Only take real tokens (not chain of thought)
-                if (event.classification === 'tokens') {
-                  const textChunk = event.text || '';
+            for (const line of lines) {
+              if (!line.trim() || !line.startsWith('data: ')) continue;
+
+              try {
+                const data = JSON.parse(line.slice(6));
+
+                if (data.type === 'generation_tokens' && data.classification === 'tokens') {
+                  const textChunk = data.text || '';
                   if (textChunk) {
                     fullText += textChunk;
                     sendEvent('delta', { text: textChunk });
                   }
+                } else if (data.type === 'agent_message_success') {
+                  console.log('✅ Dust agent completed');
+                  if (!fullText && data.message?.content) {
+                    fullText = data.message.content;
+                  }
+                } else if (data.type === 'user_message_error' || data.type === 'agent_error') {
+                  throw new Error(`Dust error: ${data.error?.message || 'Unknown error'}`);
                 }
-                break;
-
-              case 'agent_message_success':
-                console.log('✅ Dust agent completed');
-                // Fallback: use final message if fullText is empty
-                if (!fullText && event.message.content) {
-                  fullText = event.message.content;
-                }
-                streamComplete = true;
-                break;
-
-              default:
-                // Ignore other events
-                break;
+              } catch (parseError) {
+                console.warn('Failed to parse SSE line:', line);
+              }
             }
-
-            if (streamComplete) break;
           }
 
           if (!fullText) {
@@ -251,7 +260,7 @@ Produis un mémo d'investissement détaillé et structuré en Markdown.`;
           sendEvent('memo_saved', { 
             success: true, 
             textLength: fullText.length,
-            conversationId: conversation.sId
+            conversationId
           });
 
         } catch (error) {
