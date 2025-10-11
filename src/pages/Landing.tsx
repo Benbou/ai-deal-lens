@@ -1,8 +1,22 @@
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, FileText, TrendingUp, Shield, Zap } from 'lucide-react';
+import { Sparkles, BarChart3, Zap } from 'lucide-react';
 import { useEffect } from 'react';
+
+const DotPattern = () => {
+  return (
+    <div className="absolute inset-0 -z-10 h-full w-full bg-background">
+      <div
+        className="absolute h-full w-full bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-primary/5 via-background to-background"
+        style={{
+          backgroundImage: `radial-gradient(circle at 25px 25px, hsl(var(--color-primary) / 0.15) 2px, transparent 0)`,
+          backgroundSize: '50px 50px',
+        }}
+      />
+    </div>
+  );
+};
 
 export default function Landing() {
   const { user } = useAuth();
@@ -15,101 +29,87 @@ export default function Landing() {
   }, [user, navigate]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
+    <div className="relative min-h-screen w-full overflow-hidden">
+      <DotPattern />
+      
       {/* Header */}
-      <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
+      <header className="relative z-50 border-b bg-background/50 backdrop-blur-sm sticky top-0">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <FileText className="h-8 w-8 text-primary" />
-            <span className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-              BA Deck Analyzer
+            <span className="text-2xl font-bold text-foreground">
+              albo
             </span>
           </div>
-          <Button onClick={() => navigate('/auth')} variant="outline">
-            Sign In
+          <Button 
+            onClick={() => navigate('/auth')} 
+            className="bg-foreground text-background hover:bg-foreground/90"
+          >
+            Start Analysing
           </Button>
         </div>
       </header>
 
       {/* Hero Section */}
-      <section className="container mx-auto px-4 py-20 text-center">
-        <div className="max-w-4xl mx-auto space-y-8">
-          <h1 className="text-5xl md:text-6xl font-bold leading-tight">
-            AI-Powered Investment
-            <br />
-            <span className="bg-gradient-primary bg-clip-text text-transparent">
-              Deck Analysis
-            </span>
+      <div className="container relative z-10 mx-auto flex min-h-[calc(100vh-80px)] flex-col items-center justify-center px-4 py-16 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-4xl text-center">
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-background/50 px-4 py-2 text-sm backdrop-blur-sm">
+            <Sparkles className="h-4 w-4 text-primary" />
+            <span className="text-muted-foreground">AI-Powered Deck Analysis</span>
+          </div>
+          
+          <h1 className="mb-6 bg-gradient-to-br from-foreground to-foreground/70 bg-clip-text text-5xl font-bold tracking-tight text-transparent sm:text-6xl lg:text-7xl">
+            Transform Your Pitch Deck with AI
           </h1>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Upload startup decks and get comprehensive AI analysis in minutes. 
-            Track valuation gaps, assess risks, and make data-driven investment decisions.
+          
+          <p className="mb-10 text-lg text-muted-foreground sm:text-xl lg:text-2xl">
+            Get instant, actionable insights to make your presentation stand out.
+            Analyze structure, design, and messaging in seconds.
           </p>
-          <div className="flex gap-4 justify-center">
-            <Button size="lg" onClick={() => navigate('/auth')} className="shadow-glow">
-              Get Started <ArrowRight className="ml-2 h-5 w-5" />
+          
+          <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
+            <Button 
+              size="lg" 
+              className="group gap-2 text-base bg-foreground text-background hover:bg-foreground/90"
+              onClick={() => navigate('/auth')}
+            >
+              Start Analyzing
+              <Zap className="h-4 w-4 transition-transform group-hover:scale-110" />
             </Button>
-            <Button size="lg" variant="outline">
-              Learn More
-            </Button>
           </div>
-        </div>
-      </section>
-
-      {/* Features */}
-      <section className="container mx-auto px-4 py-20">
-        <div className="grid md:grid-cols-3 gap-8">
-          <div className="bg-card border rounded-xl p-6 hover:shadow-elegant transition-all">
-            <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
-              <Zap className="h-6 w-6 text-primary" />
+          
+          <div className="mt-16 grid grid-cols-1 gap-8 sm:grid-cols-3">
+            <div className="rounded-lg border border-border bg-background/50 p-6 backdrop-blur-sm">
+              <div className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+                <Sparkles className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="mb-2 text-lg font-semibold">AI-Powered</h3>
+              <p className="text-sm text-muted-foreground">
+                Advanced algorithms analyze every aspect of your deck
+              </p>
             </div>
-            <h3 className="text-xl font-semibold mb-2">10-Minute Analysis</h3>
-            <p className="text-muted-foreground">
-              Upload a deck and get comprehensive AI analysis with market intelligence in just 10 minutes.
-            </p>
-          </div>
-
-          <div className="bg-card border rounded-xl p-6 hover:shadow-elegant transition-all">
-            <div className="h-12 w-12 rounded-lg bg-success/10 flex items-center justify-center mb-4">
-              <TrendingUp className="h-6 w-6 text-success" />
+            
+            <div className="rounded-lg border border-border bg-background/50 p-6 backdrop-blur-sm">
+              <div className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+                <Zap className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="mb-2 text-lg font-semibold">Instant Results</h3>
+              <p className="text-sm text-muted-foreground">
+                Get comprehensive feedback in seconds, not days
+              </p>
             </div>
-            <h3 className="text-xl font-semibold mb-2">Valuation Benchmarks</h3>
-            <p className="text-muted-foreground">
-              Compare deals against sector medians and identify valuation gaps automatically.
-            </p>
-          </div>
-
-          <div className="bg-card border rounded-xl p-6 hover:shadow-elegant transition-all">
-            <div className="h-12 w-12 rounded-lg bg-warning/10 flex items-center justify-center mb-4">
-              <Shield className="h-6 w-6 text-warning" />
+            
+            <div className="rounded-lg border border-border bg-background/50 p-6 backdrop-blur-sm">
+              <div className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+                <BarChart3 className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="mb-2 text-lg font-semibold">Actionable Insights</h3>
+              <p className="text-sm text-muted-foreground">
+                Clear recommendations to improve your presentation
+              </p>
             </div>
-            <h3 className="text-xl font-semibold mb-2">Risk Assessment</h3>
-            <p className="text-muted-foreground">
-              Get AI-powered risk scores with detailed strengths, weaknesses, and red flags.
-            </p>
           </div>
         </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="container mx-auto px-4 py-20">
-        <div className="bg-gradient-hero rounded-2xl p-12 text-center text-white">
-          <h2 className="text-4xl font-bold mb-4">Ready to analyze your first deck?</h2>
-          <p className="text-xl mb-8 opacity-90">
-            Join investors making smarter decisions with AI-powered analysis
-          </p>
-          <Button size="lg" variant="secondary" onClick={() => navigate('/auth')}>
-            Start Analyzing Now <ArrowRight className="ml-2 h-5 w-5" />
-          </Button>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="border-t bg-card/50 backdrop-blur-sm mt-20">
-        <div className="container mx-auto px-4 py-8 text-center text-muted-foreground">
-          <p>&copy; 2025 BA Deck Analyzer. All rights reserved.</p>
-        </div>
-      </footer>
+      </div>
     </div>
   );
 }
