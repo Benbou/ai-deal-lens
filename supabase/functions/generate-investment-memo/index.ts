@@ -274,7 +274,7 @@ Produis un mémo d'investissement détaillé et structuré en Markdown.`,
 
           console.log('✅ Memo generation completed. Full text length:', fullText.length);
 
-          // Save the complete memo to database
+          // Save the complete memo to database BEFORE closing stream
           const { error: updateError } = await supabaseClient
             .from('analyses')
             .update({
@@ -286,11 +286,16 @@ Produis un mémo d'investissement détaillé et structuré en Markdown.`,
 
           if (updateError) {
             console.error('Error saving memo:', updateError);
+            sendEvent('error', { message: 'Failed to save memo to database' });
           } else {
             console.log('✅ Memo saved to database');
+            // Send confirmation event that memo is saved
+            sendEvent('memo_saved', { 
+              success: true, 
+              textLength: fullText.length,
+              analysisId 
+            });
           }
-
-          sendEvent('memo_complete', { success: true, textLength: fullText.length });
 
         } catch (error) {
           console.error('Error generating memo:', error);

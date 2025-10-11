@@ -184,6 +184,8 @@ serve(async (req) => {
           }
 
           let buffer = '';
+          let memoSaved = false;
+          
           while (true) {
             const { done, value } = await reader.read();
             if (done) break;
@@ -196,6 +198,11 @@ serve(async (req) => {
               if (!line.trim() || line.startsWith(':')) continue;
 
               if (line.startsWith('event:')) {
+                // Check for memo_saved event
+                if (line.includes('event: memo_saved')) {
+                  memoSaved = true;
+                  console.log('✅ Memo saved confirmation received');
+                }
                 continue;
               }
 
@@ -217,7 +224,12 @@ serve(async (req) => {
             }
           }
 
-          console.log('✅ Memo generation completed');
+          // Verify that memo was saved before continuing
+          if (!memoSaved) {
+            throw new Error('Memo was not saved to database');
+          }
+
+          console.log('✅ Memo generation completed and saved');
 
           sendEvent('status', { 
             message: 'Mémo généré avec succès', 
