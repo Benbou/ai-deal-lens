@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import Anthropic from 'https://esm.sh/@anthropic-ai/sdk@0.24.3';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -37,12 +36,13 @@ serve(async (req) => {
       throw new Error('Failed to fetch deal details');
     }
 
-    const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY');
-    if (!anthropicApiKey) {
-      throw new Error('ANTHROPIC_API_KEY not configured');
+    const dustApiKey = Deno.env.get('DUST_API_KEY');
+    if (!dustApiKey) {
+      throw new Error('DUST_API_KEY not configured');
     }
 
-    const anthropic = new Anthropic({ apiKey: anthropicApiKey });
+    const DUST_WORKSPACE_ID = '7475ab5b7b';
+    const DUST_AGENT_ID = 'mPgSQmdqBb';
 
     const systemPrompt = `You are a senior investment analyst specialized in venture capital. Your task is to analyze startup pitch decks and create comprehensive, professional investment memos in French.
 
@@ -222,26 +222,124 @@ ${markdownText}
         };
 
         try {
-          console.log('🤖 Calling Claude API for memo generation...');
+          console.log('🤖 Calling Dust API for memo generation...');
 
-          const messageStream = await anthropic.messages.stream({
-            model: 'claude-3-5-haiku-20241022',
-            max_tokens: 8000,
-            temperature: 0.3,
-            system: systemPrompt,
-            messages: [
-              {
-                role: 'user',
-                content: userPrompt
+          // Step 1: Create conversation with Dust agent
+          const createConversationUrl = `https://dust.tt/api/v1/w/${DUST_WORKSPACE_ID}/assistant/conversations`;
+          
+          const conversationPayload = {
+            message: {
+              content: `${systemPrompt}\n\n${userPrompt}`,
+              mentions: [{ configurationId: DUST_AGENT_ID }],
+              context: {
+                username: "deck_analyzer",
+                timezone: "Europe/Paris",
+                origin: "api"
               }
-            ]
+            },
+            blocking: false
+          };
+
+          console.log('📤 Creating Dust conversation...');
+          const conversationResponse = await fetch(createConversationUrl, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${dustApiKey}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(conversationPayload)
           });
 
-          for await (const chunk of messageStream) {
-            if (chunk.type === 'content_block_delta' && chunk.delta?.type === 'text_delta') {
-              const textChunk = chunk.delta.text;
-              fullText += textChunk;
-              sendEvent('delta', { text: textChunk });
+          if (!conversationResponse.ok) {
+            const errorText = await conversationResponse.text();
+            throw new Error(`Failed to create Dust conversation: ${conversationResponse.status} ${errorText}`);
+          }
+
+          const conversationData = await conversationResponse.json();
+          console.log('✅ Conversation created:', conversationData.conversation?.sId);
+
+          // Step 2: Extract conversation and message IDs
+          const conversationId = conversationData.conversation?.sId;
+          if (!conversationId) {
+            throw new Error('No conversation ID returned from Dust');
+          }
+
+          // Find the agent message in the conversation content
+          const agentMessage = conversationData.conversation?.content?.find(
+            (item: any) => item.type === 'agent_message'
+          );
+
+          if (!agentMessage) {
+            throw new Error('No agent message found in conversation');
+          }
+
+          const messageId = agentMessage.sId;
+          console.log('📨 Agent message ID:', messageId);
+
+          // Step 3: Stream the response using SSE
+          const streamUrl = `https://dust.tt/api/v1/w/${DUST_WORKSPACE_ID}/assistant/conversations/${conversationId}/messages/${messageId}/events`;
+          
+          console.log('🌊 Starting SSE stream from Dust...');
+          const streamResponse = await fetch(streamUrl, {
+            headers: {
+              'Authorization': `Bearer ${dustApiKey}`
+            }
+          });
+
+          if (!streamResponse.ok) {
+            const errorText = await streamResponse.text();
+            throw new Error(`Failed to stream from Dust: ${streamResponse.status} ${errorText}`);
+          }
+
+          // Parse SSE stream
+          const reader = streamResponse.body?.getReader();
+          if (!reader) {
+            throw new Error('No stream reader available');
+          }
+
+          const decoder = new TextDecoder();
+          let buffer = '';
+          let streamComplete = false;
+
+          while (!streamComplete) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+
+            for (const line of lines) {
+              if (!line.trim() || line.startsWith(':')) continue;
+
+              if (line.startsWith('data: ')) {
+                try {
+                  const jsonData = JSON.parse(line.slice(6));
+                  
+                  // Handle generation tokens (the actual streamed text)
+                  if (jsonData.type === 'generation_tokens' && jsonData.content?.tokens) {
+                    const textChunk = jsonData.content.tokens.text || '';
+                    if (textChunk) {
+                      fullText += textChunk;
+                      sendEvent('delta', { text: textChunk });
+                    }
+                  }
+                  
+                  // Handle completion
+                  if (jsonData.type === 'agent_message_success') {
+                    console.log('✅ Dust agent message completed successfully');
+                    streamComplete = true;
+                    break;
+                  }
+                  
+                  // Handle errors
+                  if (jsonData.type === 'agent_error') {
+                    throw new Error(`Dust agent error: ${JSON.stringify(jsonData.content)}`);
+                  }
+                } catch (parseError) {
+                  console.warn('Failed to parse SSE line:', line, parseError);
+                }
+              }
             }
           }
 
