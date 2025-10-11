@@ -22,6 +22,15 @@ serve(async (req) => {
   }
 
   try {
+    // Verify authentication
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const { dealId, error, step, timestamp, stackTrace }: AlertRequest = await req.json();
 
     console.log('🚨 Sending admin alert for deal:', dealId);

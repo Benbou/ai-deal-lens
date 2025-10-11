@@ -7,16 +7,16 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.process-pdf-ocr]
-verify_jwt = false
+verify_jwt = true
 
 [functions.generate-investment-memo]
-verify_jwt = false
+verify_jwt = true
 
 [functions.extract-structured-data]
-verify_jwt = false
+verify_jwt = true
 
 [functions.finalize-analysis]
-verify_jwt = false
+verify_jwt = true
 
 [functions.send-admin-alert]
-verify_jwt = false
+verify_jwt = true
