@@ -5,8 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FileText } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import logo from '@/assets/logo.svg';
 
 export default function Auth() {
   const { signIn, signUp, signInWithGoogle } = useAuth();
@@ -40,11 +40,8 @@ export default function Auth() {
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <FileText className="h-10 w-10 text-primary" />
-            <span className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-              BA Deck Analyzer
-            </span>
+          <div className="flex items-center justify-center mb-4">
+            <img src={logo} alt="albo" className="h-10" />
           </div>
           <p className="text-muted-foreground">AI-Powered Investment Deck Analysis</p>
         </div>
