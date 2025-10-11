@@ -177,11 +177,17 @@ ${deal.personal_notes || 'Aucun contexte additionnel fourni'}
 
 Produis un mémo d'investissement détaillé et structuré en Markdown.`;
 
-          // Create conversation
+          // Create conversation with streaming enabled
           console.log('🌐 [DEBUG] About to call Dust API...');
           console.log('🌐 [DEBUG] URL:', `https://dust.tt/api/v1/w/${DUST_WORKSPACE_ID}/assistant/conversations`);
           
-          const createConvResp = await fetch(
+          const abortController = new AbortController();
+          const timeoutId = setTimeout(() => {
+            console.error('⏱️ [ERROR] Dust stream timeout after 120s');
+            abortController.abort();
+          }, 120000); // 2 minutes timeout
+
+          const streamResp = await fetch(
             `https://dust.tt/api/v1/w/${DUST_WORKSPACE_ID}/assistant/conversations`,
             {
               method: 'POST',
@@ -204,54 +210,21 @@ Produis un mémo d'investissement détaillé et structuré en Markdown.`;
                     origin: 'api',
                   },
                 },
+                stream: true,
               }),
-            }
-          );
-
-          if (!createConvResp.ok) {
-            const errorText = await createConvResp.text();
-            console.error('❌ [ERROR] Dust API failed:', createConvResp.status, errorText);
-            throw new Error(`Failed to create Dust conversation: ${errorText}`);
-          }
-
-          const convData = await createConvResp.json();
-          const conversationId = convData.conversation?.sId;
-          const messageId = convData.message?.sId;
-
-          if (!conversationId || !messageId) {
-            throw new Error('Invalid Dust API response');
-          }
-
-          console.log('✅ Conversation created:', conversationId);
-
-          // Stream agent response with timeout protection
-          console.log('🌐 [DEBUG] About to stream Dust events from:', conversationId);
-          
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => {
-            console.error('⏱️ [ERROR] Dust stream timeout after 120s');
-            controller.abort();
-          }, 120000); // 2 minutes timeout
-
-          const streamResp = await fetch(
-            `https://dust.tt/api/v1/w/${DUST_WORKSPACE_ID}/assistant/conversations/${conversationId}/messages/${messageId}/events`,
-            {
-              headers: {
-                'Authorization': `Bearer ${dustApiKey}`,
-              },
-              signal: controller.signal
+              signal: abortController.signal
             }
           );
 
           clearTimeout(timeoutId);
-          console.log('✅ [DEBUG] Stream response OK, starting to read...');
 
           if (!streamResp.ok) {
             const errorText = await streamResp.text();
-            console.error('❌ [ERROR] Dust stream failed:', streamResp.status, errorText);
-            throw new Error('Failed to stream Dust response');
+            console.error('❌ [ERROR] Dust API failed:', streamResp.status, errorText);
+            throw new Error(`Failed to create Dust conversation: ${errorText}`);
           }
 
+          console.log('✅ [DEBUG] Dust streaming started');
           console.log('🔍 [DEBUG] Content-Type:', streamResp.headers.get('content-type'));
           console.log('🔍 [DEBUG] Stream body present:', !!streamResp.body);
           
@@ -331,8 +304,7 @@ Produis un mémo d'investissement détaillé et structuré en Markdown.`;
           console.log('✅ Memo saved to DB');
           sendEvent('memo_saved', { 
             success: true, 
-            textLength: fullText.length,
-            conversationId
+            textLength: fullText.length
           });
 
         } catch (error) {
