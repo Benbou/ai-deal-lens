@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Download, Trash2, CheckCircle, AlertCircle } from 'lucide-react';
+import { Download, Trash2, CheckCircle, AlertCircle, FileText, Loader2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useTranslation } from 'react-i18next';
@@ -364,40 +364,75 @@ export default function DealDetail() {
       )}
 
       {(isStreaming || isCompleted) && displayText && (
-        <Card className="p-8">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-semibold">Mémo d'Investissement</h2>
+        <Card className="p-8 backdrop-blur-sm bg-card/95 border-2 animate-fade-in">
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-primary/10">
+                <FileText className="h-6 w-6 text-primary" />
+              </div>
+              <h2 className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+                Mémo d'Investissement
+              </h2>
+            </div>
             {isStreaming && (
-              <Badge className="bg-primary animate-pulse">
-                Analyse en cours...
+              <Badge className="bg-primary animate-pulse flex items-center gap-2">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Génération en cours...
               </Badge>
             )}
           </div>
+          
           <div className="prose prose-lg max-w-none dark:prose-invert
-            prose-headings:scroll-mt-16
-            prose-h1:text-4xl prose-h1:font-extrabold prose-h1:mb-8 prose-h1:pb-6 prose-h1:border-b-4 prose-h1:border-primary/40
-            prose-h2:text-3xl prose-h2:font-bold prose-h2:mt-16 prose-h2:mb-8 prose-h2:pb-4 prose-h2:border-b-2 prose-h2:border-primary/20
-            prose-h2:bg-gradient-to-r prose-h2:from-primary/5 prose-h2:to-transparent prose-h2:px-4 prose-h2:py-3 prose-h2:rounded-md prose-h2:-mx-4
-            prose-h3:text-2xl prose-h3:font-semibold prose-h3:mt-10 prose-h3:mb-5 prose-h3:text-primary
-            prose-h4:text-xl prose-h4:font-semibold prose-h4:mt-8 prose-h4:mb-4
-            prose-p:text-base prose-p:leading-relaxed prose-p:mb-6 prose-p:text-foreground/90
-            prose-p:first-of-type:text-lg prose-p:first-of-type:font-medium prose-p:first-of-type:leading-relaxed
-            prose-strong:font-bold prose-strong:text-primary prose-strong:bg-primary/5 prose-strong:px-1 prose-strong:rounded
-            prose-ul:my-6 prose-ul:space-y-3 prose-ul:pl-6
-            prose-ol:my-6 prose-ol:space-y-3 prose-ol:pl-6
-            prose-li:text-base prose-li:leading-relaxed prose-li:text-foreground/90
-            prose-li:marker:text-primary prose-li:marker:font-bold
-            prose-blockquote:border-l-4 prose-blockquote:border-primary prose-blockquote:bg-primary/5 
-            prose-blockquote:pl-6 prose-blockquote:pr-6 prose-blockquote:py-4 prose-blockquote:my-8
-            prose-blockquote:italic prose-blockquote:rounded-r-md
-            prose-code:bg-muted prose-code:text-primary prose-code:px-2 prose-code:py-1 prose-code:rounded prose-code:text-sm prose-code:font-mono
-            prose-pre:bg-muted prose-pre:border prose-pre:border-border prose-pre:p-4 prose-pre:rounded-lg prose-pre:my-6
-            prose-table:my-8 prose-table:border-collapse prose-table:w-full
-            prose-th:bg-primary/10 prose-th:font-bold prose-th:text-left prose-th:py-3 prose-th:px-4 prose-th:border prose-th:border-border
-            prose-td:border prose-td:border-border prose-td:py-3 prose-td:px-4
-            prose-hr:border-2 prose-hr:border-primary/20 prose-hr:my-12
-            prose-a:text-primary prose-a:font-medium prose-a:underline prose-a:decoration-primary/30 hover:prose-a:decoration-primary">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{displayText}</ReactMarkdown>
+            prose-headings:scroll-mt-20
+            prose-h1:text-5xl prose-h1:font-black prose-h1:mb-10 prose-h1:pb-8 
+            prose-h1:bg-gradient-to-r prose-h1:from-primary prose-h1:via-primary/80 prose-h1:to-primary/60
+            prose-h1:bg-clip-text prose-h1:text-transparent
+            prose-h1:border-b-4 prose-h1:border-primary/30
+            
+            prose-h2:text-3xl prose-h2:font-bold prose-h2:mt-20 prose-h2:mb-8 
+            prose-h2:bg-gradient-to-r prose-h2:from-primary/10 prose-h2:via-primary/5 prose-h2:to-transparent 
+            prose-h2:px-6 prose-h2:py-4 prose-h2:rounded-xl prose-h2:-mx-2
+            prose-h2:border-l-4 prose-h2:border-primary
+            prose-h2:shadow-sm prose-h2:transition-all hover:prose-h2:shadow-md
+            
+            prose-h3:text-2xl prose-h3:font-semibold prose-h3:mt-12 prose-h3:mb-6 
+            prose-h3:text-primary prose-h3:flex prose-h3:items-center prose-h3:gap-2
+            
+            prose-p:text-lg prose-p:leading-relaxed prose-p:mb-6 prose-p:text-foreground/95
+            prose-p:first-of-type:text-xl prose-p:first-of-type:font-medium prose-p:first-of-type:leading-relaxed
+            
+            prose-strong:font-bold prose-strong:text-primary 
+            prose-strong:bg-primary/10 prose-strong:px-2 prose-strong:py-0.5 
+            prose-strong:rounded-md prose-strong:shadow-sm
+            
+            prose-ul:my-8 prose-ul:space-y-4 prose-ul:pl-8
+            prose-ol:my-8 prose-ol:space-y-4 prose-ol:pl-8
+            prose-li:text-lg prose-li:leading-relaxed prose-li:text-foreground/95
+            prose-li:marker:text-primary prose-li:marker:font-bold prose-li:marker:text-xl
+            
+            prose-blockquote:border-l-4 prose-blockquote:border-primary 
+            prose-blockquote:bg-gradient-to-r prose-blockquote:from-primary/10 prose-blockquote:to-transparent
+            prose-blockquote:pl-8 prose-blockquote:pr-8 prose-blockquote:py-6 prose-blockquote:my-10
+            prose-blockquote:italic prose-blockquote:rounded-r-xl prose-blockquote:shadow-md
+            
+            prose-code:bg-muted/80 prose-code:text-primary prose-code:px-2.5 prose-code:py-1 
+            prose-code:rounded-md prose-code:text-base prose-code:font-mono prose-code:font-semibold
+            prose-code:border prose-code:border-primary/20
+            
+            prose-table:my-10 prose-table:border-collapse prose-table:w-full prose-table:shadow-lg prose-table:rounded-lg
+            prose-th:bg-primary/20 prose-th:font-bold prose-th:text-left prose-th:py-4 prose-th:px-6 
+            prose-th:border prose-th:border-border prose-th:text-lg
+            prose-td:border prose-td:border-border prose-td:py-4 prose-td:px-6 prose-td:text-base
+            prose-td:hover:bg-muted/50 prose-td:transition-colors
+            
+            prose-hr:border-2 prose-hr:border-primary/30 prose-hr:my-16
+            
+            prose-a:text-primary prose-a:font-semibold prose-a:underline 
+            prose-a:decoration-primary/40 prose-a:decoration-2
+            hover:prose-a:decoration-primary hover:prose-a:decoration-wavy">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {displayText}
+            </ReactMarkdown>
           </div>
         </Card>
       )}

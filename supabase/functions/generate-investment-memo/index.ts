@@ -44,162 +44,6 @@ serve(async (req) => {
     const DUST_WORKSPACE_ID = '7475ab5b7b';
     const DUST_AGENT_ID = 'mPgSQmdqBb';
 
-    const systemPrompt = `You are a senior investment analyst specialized in venture capital. Your task is to analyze startup pitch decks and create comprehensive, professional investment memos in French.
-
-**CRITICAL FORMATTING RULES:**
-1. You MUST respond in French, regardless of the language used in the pitch deck
-2. You MUST use proper Markdown formatting with STRICT section structure
-3. Use # ONLY ONCE for the main title at the very top: "# MÉMO D'INVESTISSEMENT : [Company Name]"
-4. Use ## for ALL 15 major sections (e.g., "## 1. Source du Deal", "## 2. Résumé Exécutif")
-5. Use ### for subsections within major sections if needed
-6. Add TWO blank lines between each ## section for maximum readability
-7. Add ONE blank line between paragraphs within sections
-8. Use bullet points (-) for lists
-9. Use **bold** for emphasis on key metrics and important numbers
-10. NEVER skip sections - include all 15 sections even if data is missing (write "Données non disponibles" if needed)
-
-**CONTEXT FROM INVESTOR:**
-${deal.personal_notes ? `\n${deal.personal_notes}\n` : 'No additional context provided'}
-
-## Mandatory Method
-
-You must follow this specific analysis approach:
-1. First, conduct web research to validate critical claims from the pitch deck
-2. Then, write a detailed investment memo in French
-
-## Investment Memo Structure (MUST USE THESE EXACT HEADERS)
-
-Your memo MUST start with ONE main title using # and then include ALL 15 sections using ##:
-
-# MÉMO D'INVESTISSEMENT : [COMPANY NAME]
-
-
-## 1. Source du Deal
-
-How this opportunity came to us (1-2 sentences)
-
-
-## 2. Résumé Exécutif
-
-Brief overview (2-3 sentences covering what the company does and key highlights)
-
-
-## 3. Le Problème
-
-Problem being solved with quantified impact if available
-
-
-## 4. La Solution
-
-Product/service description with key differentiators
-
-
-## 5. Modèle d'Affaires
-
-Business model, revenue streams, and monetization strategy
-
-
-## 6. Marché & Opportunité
-
-Market size (TAM/SAM/SOM) with sources and growth projections
-
-
-## 7. Traction & Métriques
-
-Growth metrics, KPIs, ARR, MRR, customer count, retention
-
-
-## 8. Concurrence
-
-Competitive landscape and positioning
-
-
-## 9. Go-to-Market
-
-Customer acquisition strategy and distribution channels
-
-
-## 10. Financements
-
-Funding history, current round terms, and use of funds
-
-
-## 11. Partenariats & Clients
-
-Key partnerships and reference customers
-
-
-## 12. Équipe
-
-Team background, expertise, and founder-market fit
-
-
-## 13. Risques
-
-Key risks and mitigation strategies
-
-
-## 14. Due Diligence Requise
-
-Areas needing deeper investigation before investment
-
-
-## 15. Recommandation
-
-Clear GO/NO-GO recommendation with rationale
-
-## Quality Standards
-
-- Be critical and analytical, not promotional
-- Validate claims with web research when possible
-- Highlight gaps and missing information
-- Write in professional French
-- Include specific numbers and data points
-- Note any red flags or concerns
-- **MANDATORY: Add TWO blank lines between each ## section**
-- **MANDATORY: Add ONE blank line between paragraphs within sections**
-- **MANDATORY: Format like a clean, professional Notion document**`;
-
-    const userPrompt = `Analyze this pitch deck and create a comprehensive investment memo following the EXACT structure specified:
-
-${markdownText}
-
-**CRITICAL INSTRUCTIONS:**
-1. First conduct web research to validate key claims
-2. Write the full investment memo in French with PERFECT Markdown formatting
-3. Start with ONE # for the main title: "# MÉMO D'INVESTISSEMENT : [Company Name]"
-4. Use ## for ALL 15 numbered sections (e.g., "## 1. Source du Deal")
-5. Add TWO blank lines between each ## section
-6. Add ONE blank line between paragraphs within sections
-7. Be thorough but concise
-8. Highlight both opportunities and risks
-9. Include all 15 sections even if some data is missing
-
-**MANDATORY FORMAT EXAMPLE:**
-# MÉMO D'INVESTISSEMENT : [Company Name]
-
-
-## 1. Source du Deal
-
-[1-2 sentences about deal origin]
-
-
-## 2. Résumé Exécutif
-
-[2-3 sentences overview]
-
-[Additional details if needed]
-
-
-## 3. Le Problème
-
-[Problem description with data]
-
-
-... continue for ALL 15 sections with proper spacing.
-
-**DO NOT SKIP ANY SECTIONS. IF DATA IS MISSING, WRITE "Données non disponibles dans le pitch deck."**`;
-
     // Start streaming response
     const stream = new ReadableStream({
       async start(controller) {
@@ -229,7 +73,24 @@ ${markdownText}
           
           const conversationPayload = {
             message: {
-              content: `${systemPrompt}\n\n${userPrompt}`,
+              content: `Tu dois analyser ce pitch deck et produire un mémo d'investissement complet en français.
+
+**FORMAT DE SORTIE REQUIS :**
+- Utilise le format Markdown avec une structure claire
+- Commence par un titre principal avec #
+- Utilise ## pour les sections principales
+- Utilise ### pour les sous-sections
+- Utilise des listes à puces (-) et du gras (**texte**) pour l'emphase
+- Sépare bien les sections avec des lignes vides
+
+**PITCH DECK (OCR MARKDOWN) :**
+
+${markdownText}
+
+**CONTEXTE ADDITIONNEL DE L'INVESTISSEUR :**
+${deal.personal_notes || 'Aucun contexte additionnel fourni'}
+
+Produis un mémo d'investissement détaillé et structuré en Markdown.`,
               mentions: [{ configurationId: DUST_AGENT_ID }],
               context: {
                 username: "deck_analyzer",
