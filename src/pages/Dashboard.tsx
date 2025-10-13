@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
+import { Plus, TrendingUp, BarChart3, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { DataTable } from '@/components/ui/data-table';
 import { Deal, createColumns } from './Dashboard/columns';
@@ -125,6 +125,32 @@ export default function Dashboard() {
     [navigate, deleting]
   );
 
+  // Extract unique sectors and stages for filters
+  const sectors = useMemo(() => {
+    const uniqueSectors = Array.from(new Set(deals.map(d => d.sector).filter(Boolean)));
+    return uniqueSectors.map(sector => ({
+      label: sector,
+      value: sector,
+      icon: Building2,
+    }));
+  }, [deals]);
+
+  const stages = useMemo(() => {
+    const uniqueStages = Array.from(new Set(deals.map(d => d.stage).filter(Boolean)));
+    return uniqueStages.map(stage => ({
+      label: stage,
+      value: stage,
+      icon: TrendingUp,
+    }));
+  }, [deals]);
+
+  const statuses = [
+    { label: "En attente", value: "pending", icon: BarChart3 },
+    { label: "En cours", value: "processing", icon: BarChart3 },
+    { label: "Analysé", value: "completed", icon: BarChart3 },
+    { label: "Échoué", value: "failed", icon: BarChart3 },
+  ];
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -151,6 +177,23 @@ export default function Dashboard() {
         data={deals}
         searchKey="company_name"
         searchPlaceholder="Rechercher une entreprise..."
+        facetedFilters={[
+          {
+            column: "sector",
+            title: "Secteur",
+            options: sectors,
+          },
+          {
+            column: "stage",
+            title: "Stage",
+            options: stages,
+          },
+          {
+            column: "status",
+            title: "Status",
+            options: statuses,
+          },
+        ]}
       />
     </div>
   );

@@ -1,7 +1,7 @@
 import { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Eye, Download, Trash2, MoreHorizontal, CheckCircle } from "lucide-react";
+import { Eye, Download, Trash2, MoreHorizontal, CheckCircle, Clock, Loader, AlertCircle } from "lucide-react";
 import { DataTableColumnHeader } from "@/components/ui/data-table-column-header";
 import {
   DropdownMenu,
@@ -52,10 +52,17 @@ export const createColumns = (
   deleting: string | null
 ): ColumnDef<Deal>[] => [
   {
-    accessorKey: "company_name",
+    id: "company_name",
+    accessorFn: (row) => row.company_name || row.startup_name,
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Entreprise" />
     ),
+    filterFn: (row, id, value) => {
+      const searchValue = value.toLowerCase();
+      const companyName = (row.original.company_name || row.original.startup_name || '').toLowerCase();
+      const solution = (row.original.solution_summary || '').toLowerCase();
+      return companyName.includes(searchValue) || solution.includes(searchValue);
+    },
     cell: ({ row }) => {
       const deal = row.original;
       const displayName = deal.company_name || deal.startup_name;
@@ -83,11 +90,15 @@ export const createColumns = (
       <DataTableColumnHeader column={column} title="Secteur" />
     ),
     cell: ({ row }) => {
+      const sector = row.getValue("sector") as string;
       return (
-        <Badge variant="outline" className="text-xs">
-          {row.getValue("sector")}
+        <Badge variant="secondary" className="font-normal">
+          {sector}
         </Badge>
       );
+    },
+    filterFn: (row, id, value) => {
+      return value.includes(row.getValue(id));
     },
   },
   {
@@ -97,13 +108,23 @@ export const createColumns = (
     ),
     cell: ({ row }) => {
       const stage = row.getValue("stage") as string | undefined;
-      return stage ? (
-        <Badge variant="outline" className="text-xs">
+      if (!stage) return <span className="text-muted-foreground">-</span>;
+      
+      const stageVariants: Record<string, string> = {
+        "Seed": "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
+        "Series A": "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+        "Series B": "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+        "Series C": "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
+      };
+      
+      return (
+        <Badge variant="outline" className={stageVariants[stage] || ""}>
           {stage}
         </Badge>
-      ) : (
-        <span className="text-muted-foreground">-</span>
       );
+    },
+    filterFn: (row, id, value) => {
+      return value.includes(row.getValue(id));
     },
   },
   {
@@ -153,7 +174,7 @@ export const createColumns = (
     cell: ({ row }) => {
       const value = row.getValue("yoy_growth_percent") as number | undefined;
       return value !== undefined && value !== null ? (
-        <div className="font-medium text-success">+{value.toFixed(0)}%</div>
+        <div className="font-medium text-green-600 dark:text-green-400">+{value.toFixed(0)}%</div>
       ) : (
         <span className="text-muted-foreground">-</span>
       );
@@ -167,7 +188,7 @@ export const createColumns = (
     cell: ({ row }) => {
       const value = row.getValue("mom_growth_percent") as number | undefined;
       return value !== undefined && value !== null ? (
-        <div className="font-medium text-success">+{value.toFixed(0)}%</div>
+        <div className="font-medium text-green-600 dark:text-green-400">+{value.toFixed(0)}%</div>
       ) : (
         <span className="text-muted-foreground">-</span>
       );
@@ -181,33 +202,45 @@ export const createColumns = (
     cell: ({ row }) => {
       const status = row.getValue("status") as string;
       
-      if (status === "processing") {
-        return (
-          <Badge className="bg-warning text-warning-foreground flex items-center gap-1 w-fit">
-            Analyse en cours
-            <span className="animate-pulse">...</span>
-          </Badge>
-        );
-      }
+      const statusConfig = {
+        pending: { 
+          label: "En attente", 
+          variant: "secondary" as const,
+          icon: Clock,
+          className: "text-muted-foreground"
+        },
+        processing: { 
+          label: "En cours", 
+          variant: "default" as const,
+          icon: Loader,
+          className: "animate-pulse bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200"
+        },
+        completed: { 
+          label: "Analysé", 
+          variant: "outline" as const,
+          icon: CheckCircle,
+          className: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+        },
+        failed: { 
+          label: "Échoué", 
+          variant: "destructive" as const,
+          icon: AlertCircle,
+          className: ""
+        },
+      };
       
-      if (status === "completed") {
-        return (
-          <Badge className="bg-success text-success-foreground flex items-center gap-2 w-fit animate-fade-in">
-            <CheckCircle className="h-3 w-3" />
-            Analysé
-          </Badge>
-        );
-      }
+      const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;
+      const Icon = config.icon;
       
-      if (status === "pending") {
-        return <Badge variant="outline">En attente</Badge>;
-      }
-      
-      if (status === "failed") {
-        return <Badge variant="destructive">Échoué</Badge>;
-      }
-      
-      return <Badge variant="outline">{status}</Badge>;
+      return (
+        <Badge variant={config.variant} className={config.className}>
+          <Icon className="mr-1 h-3 w-3" />
+          {config.label}
+        </Badge>
+      );
+    },
+    filterFn: (row, id, value) => {
+      return value.includes(row.getValue(id));
     },
   },
   {
