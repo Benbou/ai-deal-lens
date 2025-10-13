@@ -156,6 +156,11 @@ serve(async (req) => {
           
           console.log('🤖 Starting Dust conversation...');
           console.log('👤 User context:', { userName, userEmail });
+          console.log('🔍 [DEBUG] Dust streaming configuration:');
+          console.log('  - Mode: streaming (blocking: false)');
+          console.log('  - Expected events: user_message_new, agent_message_new, generation_tokens, agent_message_success');
+          console.log('  - Deck OCR length:', markdownText.length, 'chars');
+          console.log('  - Additional context:', deal.personal_notes ? 'YES' : 'NO');
 
           const userMessage = `Tu dois analyser ce pitch deck et produire un mémo d'investissement complet en français.
 
@@ -210,15 +215,14 @@ Produis un mémo d'investissement détaillé et structuré en Markdown.`;
                     origin: 'api',
                   },
                 },
-                blocking: true,
+                blocking: false,
               }),
               signal: abortController.signal
             }
           );
 
           clearTimeout(timeoutId);
-          console.log('✅ [DEBUG] Dust API response received in blocking mode');
-          console.log('⏱️ [DEBUG] Request completed successfully before 15min timeout');
+          console.log('✅ [DEBUG] Dust API response received in streaming mode');
 
           if (!streamResp.ok) {
             const errorText = await streamResp.text();
@@ -226,77 +230,97 @@ Produis un mémo d'investissement détaillé et structuré en Markdown.`;
             throw new Error(`Failed to create Dust conversation: ${errorText}`);
           }
 
-          console.log('✅ [DEBUG] Dust API call successful');
+          console.log('✅ [DEBUG] Dust API streaming started');
           console.log('🔍 [DEBUG] Content-Type:', streamResp.headers.get('content-type'));
 
-          // Parse JSON response (blocking mode returns complete response)
-          const responseData = await streamResp.json();
-          console.log('📦 [DEBUG] Response keys:', Object.keys(responseData));
+          // Read SSE stream from Dust
+          if (!streamResp.body) {
+            throw new Error('No response body from Dust API');
+          }
 
-          // Extract agent message from conversation.content
-          if (responseData.conversation?.content) {
-            console.log('🔍 [DEBUG] Content array length:', responseData.conversation.content.length);
-            
-            // Flatten nested arrays (Dust returns [ [user_msg], [agent_msg] ])
-            const allMessages = responseData.conversation.content.flat();
-            console.log('🔍 [DEBUG] Flattened messages:', allMessages.length);
-            
-            const agentMessage = allMessages.find((msg: any) => msg.type === 'agent_message');
-            
-            if (agentMessage) {
-              console.log('🔍 [DEBUG] Agent message found, status:', agentMessage.status);
-              console.log('🔍 [DEBUG] Agent message keys:', Object.keys(agentMessage));
-              
-              // Try multiple extraction paths
-              if (agentMessage.content) {
-                fullText = agentMessage.content;
-                console.log('✅ [DEBUG] Found memo in agent_message.content');
-              } else if (agentMessage.actions && agentMessage.actions.length > 0) {
-                // Check if memo is in actions[0].outputs or similar
-                const action = agentMessage.actions[0];
-                console.log('🔍 [DEBUG] Action keys:', Object.keys(action));
-                console.log('🔍 [DEBUG] Action type:', action.type);
+          const reader = streamResp.body.getReader();
+          const decoder = new TextDecoder();
+
+          let buffer = '';
+          let conversationId = '';
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || ''; // Keep last partial line
+
+            for (const line of lines) {
+              if (!line.trim() || line.startsWith(':')) continue; // Skip keepalives
+
+              if (line.startsWith('data: ')) {
+                const dataStr = line.slice(6).trim();
                 
-                if (action.output) {
-                  fullText = action.output;
-                  console.log('✅ [DEBUG] Found memo in actions[0].output');
-                } else if (action.outputs && action.outputs.length > 0) {
-                  const output = action.outputs[0];
-                  console.log('🔍 [DEBUG] Output keys:', Object.keys(output));
-                  fullText = output.content || output.text || '';
-                  console.log('✅ [DEBUG] Found memo in actions[0].outputs[0]');
+                try {
+                  const event = JSON.parse(dataStr);
+                  
+                  switch (event.type) {
+                    case 'user_message_new':
+                      console.log('📩 [DUST] User message received:', event.messageId);
+                      sendEvent('status', { message: 'Message envoyé à l\'agent' });
+                      break;
+
+                    case 'agent_message_new':
+                      console.log('🤖 [DUST] Agent started responding:', event.messageId);
+                      conversationId = event.conversationId || '';
+                      sendEvent('status', { message: 'Agent analyse le deck...' });
+                      break;
+
+                    case 'generation_tokens':
+                      // ✅ CRITICAL: Stream tokens in real-time
+                      const tokens = event.text || '';
+                      fullText += tokens;
+                      sendEvent('delta', { text: tokens });
+                      console.log('📝 [DUST] Tokens received:', tokens.length, 'chars');
+                      break;
+
+                    case 'agent_action_success':
+                      console.log('✅ [DUST] Action completed:', event.action?.type);
+                      sendEvent('status', { 
+                        message: `Action ${event.action?.type || 'unknown'} terminée` 
+                      });
+                      break;
+
+                    case 'agent_message_success':
+                      console.log('✅ [DUST] Message completed');
+                      sendEvent('status', { message: 'Génération terminée' });
+                      break;
+
+                    case 'agent_error':
+                      console.error('❌ [DUST] Agent error:', event.error);
+                      throw new Error(`Dust agent error: ${event.error?.message || 'Unknown'}`);
+
+                    case 'conversation_title':
+                      console.log('📝 [DUST] Conversation title:', event.title);
+                      break;
+
+                    default:
+                      console.log('ℹ️ [DUST] Unhandled event:', event.type);
+                  }
+                } catch (parseError) {
+                  console.error('⚠️ [DUST] Failed to parse event:', dataStr.substring(0, 100));
                 }
               }
-              
-              if (!fullText) {
-                console.error('❌ [ERROR] Could not extract memo from agent_message');
-                console.error('📦 Agent message structure:', JSON.stringify(agentMessage, null, 2));
-              }
-            } else {
-              console.error('❌ [ERROR] No agent_message found in flattened content');
             }
-          } else {
-            console.error('❌ [ERROR] No conversation.content in response');
+          }
+
+          // Flush remaining buffer
+          if (buffer.trim()) {
+            console.log('⚠️ [DUST] Remaining buffer:', buffer.substring(0, 100));
           }
 
           if (!fullText) {
-            console.error('❌ [ERROR] No memo text extracted');
-            console.error('📦 Full conversation.content structure:', 
-              JSON.stringify(responseData.conversation?.content, null, 2).substring(0, 2000)
-            );
             throw new Error('No memo text generated by Dust');
           }
           
-          console.log('✅ Memo extracted:', fullText.length, 'chars');
-          
-          // Send chunks to client for progressive display (simulate streaming)
-          const chunkSize = 100;
-          for (let i = 0; i < fullText.length; i += chunkSize) {
-            const chunk = fullText.slice(i, i + chunkSize);
-            sendEvent('delta', { text: chunk });
-          }
-
-          console.log('✅ Memo generated and streamed to client');
+          console.log('✅ Memo generated and streamed:', fullText.length, 'chars');
 
           // Save to DB BEFORE closing stream
           const { error: updateError } = await supabaseClient
@@ -323,17 +347,48 @@ Produis un mémo d'investissement détaillé et structuré en Markdown.`;
           console.error('💥 [ERROR] Memo generation failed:', error);
           console.error('💥 [ERROR] Stack trace:', error instanceof Error ? error.stack : 'No stack');
           
+          // Save detailed error to analyses
+          const { error: analysisUpdateError } = await supabaseClient
+            .from('analyses')
+            .update({
+              status: 'failed',
+              error_message: error instanceof Error ? error.message : 'Unknown error',
+              error_details: {
+                stack: error instanceof Error ? error.stack : null,
+                fullText: fullText || null,
+                timestamp: new Date().toISOString()
+              },
+              completed_at: new Date().toISOString()
+            })
+            .eq('id', analysisId);
+
+          if (analysisUpdateError) {
+            console.error('❌ Failed to update analysis:', analysisUpdateError);
+          }
+          
           // Update deal status to error
-          const { error: dealUpdateError } = await supabaseClient
+          await supabaseClient
             .from('deals')
             .update({ status: 'error' })
             .eq('id', dealId);
           
-          if (dealUpdateError) {
-            console.error('❌ Failed to update deal status to error:', dealUpdateError);
-          } else {
-            console.log('✅ Deal status updated to error');
-          }
+          // Send admin alert with details
+          await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/send-admin-alert`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': req.headers.get('Authorization') || '',
+            },
+            body: JSON.stringify({
+              dealId,
+              error: error instanceof Error ? error.message : 'Unknown error',
+              step: 'generate-investment-memo',
+              stackTrace: error instanceof Error ? error.stack : undefined,
+              partialText: fullText || null,
+            }),
+          }).catch(alertError => {
+            console.error('❌ Failed to send admin alert:', alertError);
+          });
           
           sendEvent('error', { 
             message: error instanceof Error ? error.message : 'Unknown error' 
