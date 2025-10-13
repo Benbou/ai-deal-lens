@@ -205,27 +205,27 @@ export const createColumns = (
       const statusConfig = {
         pending: { 
           label: "En attente", 
-          variant: "secondary" as const,
+          variant: "outline" as const,
           icon: Clock,
-          className: "text-muted-foreground"
+          className: "whitespace-nowrap bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900 dark:text-blue-200"
         },
         processing: { 
           label: "En cours", 
           variant: "default" as const,
           icon: Loader,
-          className: "animate-pulse bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200"
+          className: "whitespace-nowrap animate-pulse bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200"
         },
         completed: { 
           label: "Analysé", 
           variant: "outline" as const,
           icon: CheckCircle,
-          className: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+          className: "whitespace-nowrap bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
         },
         failed: { 
           label: "Échoué", 
-          variant: "destructive" as const,
+          variant: "outline" as const,
           icon: AlertCircle,
-          className: ""
+          className: "whitespace-nowrap bg-red-50 text-red-700 border-red-200 dark:bg-red-900 dark:text-red-200"
         },
       };
       
