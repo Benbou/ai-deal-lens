@@ -182,17 +182,18 @@ ${deal.personal_notes || 'Aucun contexte additionnel fourni'}
 
 Produis un mémo d'investissement détaillé et structuré en Markdown.`;
 
-          // Create conversation with streaming enabled
-          console.log('🌐 [DEBUG] About to call Dust API...');
-          console.log('🌐 [DEBUG] URL:', `https://dust.tt/api/v1/w/${DUST_WORKSPACE_ID}/assistant/conversations`);
+          // ============================================================================
+          // STEP 1: Create conversation (non-blocking)
+          // ============================================================================
+          console.log('🤖 Creating Dust conversation (non-blocking)...');
           
           const abortController = new AbortController();
           const timeoutId = setTimeout(() => {
-            console.error('⏱️ [ERROR] Dust API timeout after 900s (15 minutes)');
+            console.error('⏱️ [ERROR] Dust API timeout after 15 minutes');
             abortController.abort();
-          }, 900000); // 15 minutes timeout
+          }, 900000);
 
-          const streamResp = await fetch(
+          const createResp = await fetch(
             `https://dust.tt/api/v1/w/${DUST_WORKSPACE_ID}/assistant/conversations`,
             {
               method: 'POST',
@@ -211,7 +212,7 @@ Produis un mémo d'investissement détaillé et structuré en Markdown.`;
                     username: userName,
                     email: userEmail,
                     fullName: userName,
-                    profilePictureUrl: user.user_metadata?.avatar_url || undefined,
+                    profilePictureUrl: user.user_metadata?.avatar_url,
                     origin: 'api',
                   },
                 },
@@ -221,169 +222,132 @@ Produis un mémo d'investissement détaillé et structuré en Markdown.`;
             }
           );
 
+          if (!createResp.ok) {
+            const errorText = await createResp.text();
+            console.error('❌ Failed to create conversation:', createResp.status, errorText);
+            throw new Error(`Dust conversation error: ${errorText}`);
+          }
+
+          const createData = await createResp.json();
+          const conversation = createData.conversation;
+          const userMessageId = createData.message.sId;
+          const conversationId = conversation.sId;
+
+          console.log('✅ Conversation created:', conversationId);
+          console.log('📩 User message ID:', userMessageId);
+          sendEvent('status', { message: 'Agent démarré...' });
+
+          // ============================================================================
+          // STEP 2: Stream agent events
+          // ============================================================================
+          console.log('🌊 Streaming agent events...');
+          
+          const streamResp = await fetch(
+            `https://dust.tt/api/v1/w/${DUST_WORKSPACE_ID}/assistant/conversations/${conversationId}/messages/${userMessageId}/events`,
+            {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${dustApiKey}`,
+                'Accept': 'text/event-stream',
+              },
+              signal: abortController.signal
+            }
+          );
+
           clearTimeout(timeoutId);
-          console.log('✅ [DEBUG] Dust API response received in streaming mode');
 
           if (!streamResp.ok) {
             const errorText = await streamResp.text();
-            console.error('❌ [ERROR] Dust API failed:', streamResp.status, errorText);
-            throw new Error(`Failed to create Dust conversation: ${errorText}`);
+            console.error('❌ Failed to stream events:', streamResp.status, errorText);
+            throw new Error(`Dust streaming error: ${errorText}`);
           }
 
-          console.log('✅ [DEBUG] Dust API streaming started');
-          
+          if (!streamResp.body) {
+            throw new Error('No response body from Dust streaming API');
+          }
+
           // ============================================================================
-          // HYBRID MODE: Detect response type (JSON vs SSE)
+          // STEP 3: Parse SSE stream
           // ============================================================================
-          const contentType = streamResp.headers.get('content-type') || '';
-          console.log('🔍 [DEBUG] Response Content-Type:', contentType);
-          console.log('🔍 [DEBUG] Response Status:', streamResp.status);
-          console.log('🔍 [DEBUG] Response Headers:', Object.fromEntries(streamResp.headers.entries()));
+          const reader = streamResp.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = '';
 
-          let conversationId = '';
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
 
-          if (contentType.includes('application/json')) {
-            // ============================================================================
-            // MODE JSON: Dust returns complete conversation object
-            // ============================================================================
-            console.log('⚠️ [DUST] JSON response detected, parsing as complete conversation');
-            sendEvent('status', { message: 'Réception de la réponse complète...' });
-            
-            const jsonResponse = await streamResp.json();
-            console.log('🔍 [DEBUG] JSON Response keys:', Object.keys(jsonResponse));
-            
-            // Extract conversation ID
-            conversationId = jsonResponse.conversation?.sId || '';
-            console.log('🔍 [DEBUG] Conversation ID:', conversationId);
-            
-            // Extract agent message content
-            const messages = jsonResponse.conversation?.content || [];
-            console.log('🔍 [DEBUG] Messages count:', messages.length);
-            
-            // Find last agent message
-            const lastAgentMessage = messages.reverse().find((m: any) => m.type === 'agent_message');
-            console.log('🔍 [DEBUG] Last agent message found:', !!lastAgentMessage);
-            
-            if (lastAgentMessage?.content) {
-              fullText = lastAgentMessage.content;
-              console.log('✅ [DUST] Full text extracted:', fullText.length, 'chars');
-              
-              // Simulate streaming for frontend (send in chunks)
-              sendEvent('status', { message: 'Envoi du mémo...' });
-              const chunkSize = 100;
-              for (let i = 0; i < fullText.length; i += chunkSize) {
-                const chunk = fullText.slice(i, i + chunkSize);
-                sendEvent('delta', { text: chunk });
-                // Small delay to simulate streaming
-                await new Promise(resolve => setTimeout(resolve, 20));
-              }
-              console.log('✅ [DUST] Streaming simulation complete');
-            } else {
-              console.error('❌ [DUST] No agent message content found in JSON response');
-              console.error('❌ [DEBUG] Messages:', JSON.stringify(messages.slice(0, 2)));
-            }
-            
-          } else if (contentType.includes('text/event-stream')) {
-            // ============================================================================
-            // MODE SSE: Dust returns Server-Sent Events stream
-            // ============================================================================
-            console.log('✅ [DUST] SSE stream detected, parsing events');
-            
-            if (!streamResp.body) {
-              throw new Error('No response body from Dust API');
-            }
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
 
-            const reader = streamResp.body.getReader();
-            const decoder = new TextDecoder();
-            let buffer = '';
+            for (const line of lines) {
+              if (!line.trim() || line.startsWith(':')) continue;
 
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-
-              buffer += decoder.decode(value, { stream: true });
-              const lines = buffer.split('\n');
-              buffer = lines.pop() || ''; // Keep last partial line
-
-              for (const line of lines) {
-                if (!line.trim() || line.startsWith(':')) continue; // Skip keepalives
-
-                if (line.startsWith('data: ')) {
-                  const dataStr = line.slice(6).trim();
+              if (line.startsWith('data: ')) {
+                const dataStr = line.slice(6).trim();
+                
+                try {
+                  const event = JSON.parse(dataStr);
                   
-                  try {
-                    const event = JSON.parse(dataStr);
-                    
-                    switch (event.type) {
-                      case 'user_message_new':
-                        console.log('📩 [DUST] User message received:', event.messageId);
-                        sendEvent('status', { message: 'Message envoyé à l\'agent' });
-                        break;
+                  switch (event.type) {
+                    case 'user_message_error':
+                      console.error('❌ [DUST] User message error:', event.error);
+                      throw new Error(`User message error: ${event.error.message}`);
 
-                      case 'agent_message_new':
-                        console.log('🤖 [DUST] Agent started responding:', event.messageId);
-                        conversationId = event.conversationId || '';
-                        sendEvent('status', { message: 'Agent analyse le deck...' });
-                        break;
+                    case 'agent_error':
+                      console.error('❌ [DUST] Agent error:', event.error);
+                      throw new Error(`Agent error: ${event.error.message}`);
 
-                      case 'generation_tokens':
-                        // ✅ CRITICAL: Stream tokens in real-time
+                    case 'agent_action_success':
+                      console.log('✅ [DUST] Action completed:', event.action?.type);
+                      sendEvent('status', { 
+                        message: `Action ${event.action?.type || 'unknown'} terminée` 
+                      });
+                      break;
+
+                    case 'generation_tokens':
+                      // ✅ CRITICAL: Filter tokens vs chain-of-thought
+                      if (event.classification === 'tokens') {
                         const tokens = event.text || '';
                         fullText += tokens;
                         sendEvent('delta', { text: tokens });
-                        console.log('📝 [DUST] Tokens received:', tokens.length, 'chars');
-                        break;
+                        console.log('📝 [DUST] Tokens streamed:', tokens.length, 'chars');
+                      } else if (event.classification === 'chain_of_thought') {
+                        console.log('🧠 [DUST] Chain-of-thought (ignored)');
+                      }
+                      break;
 
-                      case 'agent_action_success':
-                        console.log('✅ [DUST] Action completed:', event.action?.type);
-                        sendEvent('status', { 
-                          message: `Action ${event.action?.type || 'unknown'} terminée` 
-                        });
-                        break;
+                    case 'agent_message_success':
+                      console.log('✅ [DUST] Message completed');
+                      sendEvent('status', { message: 'Génération terminée' });
+                      if (event.message?.content) {
+                        fullText = event.message.content;
+                      }
+                      break;
 
-                      case 'agent_message_success':
-                        console.log('✅ [DUST] Message completed');
-                        sendEvent('status', { message: 'Génération terminée' });
-                        break;
-
-                      case 'agent_error':
-                        console.error('❌ [DUST] Agent error:', event.error);
-                        throw new Error(`Dust agent error: ${event.error?.message || 'Unknown'}`);
-
-                      case 'conversation_title':
-                        console.log('📝 [DUST] Conversation title:', event.title);
-                        break;
-
-                      default:
-                        console.log('ℹ️ [DUST] Unhandled event:', event.type);
-                    }
-                  } catch (parseError) {
-                    console.error('⚠️ [DUST] Failed to parse event:', dataStr.substring(0, 100));
+                    default:
+                      console.log('ℹ️ [DUST] Event:', event.type);
                   }
+                } catch (parseError) {
+                  console.error('⚠️ [DUST] Parse error:', dataStr.substring(0, 100));
                 }
               }
             }
+          }
 
-            // Flush remaining buffer
-            if (buffer.trim()) {
-              console.log('⚠️ [DUST] Remaining buffer:', buffer.substring(0, 100));
-            }
-            
-          } else {
-            // ============================================================================
-            // UNKNOWN CONTENT-TYPE
-            // ============================================================================
-            console.error('❌ [DUST] Unknown Content-Type:', contentType);
-            throw new Error(`Unsupported response type: ${contentType}`);
+          // Flush remaining buffer
+          if (buffer.trim()) {
+            console.log('⚠️ [DUST] Remaining buffer:', buffer.substring(0, 100));
           }
 
           // ============================================================================
           // VALIDATION: Ensure we got content
           // ============================================================================
           if (!fullText || fullText.trim().length === 0) {
-            console.error('❌ No text generated. Response type:', contentType);
+            console.error('❌ No text generated from Dust stream');
             console.error('❌ Full text value:', fullText);
-            throw new Error(`No memo text generated by Dust (content-type: ${contentType})`);
+            throw new Error('No memo text generated by Dust streaming API');
           }
           
           console.log('✅ Memo generated and streamed:', fullText.length, 'chars');
