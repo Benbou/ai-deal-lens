@@ -236,15 +236,6 @@ Produis un mémo d'investissement détaillé et structuré en Markdown.`;
           console.log('✅ Conversation created:', conversationId);
           console.log('📩 User message ID:', userMessageId);
           
-          // Store Dust conversation URL in database
-          const dustConversationUrl = `https://dust.tt/w/${DUST_WORKSPACE_ID}/assistant/${DUST_AGENT_ID}/conversations/${conversationId}`;
-          console.log('🔗 Dust conversation URL:', dustConversationUrl);
-          
-          await supabaseClient
-            .from('analyses')
-            .update({ dust_conversation_url: dustConversationUrl })
-            .eq('id', analysisId);
-          
           sendEvent('status', { message: 'Agent démarré...' });
 
           // ============================================================================

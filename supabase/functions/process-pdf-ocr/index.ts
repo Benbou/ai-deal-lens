@@ -154,6 +154,19 @@ serve(async (req) => {
     console.log('✅ OCR completed, extracted', markdownText.length, 'characters from', ocrResult.pages?.length, 'pages');
     console.log('First 500 characters:', markdownText.substring(0, 500));
 
+    // Sauvegarder le markdown OCR dans la base de données
+    const { error: updateError } = await supabaseClient
+      .from('deck_files')
+      .update({ ocr_markdown: markdownText })
+      .eq('deal_id', dealId);
+
+    if (updateError) {
+      console.error('⚠️ [OCR] Failed to save markdown to database:', updateError);
+      // On continue quand même, l'OCR a réussi
+    } else {
+      console.log('✅ [OCR] Markdown saved to database');
+    }
+
     return new Response(
       JSON.stringify({
         success: true,

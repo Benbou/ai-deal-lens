@@ -21,7 +21,6 @@ export type Database = {
           current_step: string | null
           deal_id: string
           duration_seconds: number | null
-          dust_conversation_url: string | null
           error_details: Json | null
           error_message: string | null
           id: string
@@ -36,7 +35,6 @@ export type Database = {
           current_step?: string | null
           deal_id: string
           duration_seconds?: number | null
-          dust_conversation_url?: string | null
           error_details?: Json | null
           error_message?: string | null
           id?: string
@@ -51,7 +49,6 @@ export type Database = {
           current_step?: string | null
           deal_id?: string
           duration_seconds?: number | null
-          dust_conversation_url?: string | null
           error_details?: Json | null
           error_message?: string | null
           id?: string
@@ -164,6 +161,7 @@ export type Database = {
           file_size_bytes: number | null
           id: string
           mime_type: string | null
+          ocr_markdown: string | null
           storage_path: string
           thumbnail_path: string | null
           uploaded_at: string | null
@@ -175,6 +173,7 @@ export type Database = {
           file_size_bytes?: number | null
           id?: string
           mime_type?: string | null
+          ocr_markdown?: string | null
           storage_path: string
           thumbnail_path?: string | null
           uploaded_at?: string | null
@@ -186,6 +185,7 @@ export type Database = {
           file_size_bytes?: number | null
           id?: string
           mime_type?: string | null
+          ocr_markdown?: string | null
           storage_path?: string
           thumbnail_path?: string | null
           uploaded_at?: string | null
