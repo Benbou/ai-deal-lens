@@ -296,6 +296,7 @@ Produis un mémo d'investissement détaillé et structuré en Markdown.`;
 
               if (line.startsWith('data: ')) {
                 const dataStr = line.slice(6).trim();
+                console.log('🔍 [DUST] Raw event data:', dataStr.substring(0, 200));
                 
                 try {
                   const event = JSON.parse(dataStr);
@@ -317,10 +318,18 @@ Produis un mémo d'investissement détaillé et structuré en Markdown.`;
                       break;
 
                     case 'generation_tokens':
-                      const tokens = event.text || '';
-                      fullText += tokens;
-                      sendEvent('delta', { text: tokens });
-                      console.log('📝 [DUST] Tokens streamed:', tokens.length, 'chars');
+                      // ✅ FILTRER : on ne garde QUE les vrais tokens de réponse
+                      if (event.classification === 'tokens') {
+                        const tokens = event.text || '';
+                        fullText += tokens;
+                        sendEvent('delta', { text: tokens });
+                        console.log('📝 [DUST] Tokens streamed:', tokens.length, 'chars');
+                      } else if (event.classification === 'chain_of_thought') {
+                        // Raisonnement interne : on log mais on n'accumule PAS
+                        console.log('🧠 [DUST] Chain of thought:', event.text?.substring(0, 100));
+                      } else {
+                        console.warn('⚠️ [DUST] Unknown classification:', event.classification);
+                      }
                       break;
 
                     case 'agent_message_success':
@@ -331,8 +340,16 @@ Produis un mémo d'investissement détaillé et structuré en Markdown.`;
                       }
                       break;
 
+                    case 'done':
+                      console.log('✅ [DUST] Stream ended normally');
+                      break;
+                      
                     default:
-                      console.log('ℹ️ [DUST] Event:', event.type);
+                      if (event.type === undefined) {
+                        console.log('⚠️ [DUST] Event sans type:', JSON.stringify(event).substring(0, 200));
+                      } else {
+                        console.log('ℹ️ [DUST] Event:', event.type);
+                      }
                   }
                 } catch (parseError) {
                   console.error('⚠️ [DUST] Parse error:', dataStr.substring(0, 100));
