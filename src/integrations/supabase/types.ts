@@ -21,6 +21,7 @@ export type Database = {
           current_step: string | null
           deal_id: string
           duration_seconds: number | null
+          dust_conversation_url: string | null
           error_details: Json | null
           error_message: string | null
           id: string
@@ -35,6 +36,7 @@ export type Database = {
           current_step?: string | null
           deal_id: string
           duration_seconds?: number | null
+          dust_conversation_url?: string | null
           error_details?: Json | null
           error_message?: string | null
           id?: string
@@ -49,6 +51,7 @@ export type Database = {
           current_step?: string | null
           deal_id?: string
           duration_seconds?: number | null
+          dust_conversation_url?: string | null
           error_details?: Json | null
           error_message?: string | null
           id?: string
@@ -422,7 +425,7 @@ export type Database = {
       }
       l2_normalize: {
         Args: { "": string } | { "": unknown } | { "": unknown }
-        Returns: string
+        Returns: unknown
       }
       sparsevec_out: {
         Args: { "": unknown }
