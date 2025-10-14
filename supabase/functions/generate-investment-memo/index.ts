@@ -253,7 +253,7 @@ Produis un mémo d'investissement détaillé et structuré en Markdown.`;
           console.log('🌊 Streaming agent events...');
           
           const streamResp = await fetch(
-            `https://dust.tt/api/v1/w/${DUST_WORKSPACE_ID}/assistant/conversations/${conversationId}/messages/${userMessageId}/events`,
+            `https://dust.tt/api/v1/w/${DUST_WORKSPACE_ID}/assistant/conversations/${conversationId}/events`,
             {
               method: 'GET',
               headers: {
