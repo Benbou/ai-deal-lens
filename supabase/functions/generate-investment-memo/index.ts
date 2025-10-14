@@ -307,15 +307,10 @@ Produis un mémo d'investissement détaillé et structuré en Markdown.`;
                       break;
 
                     case 'generation_tokens':
-                      // ✅ CRITICAL: Filter tokens vs chain-of-thought
-                      if (event.classification === 'tokens') {
-                        const tokens = event.text || '';
-                        fullText += tokens;
-                        sendEvent('delta', { text: tokens });
-                        console.log('📝 [DUST] Tokens streamed:', tokens.length, 'chars');
-                      } else if (event.classification === 'chain_of_thought') {
-                        console.log('🧠 [DUST] Chain-of-thought (ignored)');
-                      }
+                      const tokens = event.text || '';
+                      fullText += tokens;
+                      sendEvent('delta', { text: tokens });
+                      console.log('📝 [DUST] Tokens streamed:', tokens.length, 'chars');
                       break;
 
                     case 'agent_message_success':
