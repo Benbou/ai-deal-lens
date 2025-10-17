@@ -215,7 +215,7 @@ ${deal.personal_notes || 'Aucun contexte additionnel fourni'}
         properties: {
           memo_markdown: { 
             type: "string", 
-            description: "Full investment memo in French, formatted in Markdown (800-1000 words)" 
+            description: "REQUIRED: Full investment memo in French, formatted in Markdown (800-1000 words). This field MUST contain the complete memo text and cannot be empty." 
           },
           company_name: { type: "string" },
           sector: { type: "string", description: "Industry sector in French" },
@@ -290,12 +290,15 @@ ${deal.personal_notes || 'Aucun contexte additionnel fourni'}
         let messages: any[] = [{ role: "user", content: userMessage }];
         let iterationCount = 0;
         const MAX_ITERATIONS = 15;
+        let memoReady = false;
+        let finalData: any = null;
 
-        while (iterationCount < MAX_ITERATIONS) {
+        while (iterationCount < MAX_ITERATIONS && !memoReady) {
           iterationCount++;
           console.log(`🔄 [CLAUDE] Iteration ${iterationCount}`);
 
-          const response = await anthropic.messages.create({
+          // ✅ Use native streaming
+          const stream = await anthropic.messages.stream({
             model: "claude-haiku-4-5-20251001",
             max_tokens: 4500,
             temperature: 1,
@@ -304,28 +307,36 @@ ${deal.personal_notes || 'Aucun contexte additionnel fourni'}
             tools: tools
           });
 
-          console.log(`📊 [CLAUDE] Stop: ${response.stop_reason}`);
-
-          // Add response to conversation
-          messages.push({ role: "assistant", content: response.content });
-
-          // Process blocks
           let toolResults: any[] = [];
-          let memoReady = false;
-          let finalData: any = null;
+          
+          // ✅ Listen to streaming events in real-time
+          stream
+            .on('text', (text) => {
+              // Token-by-token streaming
+              sendEvent('delta', { text });
+            })
+            .on('contentBlock', (block) => {
+              if (block.type === 'tool_use') {
+                console.log(`🔧 [CLAUDE] Tool: ${block.name}`);
+              }
+            })
+            .on('message', (message) => {
+              console.log(`📊 [CLAUDE] Stop: ${message.stop_reason}`);
+            });
 
-          for (const block of response.content) {
-            if (block.type === 'text') {
-              sendEvent('delta', { text: block.text });
-            }
+          // ✅ Wait for complete response
+          const finalMessage = await stream.finalMessage();
+          
+          // ✅ Add response to conversation
+          messages.push({ role: "assistant", content: finalMessage.content });
 
+          // ✅ Process tool_use in final message
+          for (const block of finalMessage.content) {
             if (block.type === 'tool_use') {
-              console.log(`🔧 [CLAUDE] Tool: ${block.name}`);
-              
               if (block.name === 'linkup_search') {
                 const input = block.input as { query?: any; depth?: string };
                 
-                // ✅ Force query to be a string
+                // Validation stricte
                 let queryStr: string;
                 if (typeof input.query === 'string') {
                   queryStr = input.query.trim();
@@ -375,66 +386,86 @@ ${deal.personal_notes || 'Aucun contexte additionnel fourni'}
             }
           }
 
-          // Continue with tool results
+          // ✅ Continue conversation if tools were called
           if (toolResults.length > 0 && !memoReady) {
             messages.push({ role: "user", content: toolResults });
             continue;
           }
 
-          // Save and finish
-          if (memoReady && finalData) {
-            const typed = finalData as {
-              memo_markdown: string;
-              company_name: string;
-              sector: string;
-              solution_summary: string;
-              amount_raised_cents?: number;
-              pre_money_valuation_cents?: number;
-              current_arr_cents?: number;
-              yoy_growth_percent?: number;
-              mom_growth_percent?: number;
-            };
-            
-            const { error: updateError } = await supabaseClient
-              .from('analyses')
-              .update({
-                result: { full_text: typed.memo_markdown },
-                progress_percent: 85
-              })
-              .eq('id', analysisId);
-
-            if (updateError) {
-              throw new Error('Failed to save memo');
-            }
-
-            console.log('💾 Memo saved');
-
-            sendEvent('done', {
-              success: true,
-              memoLength: typed.memo_markdown.length,
-              extractedData: {
-                company_name: typed.company_name || null,
-                sector: typed.sector || null,
-                solution_summary: typed.solution_summary || null,
-                amount_raised_cents: typed.amount_raised_cents || null,
-                pre_money_valuation_cents: typed.pre_money_valuation_cents || null,
-                current_arr_cents: typed.current_arr_cents || null,
-                yoy_growth_percent: typed.yoy_growth_percent || null,
-                mom_growth_percent: typed.mom_growth_percent || null
-              }
-            });
-
-            controller.close();
-            return;
-          }
-
-          // Check if finished without memo
-          if (response.stop_reason === 'end_turn' && !memoReady) {
+          // ✅ Check if Claude finished without calling output_memo
+          if (finalMessage.stop_reason === 'end_turn' && !memoReady) {
             throw new Error('Claude finished without calling output_memo');
           }
         }
 
-        throw new Error('Max iterations reached');
+        if (!memoReady || !finalData) {
+          throw new Error('Max iterations reached without memo');
+        }
+
+        // ✅ Logs détaillés pour debug
+        console.log('📝 [DEBUG] finalData keys:', Object.keys(finalData));
+        console.log('📝 [DEBUG] finalData:', JSON.stringify(finalData, null, 2));
+
+        const typed = finalData as {
+          memo_markdown?: string;
+          company_name?: string;
+          sector?: string;
+          solution_summary?: string;
+          amount_raised_cents?: number;
+          pre_money_valuation_cents?: number;
+          current_arr_cents?: number;
+          yoy_growth_percent?: number;
+          mom_growth_percent?: number;
+        };
+
+        // ✅ Validation stricte
+        if (!typed.memo_markdown) {
+          console.error('❌ Missing memo_markdown in finalData');
+          throw new Error('Claude returned output_memo without memo_markdown field');
+        }
+
+        const memoText = typed.memo_markdown.trim();
+        if (memoText.length < 100) {
+          console.error('❌ Memo too short:', memoText.length, 'chars');
+          throw new Error('Generated memo is suspiciously short');
+        }
+
+        console.log(`✅ Memo validated: ${memoText.length} chars`);
+
+        // ✅ Sauvegarde sécurisée
+        const { error: updateError } = await supabaseClient
+          .from('analyses')
+          .update({
+            result: { full_text: memoText },
+            progress_percent: 85
+          })
+          .eq('id', analysisId);
+
+        if (updateError) {
+          console.error('❌ Failed to save memo:', updateError);
+          throw new Error(`Failed to save memo: ${updateError.message}`);
+        }
+
+        console.log('💾 Memo saved');
+
+        // ✅ Événement done avec validation
+        sendEvent('done', {
+          success: true,
+          memoLength: memoText.length,
+          extractedData: {
+            company_name: typed.company_name || null,
+            sector: typed.sector || null,
+            solution_summary: typed.solution_summary || null,
+            amount_raised_cents: typed.amount_raised_cents || null,
+            pre_money_valuation_cents: typed.pre_money_valuation_cents || null,
+            current_arr_cents: typed.current_arr_cents || null,
+            yoy_growth_percent: typed.yoy_growth_percent || null,
+            mom_growth_percent: typed.mom_growth_percent || null
+          }
+        });
+
+        console.log('✅ Done event sent with extractedData');
+        controller.close();
 
       } catch (error) {
         console.error('❌ Stream error:', error);
