@@ -220,15 +220,73 @@ serve(async (req) => {
             throw new Error(`Memo generation failed: ${errorText}`);
           }
 
-          const memoResult = await memoResponse.json();
-          if (!memoResult.success) {
-            throw new Error(memoResult.error || 'Memo generation failed');
+          // Lire le stream SSE de Claude
+          const reader = memoResponse.body?.getReader();
+          const decoder = new TextDecoder();
+          if (!reader) throw new Error('No response stream from Claude');
+
+          let buffer = '';
+          let extractedData: any = null;
+          let memoComplete = false;
+
+          while (!memoComplete) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+
+            for (const line of lines) {
+              if (!line.trim() || line.startsWith(':')) continue;
+
+              if (line.startsWith('event:')) {
+                continue;
+              }
+
+              if (line.startsWith('data:')) {
+                const dataStr = line.slice(5).trim();
+                try {
+                  const eventData = JSON.parse(dataStr);
+
+                  // Re-streamer les événements delta (texte du mémo)
+                  if (eventData.text) {
+                    sendEvent('delta', { text: eventData.text });
+                  }
+
+                  // Re-streamer les statuts (recherches Linkup)
+                  if (eventData.message) {
+                    sendEvent('status', { 
+                      message: eventData.message,
+                      progress: 50,
+                      step: 2,
+                      totalSteps: 3
+                    });
+                  }
+
+                  // Événement done : récupérer les données extraites
+                  if (eventData.success && eventData.extractedData) {
+                    extractedData = eventData.extractedData;
+                    memoComplete = true;
+                    console.log('✅ Memo generated and data extracted');
+                    console.log('📊 Extracted data:', extractedData);
+                  }
+
+                  // Événement error
+                  if (eventData.error) {
+                    throw new Error(eventData.error);
+                  }
+
+                } catch (e) {
+                  console.error('Failed to parse SSE data:', e, dataStr);
+                }
+              }
+            }
           }
 
-          console.log('✅ Memo generated:', memoResult.memoLength, 'chars');
-          console.log('📊 Extracted data:', memoResult.extractedData);
-
-          const extractedData = memoResult.extractedData;
+          if (!extractedData) {
+            throw new Error('No extracted data received from Claude');
+          }
 
           sendEvent('status', { 
             message: 'Mémo et données extraites avec succès', 

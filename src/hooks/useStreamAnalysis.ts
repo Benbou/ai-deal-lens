@@ -6,12 +6,14 @@ export function useStreamAnalysis() {
   const [streamingText, setStreamingText] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [currentStatus, setCurrentStatus] = useState<string>('');
 
   const startAnalysis = useCallback(async (dealId: string) => {
     try {
-      setError(null); // Reset error
+      setError(null);
       setIsStreaming(true);
       setStreamingText('');
+      setCurrentStatus('Démarrage de l\'analyse...');
 
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
@@ -71,6 +73,7 @@ export function useStreamAnalysis() {
                 setStreamingText(prev => prev + data.text);
               } else if (data.message) {
                 // Status event with message
+                setCurrentStatus(data.message);
                 console.log('Status:', data.message);
               }
             } catch (e) {
@@ -81,10 +84,12 @@ export function useStreamAnalysis() {
       }
 
       setIsStreaming(false);
+      setCurrentStatus('');
       toast.success('Analyse terminée');
     } catch (error) {
       console.error('Analysis error:', error);
       setIsStreaming(false);
+      setCurrentStatus('');
       const errorMessage = error instanceof Error ? error.message : 'Erreur lors de l\'analyse';
       setError(errorMessage);
       toast.error('L\'analyse a échoué. Notre équipe a été notifiée.');
@@ -95,12 +100,14 @@ export function useStreamAnalysis() {
     setStreamingText('');
     setIsStreaming(false);
     setError(null);
+    setCurrentStatus('');
   }, []);
 
   return {
     streamingText,
     isStreaming,
     error,
+    currentStatus,
     startAnalysis,
     reset,
   };

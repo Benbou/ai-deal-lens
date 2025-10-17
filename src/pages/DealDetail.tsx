@@ -58,7 +58,7 @@ export default function DealDetail() {
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
   const { t } = useTranslation();
-  const { streamingText, isStreaming, error, startAnalysis, reset } = useStreamAnalysis();
+  const { streamingText, isStreaming, error, currentStatus, startAnalysis, reset } = useStreamAnalysis();
 
   useEffect(() => {
     if (!id) return;
@@ -355,6 +355,12 @@ export default function DealDetail() {
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
             <div>
               <h3 className="text-xl font-semibold mb-2">Analyse en cours</h3>
+              {currentStatus && (
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  <span className="text-sm font-medium text-primary">{currentStatus}</span>
+                </div>
+              )}
               <p className="text-muted-foreground">
                 Notre IA analyse le deck en détail. Cela peut prendre quelques minutes...
               </p>
@@ -375,10 +381,15 @@ export default function DealDetail() {
               </h2>
             </div>
             {isStreaming && (
-              <Badge className="bg-primary animate-pulse flex items-center gap-2">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                Génération en cours...
-              </Badge>
+              <div className="flex flex-col items-end gap-2">
+                <Badge className="bg-primary animate-pulse flex items-center gap-2">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Génération en cours...
+                </Badge>
+                {currentStatus && (
+                  <span className="text-xs text-muted-foreground">{currentStatus}</span>
+                )}
+              </div>
             )}
           </div>
           
