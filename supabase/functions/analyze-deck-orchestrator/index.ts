@@ -184,150 +184,63 @@ serve(async (req) => {
             .eq('id', analysisId);
 
           // ============================================================================
-          // STEP 2: INVESTMENT MEMO GENERATION (Progress: 25% → 75%)
+          // STEP 2: MEMO + EXTRACTION with Claude + Linkup (Progress: 25% → 85%)
           // ============================================================================
-          // Generate detailed investment memo using Dust AI agent
-          // - Sends OCR markdown + deal context to Dust
-          // - Streams agent response back to client
-          // - Saves complete memo to database
-          // - Waits for 'memo_saved' confirmation before proceeding
+          // Generate detailed investment memo using Claude Haiku 4.5 with:
+          // - Extended thinking (2500 tokens)
+          // - Linkup web search for market validation
+          // - Structured JSON output (memo + extracted data)
           // ============================================================================
-          sendEvent('status', {
-            message: 'Génération du mémo d\'investissement...', 
+          sendEvent('status', { 
+            message: 'Génération du mémo d\'investissement avec Claude...', 
             progress: 25,
             step: 2,
-            totalSteps: 4
+            totalSteps: 3
           });
 
-          const memoResponse = await fetch(`${supabaseUrl}/functions/v1/generate-investment-memo`, {
-            method: 'POST',
-            headers: {
-              'Authorization': authHeader,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ dealId, markdownText, analysisId }),
-          });
+          console.log('Calling generate-memo-with-claude function...');
+          const memoResponse = await fetch(
+            `${supabaseUrl}/functions/v1/generate-memo-with-claude`,
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': authHeader,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ 
+                dealId, 
+                markdownText, 
+                analysisId 
+              }),
+            }
+          );
 
           if (!memoResponse.ok) {
-            throw new Error('Memo generation failed');
+            const errorText = await memoResponse.text();
+            throw new Error(`Memo generation failed: ${errorText}`);
           }
 
-          // Stream memo generation events to client
-          const reader = memoResponse.body?.getReader();
-          const decoder = new TextDecoder();
-
-          if (!reader) {
-            throw new Error('No response stream from memo generation');
+          const memoResult = await memoResponse.json();
+          if (!memoResult.success) {
+            throw new Error(memoResult.error || 'Memo generation failed');
           }
 
-          let buffer = '';
-          let memoSaved = false;
-          
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
+          console.log('✅ Memo generated:', memoResult.memoLength, 'chars');
+          console.log('📊 Extracted data:', memoResult.extractedData);
 
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split('\n');
-            buffer = lines.pop() || '';
-
-            for (const line of lines) {
-              if (!line.trim() || line.startsWith(':')) continue;
-
-              if (line.startsWith('event:')) {
-                // Check for memo_saved event
-                if (line.includes('event: memo_saved')) {
-                  memoSaved = true;
-                  console.log('✅ Memo saved confirmation received');
-                }
-                continue;
-              }
-
-              if (line.startsWith('data:')) {
-                const dataStr = line.slice(5).trim();
-                try {
-                  const data = JSON.parse(dataStr);
-                  
-                  // Forward events to client
-                  if (data.text) {
-                    sendEvent('delta', { text: data.text });
-                  } else if (data.message) {
-                    sendEvent('status', { message: data.message });
-                  }
-                } catch (e) {
-                  console.error('Failed to parse memo event:', e);
-                }
-              }
-            }
-          }
-
-          // Verify that memo was saved before continuing
-          if (!memoSaved) {
-            throw new Error('Memo was not saved to database');
-          }
-
-          console.log('✅ Memo generation completed and saved');
+          const extractedData = memoResult.extractedData;
 
           sendEvent('status', { 
-            message: 'Mémo généré avec succès', 
-            progress: 75,
+            message: 'Mémo et données extraites avec succès', 
+            progress: 85,
             step: 2,
-            totalSteps: 4
+            totalSteps: 3
           });
 
-          // ============================================================================
-          // STEP 3: STRUCTURED DATA EXTRACTION (Progress: 75% → 90%)
-          // ============================================================================
-          // Extract structured fields from memo using Claude Haiku
-          // - Parses memo for company_name, sector, metrics, etc.
-          // - Returns JSON with validated fields
-          // - All monetary values in euro cents
-          // - Handles missing/null values gracefully
-          // ============================================================================
-          sendEvent('status', {
-            message: 'Extraction des données structurées...', 
-            progress: 75,
-            step: 3,
-            totalSteps: 4
-          });
-
-          await supabaseClient
-            .from('analyses')
-            .update({ 
-              progress_percent: 80, 
-              current_step: 'Extraction des données structurées' 
-            })
-            .eq('id', analysisId);
-
-          const extractionResponse = await fetch(`${supabaseUrl}/functions/v1/extract-structured-data`, {
-            method: 'POST',
-            headers: {
-              'Authorization': authHeader,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ dealId, analysisId }),
-          });
-
-          if (!extractionResponse.ok) {
-            throw new Error('Data extraction failed');
-          }
-
-          const extractionResult = await extractionResponse.json();
-          if (!extractionResult.success) {
-            throw new Error(extractionResult.error || 'Extraction failed');
-          }
-
-          console.log('✅ Data extraction completed');
-
-          sendEvent('status', { 
-            message: 'Données extraites avec succès', 
-            progress: 90,
-            step: 3,
-            totalSteps: 4
-          });
+          // Step 3 merged with Step 2 (Claude generates memo + extracts data in one call)
 
           // ============================================================================
-          // STEP 4: FINALIZATION (Progress: 90% → 100%)
+          // STEP 3: FINALIZATION (Progress: 85% → 100%)
           // ============================================================================
           // Update deal record with extracted data and mark analysis complete
           // - Updates deals table with all structured fields
@@ -337,9 +250,9 @@ serve(async (req) => {
           // ============================================================================
           sendEvent('status', {
             message: 'Finalisation de l\'analyse...', 
-            progress: 90,
-            step: 4,
-            totalSteps: 4
+            progress: 85,
+            step: 3,
+            totalSteps: 3
           });
 
           await supabaseClient
@@ -359,7 +272,7 @@ serve(async (req) => {
             body: JSON.stringify({ 
               dealId, 
               analysisId, 
-              extractedData: extractionResult.extractedData 
+              extractedData: extractedData 
             }),
           });
 
@@ -377,8 +290,8 @@ serve(async (req) => {
           sendEvent('status', { 
             message: 'Analyse terminée avec succès', 
             progress: 100,
-            step: 4,
-            totalSteps: 4
+            step: 3,
+            totalSteps: 3
           });
           sendEvent('done', { success: true });
 
