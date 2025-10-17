@@ -196,7 +196,7 @@ ${deal.personal_notes || 'Aucun contexte additionnel fourni'}
         properties: {
           query: { 
             type: "string", 
-            description: "The search query in English or French" 
+            description: "A clear, concise search query as a single STRING (not array or object). Example: 'Linkup seed funding 2024'" 
           },
           depth: { 
             type: "string", 
@@ -233,27 +233,47 @@ ${deal.personal_notes || 'Aucun contexte additionnel fourni'}
 
   // Helper: Linkup search
   async function callLinkupSearch(query: string, depth: string = "standard") {
-    console.log(`🔍 [LINKUP] "${query}" (${depth})`);
+    const cleanQuery = String(query).trim();
     
-    const response = await fetch("https://api.linkup.so/v1/search", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${LINKUP_API_KEY}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ query, depth, outputType: "sourcedAnswer" })
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('❌ [LINKUP] Error:', errorText);
-      return { error: `Linkup failed: ${errorText}` };
+    if (!cleanQuery) {
+      console.error('❌ [LINKUP] Empty query after sanitization');
+      return { error: 'Empty search query' };
     }
-
-    const data = await response.json();
-    console.log(`✅ [LINKUP] Results (${data.answer?.length || 0} chars)`);
     
-    return { answer: data.answer, sources: data.sources || [] };
+    console.log(`🔍 [LINKUP] "${cleanQuery}" (${depth})`);
+    
+    try {
+      const response = await fetch("https://api.linkup.so/v1/search", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${LINKUP_API_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ 
+          q: cleanQuery,
+          depth, 
+          outputType: "sourcedAnswer" 
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ [LINKUP] Error:', errorText);
+        return { error: `Linkup failed (${response.status}): ${errorText}` };
+      }
+
+      const data = await response.json();
+      console.log(`✅ [LINKUP] Results (${data.answer?.length || 0} chars)`);
+      
+      return { 
+        answer: data.answer || "No answer received", 
+        sources: data.sources || [] 
+      };
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      console.error('❌ [LINKUP] Exception:', errorMsg);
+      return { error: `Linkup exception: ${errorMsg}` };
+    }
   }
 
   // Create SSE stream
@@ -303,11 +323,40 @@ ${deal.personal_notes || 'Aucun contexte additionnel fourni'}
               console.log(`🔧 [CLAUDE] Tool: ${block.name}`);
               
               if (block.name === 'linkup_search') {
-                const input = block.input as { query: string; depth?: string };
-                sendEvent('status', { message: `🔍 Recherche: ${input.query}` });
+                const input = block.input as { query?: any; depth?: string };
+                
+                // ✅ Force query to be a string
+                let queryStr: string;
+                if (typeof input.query === 'string') {
+                  queryStr = input.query.trim();
+                } else if (Array.isArray(input.query)) {
+                  queryStr = input.query.join(' ').trim();
+                } else if (typeof input.query === 'object' && input.query !== null) {
+                  queryStr = JSON.stringify(input.query);
+                } else {
+                  console.error('❌ Invalid query type:', typeof input.query, input.query);
+                  toolResults.push({
+                    type: "tool_result",
+                    tool_use_id: block.id,
+                    content: JSON.stringify({ error: "Invalid query format - must be a string" })
+                  });
+                  continue;
+                }
+                
+                if (!queryStr) {
+                  console.error('❌ Empty query');
+                  toolResults.push({
+                    type: "tool_result",
+                    tool_use_id: block.id,
+                    content: JSON.stringify({ error: "Empty query" })
+                  });
+                  continue;
+                }
+                
+                sendEvent('status', { message: `🔍 Recherche: ${queryStr}` });
                 
                 const searchResult = await callLinkupSearch(
-                  input.query,
+                  queryStr,
                   input.depth || "standard"
                 );
                 
