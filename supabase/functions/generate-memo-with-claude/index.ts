@@ -220,16 +220,46 @@ ${deal.personal_notes || 'Aucun contexte additionnel fourni'}
           company_name: { type: "string" },
           sector: { type: "string", description: "Industry sector in French" },
           solution_summary: { type: "string", description: "Brief solution (max 150 chars)" },
-          amount_raised_cents: { type: "number" },
-          pre_money_valuation_cents: { type: "number" },
-          current_arr_cents: { type: "number" },
-          yoy_growth_percent: { type: "number" },
-          mom_growth_percent: { type: "number" }
+          amount_raised_cents: { 
+            type: "number", 
+            description: "Amount raised in cents as NUMBER (not string). Use null (not 'null' string) if unknown." 
+          },
+          pre_money_valuation_cents: { 
+            type: "number", 
+            description: "Pre-money valuation in cents as NUMBER (not string). Use null (not 'null' string) if unknown." 
+          },
+          current_arr_cents: { 
+            type: "number", 
+            description: "Current ARR in cents as NUMBER (not string). Use null (not 'null' string) if unknown." 
+          },
+          yoy_growth_percent: { 
+            type: "number", 
+            description: "Year-over-year growth as NUMBER percentage (not string). Use null (not 'null' string) if unknown." 
+          },
+          mom_growth_percent: { 
+            type: "number", 
+            description: "Month-over-month growth as NUMBER percentage (not string). Use null (not 'null' string) if unknown." 
+          }
         },
         required: ["memo_markdown", "company_name", "sector", "solution_summary"]
       }
     }
   ];
+
+  // Helper: Sanitize values from Claude (converts "null" strings to actual null, validates numbers)
+  function sanitizeValue(value: any): any {
+    if (value === null || value === undefined) return null;
+    if (value === "null" || value === "undefined" || value === "") return null;
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (trimmed === "" || trimmed === "null" || trimmed === "undefined") return null;
+      // Try to parse as number if it looks numeric
+      const num = Number(trimmed);
+      if (!isNaN(num)) return num;
+    }
+    if (typeof value === "number") return value;
+    return value;
+  }
 
   // Helper: Linkup search
   async function callLinkupSearch(query: string, depth: string = "standard") {
@@ -448,20 +478,24 @@ ${deal.personal_notes || 'Aucun contexte additionnel fourni'}
 
         console.log('💾 Memo saved');
 
-        // ✅ Événement done avec validation
+        // ✅ Événement done avec validation et sanitization
+        const sanitizedData = {
+          company_name: typed.company_name || null,
+          sector: typed.sector || null,
+          solution_summary: typed.solution_summary || null,
+          amount_raised_cents: sanitizeValue(typed.amount_raised_cents),
+          pre_money_valuation_cents: sanitizeValue(typed.pre_money_valuation_cents),
+          current_arr_cents: sanitizeValue(typed.current_arr_cents),
+          yoy_growth_percent: sanitizeValue(typed.yoy_growth_percent),
+          mom_growth_percent: sanitizeValue(typed.mom_growth_percent)
+        };
+
+        console.log('📝 [DEBUG] Sanitized data:', JSON.stringify(sanitizedData, null, 2));
+
         sendEvent('done', {
           success: true,
           memoLength: memoText.length,
-          extractedData: {
-            company_name: typed.company_name || null,
-            sector: typed.sector || null,
-            solution_summary: typed.solution_summary || null,
-            amount_raised_cents: typed.amount_raised_cents || null,
-            pre_money_valuation_cents: typed.pre_money_valuation_cents || null,
-            current_arr_cents: typed.current_arr_cents || null,
-            yoy_growth_percent: typed.yoy_growth_percent || null,
-            mom_growth_percent: typed.mom_growth_percent || null
-          }
+          extractedData: sanitizedData
         });
 
         console.log('✅ Done event sent with extractedData');

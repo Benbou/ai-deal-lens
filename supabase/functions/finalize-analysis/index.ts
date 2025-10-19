@@ -87,51 +87,54 @@ serve(async (req) => {
 
     console.log('✅ Finalizing analysis for deal:', dealId);
 
-    // Update deal with extracted data
-    const dealUpdate: any = {};
+    // Create sanitized data object with strict type validation
+    const sanitizedData: any = {
+      status: 'completed',
+      analysis_completed_at: new Date().toISOString()
+    };
     let fieldCount = 0;
 
-    if (extractedData.company_name) {
-      dealUpdate.company_name = extractedData.company_name;
+    // String fields
+    if (extractedData.company_name && typeof extractedData.company_name === 'string') {
+      sanitizedData.company_name = extractedData.company_name;
       fieldCount++;
     }
-    if (extractedData.sector) {
-      dealUpdate.sector = extractedData.sector;
+    if (extractedData.sector && typeof extractedData.sector === 'string') {
+      sanitizedData.sector = extractedData.sector;
       fieldCount++;
     }
-    if (extractedData.solution_summary) {
-      dealUpdate.solution_summary = extractedData.solution_summary;
-      fieldCount++;
-    }
-    if (extractedData.amount_raised_cents !== null && extractedData.amount_raised_cents !== undefined) {
-      dealUpdate.amount_raised_cents = extractedData.amount_raised_cents;
-      fieldCount++;
-    }
-    if (extractedData.pre_money_valuation_cents !== null && extractedData.pre_money_valuation_cents !== undefined) {
-      dealUpdate.pre_money_valuation_cents = extractedData.pre_money_valuation_cents;
-      fieldCount++;
-    }
-    if (extractedData.current_arr_cents !== null && extractedData.current_arr_cents !== undefined) {
-      dealUpdate.current_arr_cents = extractedData.current_arr_cents;
-      fieldCount++;
-    }
-    if (extractedData.yoy_growth_percent !== null && extractedData.yoy_growth_percent !== undefined) {
-      dealUpdate.yoy_growth_percent = extractedData.yoy_growth_percent;
-      fieldCount++;
-    }
-    if (extractedData.mom_growth_percent !== null && extractedData.mom_growth_percent !== undefined) {
-      dealUpdate.mom_growth_percent = extractedData.mom_growth_percent;
+    if (extractedData.solution_summary && typeof extractedData.solution_summary === 'string') {
+      sanitizedData.solution_summary = extractedData.solution_summary;
       fieldCount++;
     }
 
-    dealUpdate.status = 'completed';
-    dealUpdate.analysis_completed_at = new Date().toISOString();
+    // Numeric fields - strict type checking
+    if (typeof extractedData.amount_raised_cents === 'number') {
+      sanitizedData.amount_raised_cents = extractedData.amount_raised_cents;
+      fieldCount++;
+    }
+    if (typeof extractedData.pre_money_valuation_cents === 'number') {
+      sanitizedData.pre_money_valuation_cents = extractedData.pre_money_valuation_cents;
+      fieldCount++;
+    }
+    if (typeof extractedData.current_arr_cents === 'number') {
+      sanitizedData.current_arr_cents = extractedData.current_arr_cents;
+      fieldCount++;
+    }
+    if (typeof extractedData.yoy_growth_percent === 'number') {
+      sanitizedData.yoy_growth_percent = extractedData.yoy_growth_percent;
+      fieldCount++;
+    }
+    if (typeof extractedData.mom_growth_percent === 'number') {
+      sanitizedData.mom_growth_percent = extractedData.mom_growth_percent;
+      fieldCount++;
+    }
 
-    console.log('Updating deal with:', dealUpdate);
+    console.log('Sanitized data for DB:', sanitizedData);
 
     const { error: dealUpdateError } = await supabaseClient
       .from('deals')
-      .update(dealUpdate)
+      .update(sanitizedData)
       .eq('id', dealId);
 
     if (dealUpdateError) {
