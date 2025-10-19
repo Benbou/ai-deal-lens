@@ -91,6 +91,17 @@ serve(async (req) => {
 
 **Output:** French | **Research:** English/French based on relevance
 
+**CRITICAL DATA TYPING RULES:**
+- For numeric fields (amount_raised_cents, yoy_growth_percent, mom_growth_percent, pre_money_valuation_cents, current_arr_cents):
+  - If the value is known, provide it as a NUMBER: { "yoy_growth_percent": 45 }
+  - If the value is unknown, use the literal null value: { "yoy_growth_percent": null }
+  - NEVER use the string "null": { "yoy_growth_percent": "null" } ❌ WRONG
+  - NEVER use empty string: { "yoy_growth_percent": "" } ❌ WRONG
+- Example correct outputs:
+  ✅ { "amount_raised_cents": 300000000, "yoy_growth_percent": null }
+  ✅ { "current_arr_cents": 50000000, "mom_growth_percent": 37 }
+  ❌ { "amount_raised_cents": "null", "yoy_growth_percent": "unknown" }
+
 ## Mission
 VC analyst specialized in ultra-concise investment memos (2 min read). Constructive skepticism, ~90% rejection rate. Binary GO/NO-GO decision.
 
@@ -247,18 +258,26 @@ ${deal.personal_notes || 'Aucun contexte additionnel fourni'}
   ];
 
   // Helper: Sanitize values from Claude (converts "null" strings to actual null, validates numbers)
-  function sanitizeValue(value: any): any {
+  function sanitizeValue(value: any): number | null {
+    // ✅ Cas 1: null-like values
     if (value === null || value === undefined) return null;
     if (value === "null" || value === "undefined" || value === "") return null;
-    if (typeof value === "string") {
+    
+    // ✅ Cas 2: string représentant un nombre
+    if (typeof value === 'string') {
       const trimmed = value.trim();
       if (trimmed === "" || trimmed === "null" || trimmed === "undefined") return null;
-      // Try to parse as number if it looks numeric
-      const num = Number(trimmed);
-      if (!isNaN(num)) return num;
+      const parsed = parseFloat(trimmed);
+      return isNaN(parsed) ? null : parsed;
     }
-    if (typeof value === "number") return value;
-    return value;
+    
+    // ✅ Cas 3: déjà un nombre
+    if (typeof value === 'number') {
+      return isNaN(value) ? null : value;
+    }
+    
+    // ✅ Cas 4: autre type (objet, array, etc.)
+    return null;
   }
 
   // Helper: Linkup search
@@ -330,7 +349,7 @@ ${deal.personal_notes || 'Aucun contexte additionnel fourni'}
           // ✅ Use native streaming
           const stream = await anthropic.messages.stream({
             model: "claude-haiku-4-5-20251001",
-            max_tokens: 4500,
+            max_tokens: 8000,
             temperature: 1,
             system: systemPrompt,
             messages: messages,
@@ -356,6 +375,9 @@ ${deal.personal_notes || 'Aucun contexte additionnel fourni'}
 
           // ✅ Wait for complete response
           const finalMessage = await stream.finalMessage();
+          
+          // ✅ Log stop reason for debugging
+          console.log(`📊 [CLAUDE] Stop reason: ${finalMessage.stop_reason}`);
           
           // ✅ Add response to conversation
           messages.push({ role: "assistant", content: finalMessage.content });
@@ -422,9 +444,18 @@ ${deal.personal_notes || 'Aucun contexte additionnel fourni'}
             continue;
           }
 
-          // ✅ Check if Claude finished without calling output_memo
+          // ✅ Validate stop_reason before proceeding
           if (finalMessage.stop_reason === 'end_turn' && !memoReady) {
+            console.error('❌ Claude finished without calling output_memo (end_turn)');
+            sendEvent('error', { 
+              message: 'Claude a terminé sans générer le mémo complet' 
+            });
             throw new Error('Claude finished without calling output_memo');
+          }
+
+          // ✅ Break if memo is ready
+          if (memoReady && finalData) {
+            break;
           }
         }
 
@@ -448,16 +479,25 @@ ${deal.personal_notes || 'Aucun contexte additionnel fourni'}
           mom_growth_percent?: number;
         };
 
-        // ✅ Validation stricte
-        if (!typed.memo_markdown) {
-          console.error('❌ Missing memo_markdown in finalData');
-          throw new Error('Claude returned output_memo without memo_markdown field');
+        // ✅ Validation stricte du memo_markdown
+        if (!typed.memo_markdown || typeof typed.memo_markdown !== 'string') {
+          console.error('❌ Missing or invalid memo_markdown in finalData');
+          console.error('📝 [DEBUG] finalData keys:', Object.keys(finalData));
+          console.error('📝 [DEBUG] memo_markdown value:', typed.memo_markdown);
+          sendEvent('error', { 
+            message: 'Claude n\'a pas renvoyé le mémo complet (champ manquant ou invalide)' 
+          });
+          throw new Error('Claude returned output_memo without valid memo_markdown field');
         }
 
         const memoText = typed.memo_markdown.trim();
         if (memoText.length < 100) {
           console.error('❌ Memo too short:', memoText.length, 'chars');
-          throw new Error('Generated memo is suspiciously short');
+          console.error('📝 [DEBUG] Memo content preview:', memoText.substring(0, 200));
+          sendEvent('error', { 
+            message: `Le mémo généré est trop court (${memoText.length} caractères, probablement tronqué)` 
+          });
+          throw new Error(`Generated memo is suspiciously short: ${memoText.length} chars`);
         }
 
         console.log(`✅ Memo validated: ${memoText.length} chars`);
