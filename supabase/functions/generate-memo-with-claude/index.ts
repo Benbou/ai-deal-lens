@@ -521,7 +521,7 @@ ${deal.personal_notes || 'Aucun contexte additionnel fourni'}
               metadata: {
                 linkup_searches: linkupSearches,
                 iterations: iterationCount,
-                total_tokens: 0, // Will be populated by finalMessage.usage if available
+                total_tokens: 0,
                 duration_ms: Date.now() - startTime
               }
             },
