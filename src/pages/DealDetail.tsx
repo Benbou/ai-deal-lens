@@ -59,6 +59,7 @@ export default function DealDetail() {
   const [deleting, setDeleting] = useState(false);
   const { t } = useTranslation();
   const { streamingText, isStreaming, error, currentStatus, startAnalysis, reset } = useStreamAnalysis();
+  const [showAIDetails, setShowAIDetails] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -393,58 +394,122 @@ export default function DealDetail() {
             )}
           </div>
           
-          <div className="prose prose-lg max-w-none dark:prose-invert
-            prose-headings:scroll-mt-20
-            prose-h1:text-5xl prose-h1:font-black prose-h1:mb-10 prose-h1:pb-8 
-            prose-h1:bg-gradient-to-r prose-h1:from-primary prose-h1:via-primary/80 prose-h1:to-primary/60
-            prose-h1:bg-clip-text prose-h1:text-transparent
-            prose-h1:border-b-4 prose-h1:border-primary/30
-            
-            prose-h2:text-3xl prose-h2:font-bold prose-h2:mt-20 prose-h2:mb-8 
-            prose-h2:bg-gradient-to-r prose-h2:from-primary/10 prose-h2:via-primary/5 prose-h2:to-transparent 
-            prose-h2:px-6 prose-h2:py-4 prose-h2:rounded-xl prose-h2:-mx-2
-            prose-h2:border-l-4 prose-h2:border-primary
-            prose-h2:shadow-sm prose-h2:transition-all hover:prose-h2:shadow-md
-            
-            prose-h3:text-2xl prose-h3:font-semibold prose-h3:mt-12 prose-h3:mb-6 
-            prose-h3:text-primary prose-h3:flex prose-h3:items-center prose-h3:gap-2
-            
-            prose-p:text-lg prose-p:leading-relaxed prose-p:mb-6 prose-p:text-foreground/95
-            prose-p:first-of-type:text-xl prose-p:first-of-type:font-medium prose-p:first-of-type:leading-relaxed
-            
-            prose-strong:font-bold prose-strong:text-primary 
-            prose-strong:bg-primary/10 prose-strong:px-2 prose-strong:py-0.5 
-            prose-strong:rounded-md prose-strong:shadow-sm
-            
-            prose-ul:my-8 prose-ul:space-y-4 prose-ul:pl-8
-            prose-ol:my-8 prose-ol:space-y-4 prose-ol:pl-8
-            prose-li:text-lg prose-li:leading-relaxed prose-li:text-foreground/95
-            prose-li:marker:text-primary prose-li:marker:font-bold prose-li:marker:text-xl
-            
-            prose-blockquote:border-l-4 prose-blockquote:border-primary 
-            prose-blockquote:bg-gradient-to-r prose-blockquote:from-primary/10 prose-blockquote:to-transparent
-            prose-blockquote:pl-8 prose-blockquote:pr-8 prose-blockquote:py-6 prose-blockquote:my-10
-            prose-blockquote:italic prose-blockquote:rounded-r-xl prose-blockquote:shadow-md
-            
-            prose-code:bg-muted/80 prose-code:text-primary prose-code:px-2.5 prose-code:py-1 
-            prose-code:rounded-md prose-code:text-base prose-code:font-mono prose-code:font-semibold
-            prose-code:border prose-code:border-primary/20
-            
-            prose-table:my-10 prose-table:border-collapse prose-table:w-full prose-table:shadow-lg prose-table:rounded-lg
-            prose-th:bg-primary/20 prose-th:font-bold prose-th:text-left prose-th:py-4 prose-th:px-6 
-            prose-th:border prose-th:border-border prose-th:text-lg
-            prose-td:border prose-td:border-border prose-td:py-4 prose-td:px-6 prose-td:text-base
-            prose-td:hover:bg-muted/50 prose-td:transition-colors
-            
-            prose-hr:border-2 prose-hr:border-primary/30 prose-hr:my-16
-            
-            prose-a:text-primary prose-a:font-semibold prose-a:underline 
-            prose-a:decoration-primary/40 prose-a:decoration-2
-            hover:prose-a:decoration-primary hover:prose-a:decoration-wavy">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+          <div className="prose prose-lg max-w-none dark:prose-invert">
+            <ReactMarkdown 
+              remarkPlugins={[remarkGfm]}
+              components={{
+                h1: ({node, ...props}) => <h1 className="scroll-m-20 text-4xl font-extrabold tracking-tight lg:text-5xl mb-8" {...props} />,
+                h2: ({node, ...props}) => <h2 className="scroll-m-20 border-b pb-2 text-3xl font-semibold tracking-tight first:mt-0 mt-10 mb-4" {...props} />,
+                h3: ({node, ...props}) => <h3 className="scroll-m-20 text-2xl font-semibold tracking-tight mt-8 mb-4" {...props} />,
+                h4: ({node, ...props}) => <h4 className="scroll-m-20 text-xl font-semibold tracking-tight mt-6 mb-3" {...props} />,
+                p: ({node, ...props}) => <p className="leading-7 [&:not(:first-child)]:mt-6" {...props} />,
+                ul: ({node, ...props}) => <ul className="my-6 ml-6 list-disc [&>li]:mt-2" {...props} />,
+                ol: ({node, ...props}) => <ol className="my-6 ml-6 list-decimal [&>li]:mt-2" {...props} />,
+                li: ({node, ...props}) => <li className="leading-7" {...props} />,
+                blockquote: ({node, ...props}) => <blockquote className="mt-6 border-l-2 pl-6 italic" {...props} />,
+                table: ({node, ...props}) => (
+                  <div className="my-6 w-full overflow-y-auto">
+                    <table className="w-full" {...props} />
+                  </div>
+                ),
+                thead: ({node, ...props}) => <thead className="bg-muted" {...props} />,
+                tr: ({node, ...props}) => <tr className="m-0 border-t p-0 even:bg-muted" {...props} />,
+                th: ({node, ...props}) => <th className="border px-4 py-2 text-left font-bold [&[align=center]]:text-center [&[align=right]]:text-right" {...props} />,
+                td: ({node, ...props}) => <td className="border px-4 py-2 text-left [&[align=center]]:text-center [&[align=right]]:text-right" {...props} />,
+                code: ({node, ...props}) => (
+                  <code className="relative rounded bg-muted px-[0.3rem] py-[0.2rem] font-mono text-sm font-semibold" {...props} />
+                ),
+                strong: ({node, ...props}) => <strong className="font-semibold" {...props} />,
+                em: ({node, ...props}) => <em className="italic" {...props} />,
+                a: ({node, ...props}) => <a className="font-medium underline underline-offset-4" {...props} />,
+              }}
+            >
               {displayText}
             </ReactMarkdown>
           </div>
+        </Card>
+      )}
+
+      {(isStreaming || isCompleted) && analysis?.result && (
+        <Card className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold">Réflexion de l'IA</h3>
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => setShowAIDetails(!showAIDetails)}
+            >
+              {showAIDetails ? 'Masquer' : 'Afficher les détails'}
+            </Button>
+          </div>
+          
+          {showAIDetails && (
+            <div className="space-y-6 pt-4 border-t">
+              {/* Métadonnées */}
+              {analysis.result.metadata && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {analysis.result.metadata.iterations && (
+                    <div>
+                      <p className="text-sm text-muted-foreground">Itérations Claude</p>
+                      <p className="text-lg font-semibold">{analysis.result.metadata.iterations}</p>
+                    </div>
+                  )}
+                  {analysis.result.metadata.total_tokens && (
+                    <div>
+                      <p className="text-sm text-muted-foreground">Tokens utilisés</p>
+                      <p className="text-lg font-semibold">{analysis.result.metadata.total_tokens.toLocaleString()}</p>
+                    </div>
+                  )}
+                  {analysis.result.metadata.duration_ms && (
+                    <div>
+                      <p className="text-sm text-muted-foreground">Durée</p>
+                      <p className="text-lg font-semibold">{(analysis.result.metadata.duration_ms / 1000).toFixed(1)}s</p>
+                    </div>
+                  )}
+                  {analysis.result.metadata.linkup_searches && (
+                    <div>
+                      <p className="text-sm text-muted-foreground">Recherches Linkup</p>
+                      <p className="text-lg font-semibold">{analysis.result.metadata.linkup_searches.length}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Recherches Linkup */}
+              {analysis.result.metadata?.linkup_searches && analysis.result.metadata.linkup_searches.length > 0 && (
+                <div>
+                  <h4 className="text-base font-semibold mb-3">Recherches effectuées</h4>
+                  <div className="space-y-3">
+                    {analysis.result.metadata.linkup_searches.map((search: any, idx: number) => (
+                      <div key={idx} className="p-3 bg-muted/50 rounded-lg">
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <p className="text-sm font-medium flex-1">{search.query}</p>
+                          <Badge variant="outline" className="text-xs">
+                            {search.depth === 'deep' ? 'Recherche approfondie' : 'Recherche standard'}
+                          </Badge>
+                        </div>
+                        {search.results && search.results.length > 0 && (
+                          <div className="mt-2 space-y-1">
+                            <p className="text-xs text-muted-foreground">{search.results.length} source(s) trouvée(s)</p>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Statut actuel */}
+              {currentStatus && (
+                <div className="p-3 bg-primary/10 rounded-lg">
+                  <p className="text-sm">
+                    <span className="font-medium">Statut: </span>
+                    {currentStatus}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
         </Card>
       )}
 

@@ -45,6 +45,14 @@ const formatCurrency = (cents?: number) => {
   return `€${millions.toFixed(1)}M`;
 };
 
+// Format sector to show only first tag
+const formatSector = (sector?: string): string => {
+  if (!sector) return '-';
+  // Extract first tag before "/" or "-"
+  const firstTag = sector.split(/[\/\-]/)[0].trim();
+  return firstTag;
+};
+
 export const createColumns = (
   onView: (id: string) => void,
   onDownload: (deal: Deal, e: React.MouseEvent) => void,
@@ -68,18 +76,11 @@ export const createColumns = (
       const displayName = deal.company_name || deal.startup_name;
       
       return (
-        <div className="max-w-[300px]">
-          <div
-            className="font-semibold hover:underline cursor-pointer mb-1"
-            onClick={() => onView(deal.id)}
-          >
-            {displayName}
-          </div>
-          {deal.solution_summary && (
-            <p className="text-xs text-muted-foreground line-clamp-2">
-              {deal.solution_summary}
-            </p>
-          )}
+        <div
+          className="font-semibold hover:underline cursor-pointer"
+          onClick={() => onView(deal.id)}
+        >
+          {displayName}
         </div>
       );
     },
@@ -90,10 +91,9 @@ export const createColumns = (
       <DataTableColumnHeader column={column} title="Secteur" />
     ),
     cell: ({ row }) => {
-      const sector = row.getValue("sector") as string;
       return (
         <Badge variant="secondary" className="font-normal">
-          {sector}
+          {formatSector(row.getValue("sector"))}
         </Badge>
       );
     },
@@ -102,29 +102,18 @@ export const createColumns = (
     },
   },
   {
-    accessorKey: "stage",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Stage" />
-    ),
+    accessorKey: "solution_summary",
+    header: "Résumé",
     cell: ({ row }) => {
-      const stage = row.getValue("stage") as string | undefined;
-      if (!stage) return <span className="text-muted-foreground">-</span>;
-      
-      const stageVariants: Record<string, string> = {
-        "Seed": "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
-        "Series A": "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-        "Series B": "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-        "Series C": "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
-      };
-      
+      const summary = row.getValue("solution_summary") as string;
+      if (!summary) return <span className="text-muted-foreground">-</span>;
       return (
-        <Badge variant="outline" className={stageVariants[stage] || ""}>
-          {stage}
-        </Badge>
+        <div className="max-w-[400px]">
+          <p className="text-sm line-clamp-2 leading-relaxed">
+            {summary}
+          </p>
+        </div>
       );
-    },
-    filterFn: (row, id, value) => {
-      return value.includes(row.getValue(id));
     },
   },
   {

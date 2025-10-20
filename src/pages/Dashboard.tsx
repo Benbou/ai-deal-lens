@@ -135,14 +135,6 @@ export default function Dashboard() {
     }));
   }, [deals]);
 
-  const stages = useMemo(() => {
-    const uniqueStages = Array.from(new Set(deals.map(d => d.stage).filter(Boolean)));
-    return uniqueStages.map(stage => ({
-      label: stage,
-      value: stage,
-      icon: TrendingUp,
-    }));
-  }, [deals]);
 
   const statuses = [
     { label: "En attente", value: "pending", icon: BarChart3 },
@@ -182,11 +174,6 @@ export default function Dashboard() {
             column: "sector",
             title: "Secteur",
             options: sectors,
-          },
-          {
-            column: "stage",
-            title: "Stage",
-            options: stages,
           },
           {
             column: "status",

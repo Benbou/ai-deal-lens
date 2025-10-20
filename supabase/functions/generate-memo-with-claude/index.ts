@@ -341,6 +341,8 @@ ${deal.personal_notes || 'Aucun contexte additionnel fourni'}
         const MAX_ITERATIONS = 15;
         let memoReady = false;
         let finalData: any = null;
+        const linkupSearches: any[] = [];
+        const startTime = Date.now();
 
         while (iterationCount < MAX_ITERATIONS && !memoReady) {
           iterationCount++;
@@ -423,6 +425,14 @@ ${deal.personal_notes || 'Aucun contexte additionnel fourni'}
                   input.depth || "standard"
                 );
                 
+                // Track search for metadata
+                linkupSearches.push({
+                  query: queryStr,
+                  depth: input.depth || "standard",
+                  timestamp: new Date().toISOString(),
+                  results: searchResult
+                });
+                
                 toolResults.push({
                   type: "tool_result",
                   tool_use_id: block.id,
@@ -502,11 +512,19 @@ ${deal.personal_notes || 'Aucun contexte additionnel fourni'}
 
         console.log(`✅ Memo validated: ${memoText.length} chars`);
 
-        // ✅ Sauvegarde sécurisée
+        // ✅ Sauvegarde sécurisée avec métadonnées
         const { error: updateError } = await supabaseClient
           .from('analyses')
           .update({
-            result: { full_text: memoText },
+            result: { 
+              full_text: memoText,
+              metadata: {
+                linkup_searches: linkupSearches,
+                iterations: iterationCount,
+                total_tokens: 0, // Will be populated by finalMessage.usage if available
+                duration_ms: Date.now() - startTime
+              }
+            },
             progress_percent: 85
           })
           .eq('id', analysisId);
