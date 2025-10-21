@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { Download, Trash2, Loader2, AlertCircle, CheckCircle2, Clock, Search, BarChart3, Timer, Sparkles, FileText, Activity } from "lucide-react";
+import { Download, Trash2, Loader2, AlertCircle, CheckCircle2, Clock, Search, Activity } from "lucide-react";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { formatDistanceToNow } from "date-fns";
@@ -310,35 +310,28 @@ export default function DealDetail() {
           </div>
         </Card>}
 
-      {(isStreaming || isCompleted) && displayText && <Card className="p-8 backdrop-blur-sm bg-card/95 border-2 animate-fade-in">
-          <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-primary/10">
-                <FileText className="h-6 w-6 text-primary" />
-              </div>
-              <h2 className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+      {(isStreaming || isCompleted) && displayText && <div className="max-w-4xl mx-auto">
+          <article className="prose prose-lg dark:prose-invert max-w-none">
+            <div className="flex items-center justify-between mb-6">
+              <h1 className="scroll-m-20 text-4xl font-extrabold tracking-tight mb-0">
                 Mémo d'Investissement
-              </h2>
-            </div>
-            {isStreaming && <div className="flex flex-col items-end gap-2">
-                <Badge className="bg-primary animate-pulse flex items-center gap-2">
+              </h1>
+              {isStreaming && <Badge className="bg-primary animate-pulse flex items-center gap-2">
                   <Loader2 className="h-3 w-3 animate-spin" />
                   Génération en cours...
-                </Badge>
-                {currentStatus && <span className="text-xs text-muted-foreground">{currentStatus}</span>}
-              </div>}
-          </div>
-          
-          <div className="prose prose-lg max-w-none dark:prose-invert">
+                </Badge>}
+            </div>
+            {currentStatus && isStreaming && <p className="text-sm text-muted-foreground mb-6">{currentStatus}</p>}
+            
             <ReactMarkdown remarkPlugins={[remarkGfm]} components={{
           h1: ({
             node,
             ...props
-          }) => <h1 className="scroll-m-20 font-extrabold tracking-tight lg:text-5xl mb-8 text-3xl" />,
+          }) => <h1 className="scroll-m-20 text-4xl font-extrabold tracking-tight mb-8 mt-0" {...props} />,
           h2: ({
             node,
             ...props
-          }) => <h2 className="scroll-m-20 border-b pb-2 tracking-tight first:mt-0 mt-10 mb-4 text-xl font-semibold" />,
+          }) => <h2 className="scroll-m-20 border-b pb-2 tracking-tight first:mt-0 mt-10 mb-4 text-3xl font-semibold" {...props} />,
           h3: ({
             node,
             ...props
@@ -376,11 +369,11 @@ export default function DealDetail() {
           thead: ({
             node,
             ...props
-          }) => <thead className="bg-muted" {...props} />,
+          }) => <thead {...props} />,
           tr: ({
             node,
             ...props
-          }) => <tr className="m-0 border-t p-0 even:bg-muted" {...props} />,
+          }) => <tr className="m-0 border-t p-0" {...props} />,
           th: ({
             node,
             ...props
@@ -392,7 +385,7 @@ export default function DealDetail() {
           code: ({
             node,
             ...props
-          }) => <code className="relative rounded bg-muted px-[0.3rem] py-[0.2rem] font-mono text-sm font-semibold" {...props} />,
+          }) => <code className="relative rounded border px-[0.3rem] py-[0.2rem] font-mono text-sm font-semibold" {...props} />,
           strong: ({
             node,
             ...props
@@ -408,18 +401,17 @@ export default function DealDetail() {
         }}>
               {displayText}
             </ReactMarkdown>
-          </div>
-        </Card>}
+          </article>
+        </div>}
 
-      {isAdmin && (isStreaming || isCompleted) && analysis?.result && <Card className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold">Réflexion de l'IA</h3>
-            <Button variant="ghost" size="sm" onClick={() => setShowAIDetails(!showAIDetails)}>
-              {showAIDetails ? 'Masquer' : 'Afficher les détails'}
-            </Button>
-          </div>
-          
-          {showAIDetails && <div className="space-y-6 pt-4 border-t">
+      {isAdmin && (isStreaming || isCompleted) && analysis?.result && <div className="max-w-4xl mx-auto mt-12 pt-8 border-t">
+          <details open={showAIDetails} onToggle={(e) => setShowAIDetails((e.target as HTMLDetailsElement).open)}>
+            <summary className="cursor-pointer text-lg font-semibold mb-4 list-none flex items-center justify-between">
+              <span>Réflexion de l'IA</span>
+              <span className="text-sm text-muted-foreground">{showAIDetails ? 'Cliquer pour masquer' : 'Cliquer pour afficher'}</span>
+            </summary>
+            
+            <div className="space-y-6 pt-4">
               {/* Métadonnées */}
               {analysis.result.metadata && <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {analysis.result.metadata.iterations && <div>
@@ -430,43 +422,56 @@ export default function DealDetail() {
                       <p className="text-sm text-muted-foreground">Tokens utilisés</p>
                       <p className="text-lg font-semibold">{analysis.result.metadata.total_tokens.toLocaleString()}</p>
                     </div>}
-                  {analysis.result.metadata.duration_ms && <div>
-                      <p className="text-sm text-muted-foreground">Durée</p>
-                      <p className="text-lg font-semibold">{(analysis.result.metadata.duration_ms / 1000).toFixed(1)}s</p>
-                    </div>}
-                  {analysis.result.metadata.linkup_searches && <div>
+                  {analysis.result.metadata.linkup_searches_count !== undefined && <div>
                       <p className="text-sm text-muted-foreground">Recherches Linkup</p>
-                      <p className="text-lg font-semibold">{analysis.result.metadata.linkup_searches.length}</p>
+                      <p className="text-lg font-semibold">{analysis.result.metadata.linkup_searches_count}</p>
+                    </div>}
+                  {analysis.result.metadata.processing_time_ms && <div>
+                      <p className="text-sm text-muted-foreground">Temps de traitement</p>
+                      <p className="text-lg font-semibold">{(analysis.result.metadata.processing_time_ms / 1000).toFixed(1)}s</p>
                     </div>}
                 </div>}
 
               {/* Recherches Linkup */}
-              {analysis.result.metadata?.linkup_searches && analysis.result.metadata.linkup_searches.length > 0 && <div>
-                  <h4 className="text-base font-semibold mb-3">Recherches effectuées</h4>
+              {analysis.result.linkup_searches && analysis.result.linkup_searches.length > 0 && <div>
+                  <h4 className="font-semibold mb-3 flex items-center gap-2">
+                    <Search className="h-4 w-4" />
+                    Recherches Web ({analysis.result.linkup_searches.length})
+                  </h4>
                   <div className="space-y-3">
-                    {analysis.result.metadata.linkup_searches.map((search: any, idx: number) => <div key={idx} className="p-3 bg-muted/50 rounded-lg">
-                        <div className="flex items-start justify-between gap-2 mb-2">
-                          <p className="text-sm font-medium flex-1">{search.query}</p>
-                          <Badge variant="outline" className="text-xs">
-                            {search.depth === 'deep' ? 'Recherche approfondie' : 'Recherche standard'}
-                          </Badge>
+                    {analysis.result.linkup_searches.map((search: any, idx: number) => <div key={idx} className="border-l-2 border-primary pl-4 py-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="font-medium text-sm flex-1">{search.query}</p>
+                          <Badge variant="outline" className="text-xs shrink-0">{search.depth}</Badge>
                         </div>
-                        {search.results && search.results.length > 0 && <div className="mt-2 space-y-1">
-                            <p className="text-xs text-muted-foreground">{search.results.length} source(s) trouvée(s)</p>
-                          </div>}
+                        {search.timestamp && <p className="text-xs text-muted-foreground mt-1">
+                            {formatDistanceToNow(new Date(search.timestamp), {
+                        addSuffix: true,
+                        locale: fr
+                      })}
+                          </p>}
                       </div>)}
                   </div>
                 </div>}
 
-              {/* Statut actuel */}
-              {currentStatus && <div className="p-3 bg-primary/10 rounded-lg">
-                  <p className="text-sm">
-                    <span className="font-medium">Statut: </span>
-                    {currentStatus}
-                  </p>
+              {/* Statut détaillé */}
+              {analysis.result.status && <div className="border-l-2 pl-4 py-2">
+                  <div className="flex items-center gap-2 mb-1">
+                    {analysis.result.status === 'completed' && <CheckCircle2 className="h-4 w-4 text-success" />}
+                    {analysis.result.status === 'processing' && <Clock className="h-4 w-4 text-warning" />}
+                    {analysis.result.status === 'error' && <AlertCircle className="h-4 w-4 text-destructive" />}
+                    <span className="font-medium capitalize">{analysis.result.status}</span>
+                  </div>
+                  {analysis.updated_at && <p className="text-xs text-muted-foreground">
+                      Mis à jour {formatDistanceToNow(new Date(analysis.updated_at), {
+                addSuffix: true,
+                locale: fr
+              })}
+                    </p>}
                 </div>}
-            </div>}
-        </Card>}
+            </div>
+          </details>
+        </div>}
 
       {!isProcessing && !isCompleted && <Card className="p-12 text-center">
           <div className="text-muted-foreground">

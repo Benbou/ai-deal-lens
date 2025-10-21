@@ -338,7 +338,9 @@ ${deal.personal_notes || 'Aucun contexte additionnel fourni'}
       try {
         let messages: any[] = [{ role: "user", content: userMessage }];
         let iterationCount = 0;
-        const MAX_ITERATIONS = 15;
+        const MAX_ITERATIONS = 3;
+        const MAX_LINKUP_SEARCHES_PER_ITERATION = 3;
+        const FUNCTION_TIMEOUT_MS = 110 * 1000; // 110 seconds
         let memoReady = false;
         let finalData: any = null;
         const linkupSearches: any[] = [];
@@ -347,6 +349,17 @@ ${deal.personal_notes || 'Aucun contexte additionnel fourni'}
         while (iterationCount < MAX_ITERATIONS && !memoReady) {
           iterationCount++;
           console.log(`🔄 [CLAUDE] Iteration ${iterationCount}`);
+          
+          // Check global timeout
+          if (Date.now() - startTime > FUNCTION_TIMEOUT_MS) {
+            console.error('⏱️ [TIMEOUT] Function approaching timeout limit');
+            sendEvent('error', { 
+              message: 'Fonction proche de la limite de temps. Le mémo sera regénéré automatiquement.' 
+            });
+            throw new Error('Function timeout approaching');
+          }
+          
+          let linkupSearchesThisIteration = 0;
 
           // ✅ Use native streaming
           const stream = await anthropic.messages.stream({
@@ -388,6 +401,22 @@ ${deal.personal_notes || 'Aucun contexte additionnel fourni'}
           for (const block of finalMessage.content) {
             if (block.type === 'tool_use') {
               if (block.name === 'linkup_search') {
+                linkupSearchesThisIteration++;
+                
+                // Block excessive searches
+                if (linkupSearchesThisIteration > MAX_LINKUP_SEARCHES_PER_ITERATION) {
+                  console.warn(`⚠️ [LINKUP] Max searches reached for iteration ${iterationCount} (${linkupSearchesThisIteration}/${MAX_LINKUP_SEARCHES_PER_ITERATION})`);
+                  toolResults.push({
+                    type: "tool_result",
+                    tool_use_id: block.id,
+                    content: JSON.stringify({ 
+                      answer: `Maximum de recherches atteint pour cette itération (${MAX_LINKUP_SEARCHES_PER_ITERATION}). Générez le mémo avec les informations disponibles.`,
+                      sources: []
+                    })
+                  });
+                  continue;
+                }
+                
                 const input = block.input as { query?: any; depth?: string };
                 
                 // Validation stricte
@@ -452,6 +481,42 @@ ${deal.personal_notes || 'Aucun contexte additionnel fourni'}
           if (toolResults.length > 0 && !memoReady) {
             messages.push({ role: "user", content: toolResults });
             continue;
+          }
+
+          // ✅ Force stop after max iterations
+          if (iterationCount >= MAX_ITERATIONS && !memoReady) {
+            console.warn(`⚠️ [CLAUDE] Max iterations reached (${MAX_ITERATIONS}). Forcing memo generation.`);
+            const forceStopMessage = {
+              role: "user" as const,
+              content: `Vous avez atteint le nombre maximum d'itérations (${MAX_ITERATIONS}). Générez maintenant le mémo final avec toutes les informations collectées en utilisant l'outil output_memo.`
+            };
+            messages.push(forceStopMessage);
+            
+            // Final call without tools to force output
+            const finalStream = await anthropic.messages.stream({
+              model: "claude-haiku-4-5-20251001",
+              max_tokens: 8000,
+              temperature: 1,
+              system: systemPrompt,
+              messages: messages,
+              tools: tools
+            });
+            
+            finalStream.on('text', (text) => sendEvent('delta', { text }));
+            const finalResponse = await finalStream.finalMessage();
+            
+            for (const block of finalResponse.content) {
+              if (block.type === 'tool_use' && block.name === 'output_memo') {
+                memoReady = true;
+                finalData = block.input;
+                break;
+              }
+            }
+            
+            if (!memoReady) {
+              throw new Error('Claude failed to generate memo after max iterations');
+            }
+            break;
           }
 
           // ✅ Validate stop_reason before proceeding
