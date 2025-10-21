@@ -359,6 +359,56 @@ export type Database = {
         }
         Relationships: []
       }
+      workflow_logs: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          deal_id: string
+          duration_ms: number | null
+          error_message: string | null
+          id: string
+          input: Json | null
+          output: Json | null
+          started_at: string | null
+          status: string
+          step_name: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          deal_id: string
+          duration_ms?: number | null
+          error_message?: string | null
+          id?: string
+          input?: Json | null
+          output?: Json | null
+          started_at?: string | null
+          status: string
+          step_name: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          deal_id?: string
+          duration_ms?: number | null
+          error_message?: string | null
+          id?: string
+          input?: Json | null
+          output?: Json | null
+          started_at?: string | null
+          status?: string
+          step_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_logs_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

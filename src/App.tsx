@@ -15,6 +15,7 @@ import NotFound from "./pages/NotFound";
 import '@/i18n/config';
 import AuthCallback from "./pages/AuthCallback";
 import DealDetail from "./pages/DealDetail";
+import WorkflowLogs from "./pages/WorkflowLogs";
 
 const queryClient = new QueryClient();
 
@@ -55,6 +56,16 @@ const App = () => (
                 <ProtectedRoute>
                   <DashboardLayout>
                     <DealDetail />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/deal/:dealId/workflow"
+              element={
+                <ProtectedRoute>
+                  <DashboardLayout>
+                    <WorkflowLogs />
                   </DashboardLayout>
                 </ProtectedRoute>
               }

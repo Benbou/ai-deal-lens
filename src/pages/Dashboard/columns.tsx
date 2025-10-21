@@ -21,6 +21,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 
 export interface Deal {
   id: string;
@@ -103,16 +104,23 @@ export const createColumns = (
   },
   {
     accessorKey: "solution_summary",
-    header: "Résumé",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Résumé" />
+    ),
     cell: ({ row }) => {
       const summary = row.getValue("solution_summary") as string;
       if (!summary) return <span className="text-muted-foreground">-</span>;
       return (
-        <div className="max-w-[400px]">
-          <p className="text-sm line-clamp-2 leading-relaxed">
-            {summary}
-          </p>
-        </div>
+        <HoverCard>
+          <HoverCardTrigger asChild>
+            <div className="max-w-[600px] cursor-help">
+              <p className="text-sm line-clamp-3 leading-relaxed">{summary}</p>
+            </div>
+          </HoverCardTrigger>
+          <HoverCardContent className="w-96">
+            <p className="text-sm leading-relaxed">{summary}</p>
+          </HoverCardContent>
+        </HoverCard>
       );
     },
   },

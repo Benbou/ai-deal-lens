@@ -1,14 +1,27 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { Download, Trash2, CheckCircle, AlertCircle, FileText, Loader2 } from 'lucide-react';
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import {
+  Download,
+  Trash2,
+  Loader2,
+  AlertCircle,
+  CheckCircle2,
+  Clock,
+  Search,
+  BarChart3,
+  Timer,
+  Sparkles,
+  ChevronRight,
+  FileText,
+} from "lucide-react";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { useTranslation } from 'react-i18next';
+import { formatDistanceToNow } from "date-fns";
+import { fr } from "date-fns/locale";
 import { toast } from 'sonner';
 import { useStreamAnalysis } from '@/hooks/useStreamAnalysis';
 import {
@@ -57,7 +70,6 @@ export default function DealDetail() {
   const [analysis, setAnalysis] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
-  const { t } = useTranslation();
   const { streamingText, isStreaming, error, currentStatus, startAnalysis, reset } = useStreamAnalysis();
   const [showAIDetails, setShowAIDetails] = useState(false);
 
@@ -244,7 +256,7 @@ export default function DealDetail() {
             )}
             {isCompleted && (
               <Badge className="bg-success text-success-foreground flex items-center gap-2 animate-fade-in">
-                <CheckCircle className="h-3 w-3" />
+                <CheckCircle2 className="h-3 w-3" />
                 Analysé
               </Badge>
             )}
