@@ -16,6 +16,7 @@ import '@/i18n/config';
 import AuthCallback from "./pages/AuthCallback";
 import DealDetail from "./pages/DealDetail";
 import WorkflowLogs from "./pages/WorkflowLogs";
+import Admin from "./pages/Admin";
 
 const queryClient = new QueryClient();
 
@@ -76,6 +77,16 @@ const App = () => (
                 <ProtectedRoute>
                   <DashboardLayout>
                     <Profile />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute>
+                  <DashboardLayout>
+                    <Admin />
                   </DashboardLayout>
                 </ProtectedRoute>
               }

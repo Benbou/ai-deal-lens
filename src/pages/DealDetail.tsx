@@ -15,8 +15,8 @@ import {
   BarChart3,
   Timer,
   Sparkles,
-  ChevronRight,
   FileText,
+  Activity,
 } from "lucide-react";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -24,6 +24,7 @@ import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import { toast } from 'sonner';
 import { useStreamAnalysis } from '@/hooks/useStreamAnalysis';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -66,6 +67,7 @@ interface Deal {
 export default function DealDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
   const [deal, setDeal] = useState<Deal | null>(null);
   const [analysis, setAnalysis] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -263,6 +265,12 @@ export default function DealDetail() {
           </div>
         </div>
         <div className="flex gap-2">
+          {isAdmin && (
+            <Button onClick={() => navigate(`/deal/${id}/workflow`)} variant="outline">
+              <Activity className="mr-2 h-4 w-4" />
+              Voir workflow
+            </Button>
+          )}
           {deal.deck_files?.[0] && (
             <Button onClick={handleDownloadDeck} variant="outline">
               <Download className="mr-2 h-4 w-4" />
@@ -442,7 +450,7 @@ export default function DealDetail() {
         </Card>
       )}
 
-      {(isStreaming || isCompleted) && analysis?.result && (
+      {isAdmin && (isStreaming || isCompleted) && analysis?.result && (
         <Card className="p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold">Réflexion de l'IA</h3>
