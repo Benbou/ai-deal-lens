@@ -16,6 +16,7 @@ export default function Profile() {
     name: '',
     email: '',
     country: '',
+    phone: '',
     investment_focus: [] as string[],
     check_size_min: 0,
     check_size_max: 0,
@@ -42,6 +43,7 @@ export default function Profile() {
           name: data.name || '',
           email: data.email || '',
           country: data.country || '',
+          phone: data.phone || '',
           investment_focus: data.investment_focus || [],
           check_size_min: data.check_size_min || 0,
           check_size_max: data.check_size_max || 0,
@@ -63,6 +65,7 @@ export default function Profile() {
         .update({
           name: profile.name,
           country: profile.country,
+          phone: profile.phone || null,
           investment_focus: profile.investment_focus,
           check_size_min: profile.check_size_min,
           check_size_max: profile.check_size_max,
@@ -126,6 +129,21 @@ export default function Profile() {
                 placeholder="France"
                 className="mt-2"
               />
+            </div>
+
+            <div>
+              <Label htmlFor="phone">Téléphone (WhatsApp)</Label>
+              <Input
+                id="phone"
+                type="tel"
+                value={profile.phone}
+                onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
+                placeholder="+33612345678"
+                className="mt-2"
+              />
+              <p className="text-sm text-muted-foreground mt-1">
+                Format international requis. Permet l'upload via WhatsApp.
+              </p>
             </div>
           </CardContent>
         </Card>

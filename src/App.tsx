@@ -17,6 +17,7 @@ import AuthCallback from "./pages/AuthCallback";
 import DealDetail from "./pages/DealDetail";
 import WorkflowLogs from "./pages/WorkflowLogs";
 import Admin from "./pages/Admin";
+import ClaimDeal from "./pages/ClaimDeal";
 
 const queryClient = new QueryClient();
 
@@ -31,6 +32,7 @@ const App = () => (
             <Route path="/" element={<Landing />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
+            <Route path="/claim-deal" element={<ClaimDeal />} />
             <Route
               path="/dashboard"
               element={
