@@ -91,7 +91,7 @@ export type Database = {
           temp_email: string | null
           temp_phone: string | null
           updated_at: string | null
-          user_id: string
+          user_id: string | null
           website: string | null
           yoy_growth_percent: number | null
         }
@@ -118,7 +118,7 @@ export type Database = {
           temp_email?: string | null
           temp_phone?: string | null
           updated_at?: string | null
-          user_id: string
+          user_id?: string | null
           website?: string | null
           yoy_growth_percent?: number | null
         }
@@ -145,7 +145,7 @@ export type Database = {
           temp_email?: string | null
           temp_phone?: string | null
           updated_at?: string | null
-          user_id?: string
+          user_id?: string | null
           website?: string | null
           yoy_growth_percent?: number | null
         }
