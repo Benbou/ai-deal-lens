@@ -76,14 +76,27 @@ Deno.serve(async (req) => {
 
     // Download PDF from Twilio
     console.log('Downloading PDF from Twilio...');
+    console.log('Media URL:', payload.MediaUrl0);
     const pdfResponse = await fetch(payload.MediaUrl0, {
       headers: {
         'Authorization': 'Basic ' + btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`)
       }
     });
 
+    console.log('PDF download response status:', pdfResponse.status);
+    console.log('PDF download response headers:', Object.fromEntries(pdfResponse.headers));
+
     if (!pdfResponse.ok) {
-      throw new Error('Failed to download PDF from Twilio');
+      const errorText = await pdfResponse.text();
+      console.error('Twilio API error:', errorText);
+      
+      await sendWhatsAppMessage(phone, 
+        '❌ Impossible de télécharger votre fichier.\n\n' +
+        'Veuillez réessayer ou utilisez l\'application web :\n' +
+        `${Deno.env.get('SITE_URL') || 'https://app.albote.com'}/submit-deal`
+      );
+      
+      throw new Error(`Failed to download PDF from Twilio: ${pdfResponse.status} - ${errorText}`);
     }
 
     const pdfBlob = await pdfResponse.blob();
@@ -191,8 +204,12 @@ Deno.serve(async (req) => {
 
   } catch (error: any) {
     console.error('Error in whatsapp-webhook:', error);
+    console.error('Error stack:', error.stack);
     return new Response(
-      JSON.stringify({ error: error.message }), 
+      JSON.stringify({ 
+        error: error.message,
+        details: error.stack 
+      }), 
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
