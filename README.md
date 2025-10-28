@@ -59,6 +59,35 @@ This project is built with:
 - React
 - shadcn-ui
 - Tailwind CSS
+- Supabase (Database + Edge Functions)
+- Anthropic Claude (AI Analysis)
+- Mistral OCR (Document Processing)
+
+## Edge Functions Configuration
+
+This project uses Supabase Edge Functions for backend processing. See the detailed configuration guide:
+
+📚 **[Edge Functions Environment Variables](./supabase/functions/ENV_VARIABLES.md)**
+
+### Quick Setup
+
+1. **Required API Keys**:
+   - `ANTHROPIC_API_KEY` - For AI-powered memo generation
+   - `MISTRAL_API_KEY` - For PDF OCR processing
+   - `LINKUP_API_KEY` - For web search in memos
+   - `RESEND_API_KEY` - For admin alerts
+
+2. **Optional Configuration**:
+   - `ADMIN_EMAIL` - Email for error alerts (default: benjamin@alboteam.com)
+
+3. **Set secrets via Supabase CLI**:
+   ```bash
+   supabase secrets set ADMIN_EMAIL=your-email@domain.com
+   supabase secrets set ANTHROPIC_API_KEY=sk-ant-xxx
+   # ... other keys
+   ```
+
+See [ENV_VARIABLES.md](./supabase/functions/ENV_VARIABLES.md) for complete documentation.
 
 ## How can I deploy this project?
 

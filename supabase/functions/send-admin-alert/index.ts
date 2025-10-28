@@ -1,10 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { Resend } from 'https://esm.sh/resend@2.0.0';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders } from '../_shared/cors.ts';
 
 const resend = new Resend(Deno.env.get('RESEND_API_KEY'));
 
@@ -106,9 +102,11 @@ serve(async (req) => {
       </html>
     `;
 
+    const adminEmail = Deno.env.get('ADMIN_EMAIL') || 'benjamin@alboteam.com';
+
     const { data, error: emailError } = await resend.emails.send({
       from: 'DealFlow Alerts <onboarding@resend.dev>',
-      to: ['benjamin@alboteam.com'],
+      to: [adminEmail],
       subject: `🚨 Erreur analyse - Deal ${dealId.substring(0, 8)}...`,
       html: emailHtml,
     });

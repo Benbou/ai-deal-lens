@@ -1,11 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import Anthropic from "https://esm.sh/@anthropic-ai/sdk@0.30.1";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders } from '../_shared/cors.ts';
+import { sanitizeExtractedData } from '../_shared/data-validators.ts';
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -257,28 +254,7 @@ ${deal.personal_notes || 'Aucun contexte additionnel fourni'}
     }
   ];
 
-  // Helper: Sanitize values from Claude (converts "null" strings to actual null, validates numbers)
-  function sanitizeValue(value: any): number | null {
-    // ✅ Cas 1: null-like values
-    if (value === null || value === undefined) return null;
-    if (value === "null" || value === "undefined" || value === "") return null;
-    
-    // ✅ Cas 2: string représentant un nombre
-    if (typeof value === 'string') {
-      const trimmed = value.trim();
-      if (trimmed === "" || trimmed === "null" || trimmed === "undefined") return null;
-      const parsed = parseFloat(trimmed);
-      return isNaN(parsed) ? null : parsed;
-    }
-    
-    // ✅ Cas 3: déjà un nombre
-    if (typeof value === 'number') {
-      return isNaN(value) ? null : value;
-    }
-    
-    // ✅ Cas 4: autre type (objet, array, etc.)
-    return null;
-  }
+  // Note: sanitizeValue is now imported from _shared/data-validators.ts
 
   // Helper: Linkup search
   async function callLinkupSearch(query: string, depth: string = "standard") {
@@ -602,16 +578,16 @@ ${deal.personal_notes || 'Aucun contexte additionnel fourni'}
         console.log('💾 Memo saved');
 
         // ✅ Événement done avec validation et sanitization
-        const sanitizedData = {
-          company_name: typed.company_name || null,
-          sector: typed.sector || null,
-          solution_summary: typed.solution_summary || null,
-          amount_raised_cents: sanitizeValue(typed.amount_raised_cents),
-          pre_money_valuation_cents: sanitizeValue(typed.pre_money_valuation_cents),
-          current_arr_cents: sanitizeValue(typed.current_arr_cents),
-          yoy_growth_percent: sanitizeValue(typed.yoy_growth_percent),
-          mom_growth_percent: sanitizeValue(typed.mom_growth_percent)
-        };
+        const sanitizedData = sanitizeExtractedData({
+          company_name: typed.company_name,
+          sector: typed.sector,
+          solution_summary: typed.solution_summary,
+          amount_raised_cents: typed.amount_raised_cents,
+          pre_money_valuation_cents: typed.pre_money_valuation_cents,
+          current_arr_cents: typed.current_arr_cents,
+          yoy_growth_percent: typed.yoy_growth_percent,
+          mom_growth_percent: typed.mom_growth_percent
+        });
 
         console.log('📝 [DEBUG] Sanitized data:', JSON.stringify(sanitizedData, null, 2));
 
