@@ -25,12 +25,9 @@
  * - 500: Database update error
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders } from '../_shared/cors.ts';
+import { authenticateAndAuthorize } from '../_shared/auth.ts';
+import { sanitizeExtractedData, prepareDataForUpdate } from '../_shared/data-validators.ts';
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -39,96 +36,33 @@ serve(async (req) => {
 
   try {
     const { dealId, analysisId, extractedData } = await req.json();
-    
+
     if (!dealId || !analysisId || !extractedData) {
       throw new Error('dealId, analysisId, and extractedData are required');
     }
 
-    // Get auth token from request
+    // Authenticate and authorize
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
+    const authResult = await authenticateAndAuthorize(authHeader, dealId);
+
+    if (!authResult.success) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: false, error: authResult.error.error }),
+        { status: authResult.error.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      {
-        global: {
-          headers: { Authorization: authHeader }
-        }
-      }
-    );
-
-    // Verify user owns the deal
-    const { data: { user } } = await supabaseClient.auth.getUser();
-    if (!user) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const { data: deal, error: dealError } = await supabaseClient
-      .from('deals')
-      .select('user_id')
-      .eq('id', dealId)
-      .single();
-
-    if (dealError || !deal || deal.user_id !== user.id) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Forbidden' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    const { supabaseClient } = authResult.data;
 
     console.log('✅ Finalizing analysis for deal:', dealId);
 
-    // Create sanitized data object with strict type validation
-    const sanitizedData: any = {
-      status: 'completed',
-      analysis_completed_at: new Date().toISOString()
-    };
-    let fieldCount = 0;
+    // Sanitize and prepare data for update
+    const sanitized = sanitizeExtractedData(extractedData);
+    const { update: sanitizedData, fieldCount } = prepareDataForUpdate(sanitized);
 
-    // String fields
-    if (extractedData.company_name && typeof extractedData.company_name === 'string') {
-      sanitizedData.company_name = extractedData.company_name;
-      fieldCount++;
-    }
-    if (extractedData.sector && typeof extractedData.sector === 'string') {
-      sanitizedData.sector = extractedData.sector;
-      fieldCount++;
-    }
-    if (extractedData.solution_summary && typeof extractedData.solution_summary === 'string') {
-      sanitizedData.solution_summary = extractedData.solution_summary;
-      fieldCount++;
-    }
-
-    // Numeric fields - strict type checking
-    if (typeof extractedData.amount_raised_cents === 'number') {
-      sanitizedData.amount_raised_cents = extractedData.amount_raised_cents;
-      fieldCount++;
-    }
-    if (typeof extractedData.pre_money_valuation_cents === 'number') {
-      sanitizedData.pre_money_valuation_cents = extractedData.pre_money_valuation_cents;
-      fieldCount++;
-    }
-    if (typeof extractedData.current_arr_cents === 'number') {
-      sanitizedData.current_arr_cents = extractedData.current_arr_cents;
-      fieldCount++;
-    }
-    if (typeof extractedData.yoy_growth_percent === 'number') {
-      sanitizedData.yoy_growth_percent = extractedData.yoy_growth_percent;
-      fieldCount++;
-    }
-    if (typeof extractedData.mom_growth_percent === 'number') {
-      sanitizedData.mom_growth_percent = extractedData.mom_growth_percent;
-      fieldCount++;
-    }
+    // Add status fields
+    sanitizedData.status = 'completed';
+    sanitizedData.analysis_completed_at = new Date().toISOString();
 
     console.log('Sanitized data for DB:', sanitizedData);
 

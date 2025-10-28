@@ -21,12 +21,8 @@
  * - 500: Mistral OCR API error
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders } from '../_shared/cors.ts';
+import { authenticateAndAuthorize } from '../_shared/auth.ts';
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -35,51 +31,23 @@ serve(async (req) => {
 
   try {
     const { dealId } = await req.json();
-    
+
     if (!dealId) {
       throw new Error('dealId is required');
     }
 
-    // Get auth token from request
+    // Authenticate and authorize
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
+    const authResult = await authenticateAndAuthorize(authHeader, dealId);
+
+    if (!authResult.success) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: false, error: authResult.error.error }),
+        { status: authResult.error.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      {
-        global: {
-          headers: { Authorization: authHeader }
-        }
-      }
-    );
-
-    // Verify user owns the deal
-    const { data: { user } } = await supabaseClient.auth.getUser();
-    if (!user) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const { data: deal, error: dealError } = await supabaseClient
-      .from('deals')
-      .select('user_id')
-      .eq('id', dealId)
-      .single();
-
-    if (dealError || !deal || deal.user_id !== user.id) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Forbidden' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    const { supabaseClient } = authResult.data;
 
     console.log('🔍 Starting OCR processing for deal:', dealId);
 

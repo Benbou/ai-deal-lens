@@ -1,21 +1,17 @@
+/**
+ * ⚠️ DEPRECATED - This function is no longer used
+ *
+ * Use analyze-deck-orchestrator instead, which provides:
+ * - Better progress tracking with SSE
+ * - Modular architecture with separate edge functions
+ * - Improved error handling and admin alerts
+ *
+ * This file is kept for reference only and is not deployed.
+ */
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-const updateProgress = async (client: any, analysisId: string, status: string, step: string, percent: number) => {
-  await client
-    .from('analyses')
-    .update({
-      status,
-      current_step: step,
-      progress_percent: percent
-    })
-    .eq('id', analysisId);
-};
+import { corsHeaders } from '../_shared/cors.ts';
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
