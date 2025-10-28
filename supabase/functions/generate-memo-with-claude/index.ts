@@ -337,15 +337,37 @@ ${deal.personal_notes || 'Aucun contexte additionnel fourni'}
           
           let linkupSearchesThisIteration = 0;
 
-          // ✅ Use native streaming
-          const stream = await anthropic.messages.stream({
-            model: "claude-haiku-4-5-20251001",
-            max_tokens: 8000,
-            temperature: 1,
-            system: systemPrompt,
-            messages: messages,
-            tools: tools
-          });
+          // ✅ Use native streaming with retry on 429
+          let stream;
+          try {
+            stream = await anthropic.messages.stream({
+              model: "claude-haiku-4-5-20251001",
+              max_tokens: 16000,
+              temperature: 1,
+              system: systemPrompt,
+              messages: messages,
+              tools: tools
+            });
+          } catch (error: any) {
+            // Retry on rate limit
+            if (error.status === 429) {
+              console.warn('⚠️ [CLAUDE] Rate limit hit (429), retrying in 60s...');
+              sendEvent('status', { message: '⏳ Rate limit atteint, nouvelle tentative dans 60s...' });
+              await new Promise(resolve => setTimeout(resolve, 60000));
+              
+              // Retry once
+              stream = await anthropic.messages.stream({
+                model: "claude-haiku-4-5-20251001",
+                max_tokens: 16000,
+                temperature: 1,
+                system: systemPrompt,
+                messages: messages,
+                tools: tools
+              });
+            } else {
+              throw error;
+            }
+          }
 
           let toolResults: any[] = [];
           
@@ -471,7 +493,7 @@ ${deal.personal_notes || 'Aucun contexte additionnel fourni'}
             // Final call without tools to force output
             const finalStream = await anthropic.messages.stream({
               model: "claude-haiku-4-5-20251001",
-              max_tokens: 8000,
+              max_tokens: 16000,
               temperature: 1,
               system: systemPrompt,
               messages: messages,
