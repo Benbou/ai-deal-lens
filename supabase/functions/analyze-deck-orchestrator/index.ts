@@ -63,7 +63,8 @@ serve(async (req) => {
       throw new Error('Deal not found or access denied');
     }
 
-    console.log('🚀 Starting orchestrated analysis for deal:', dealId);
+    const orchestratorStartTime = Date.now();
+    console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [START] Starting orchestrated analysis for deal: ${dealId}`);
 
     // Create analysis record
     const { data: analysis, error: analysisError } = await supabaseClient
@@ -83,7 +84,7 @@ serve(async (req) => {
     }
 
     const analysisId = analysis.id;
-    console.log('✅ Created analysis record:', analysisId);
+    console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [INFO] Created analysis record: ${analysisId}`);
 
     // Update deal status
     await supabaseClient
@@ -128,6 +129,9 @@ serve(async (req) => {
           // - Receives markdown-formatted text with page separators
           // - Updates progress: 0% → 10% → 25%
           // ============================================================================
+          const ocrStartTime = Date.now();
+          console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [STEP 1] Starting OCR extraction`);
+          
           sendEvent('status', {
             message: 'Extraction du texte du deck via OCR...', 
             progress: 0,
@@ -162,7 +166,8 @@ serve(async (req) => {
           }
 
           const markdownText = ocrResult.markdownText;
-          console.log('✅ OCR completed:', ocrResult.characterCount, 'characters');
+          const ocrDuration = Date.now() - ocrStartTime;
+          console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [STEP 1] OCR completed in ${ocrDuration}ms: ${ocrResult.characterCount} characters`);
 
           sendEvent('status', { 
             message: 'Texte extrait avec succès', 
@@ -187,14 +192,15 @@ serve(async (req) => {
           // - Linkup web search for market validation
           // - Structured JSON output (memo + extracted data)
           // ============================================================================
+          const memoStartTime = Date.now();
+          console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [STEP 2] Starting memo generation with Claude`);
+          
           sendEvent('status', { 
             message: 'Génération du mémo d\'investissement avec Claude...', 
             progress: 25,
             step: 2,
             totalSteps: 3
           });
-
-          console.log('Calling generate-memo-with-claude function...');
           const memoResponse = await fetch(
             `${supabaseUrl}/functions/v1/generate-memo-with-claude`,
             {
@@ -224,8 +230,17 @@ serve(async (req) => {
           let buffer = '';
           let extractedData: any = null;
           let memoComplete = false;
+          let lastStatusMessage = '';
+          let errorReceived = false;
+          
+          // Add 10-minute timeout for SSE stream
+          const sseTimeout = setTimeout(() => {
+            console.error(`[${new Date().toISOString()}] [ORCHESTRATOR] [TIMEOUT] SSE stream timeout after 10 minutes`);
+            throw new Error('SSE stream timeout after 10 minutes');
+          }, 10 * 60 * 1000);
 
-          while (!memoComplete) {
+          try {
+            while (!memoComplete) {
             const { done, value } = await reader.read();
             if (done) break;
 
@@ -233,56 +248,73 @@ serve(async (req) => {
             const lines = buffer.split('\n');
             buffer = lines.pop() || '';
 
-            for (const line of lines) {
-              if (!line.trim() || line.startsWith(':')) continue;
+              for (const line of lines) {
+                if (!line.trim() || line.startsWith(':')) continue;
 
-              if (line.startsWith('event:')) {
-                continue;
-              }
+                // Log all SSE events for debugging
+                console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [SSE] Received: ${line.substring(0, 100)}...`);
 
-              if (line.startsWith('data:')) {
-                const dataStr = line.slice(5).trim();
-                try {
-                  const eventData = JSON.parse(dataStr);
-
-                  // Re-streamer les événements delta (texte du mémo)
-                  if (eventData.text) {
-                    sendEvent('delta', { text: eventData.text });
+                if (line.startsWith('event:')) {
+                  const eventType = line.slice(6).trim();
+                  if (eventType === 'error') {
+                    errorReceived = true;
+                    console.error(`[${new Date().toISOString()}] [ORCHESTRATOR] [SSE] Error event received from Claude`);
                   }
+                  continue;
+                }
 
-                  // Re-streamer les statuts (recherches Linkup)
-                  if (eventData.message) {
-                    sendEvent('status', { 
-                      message: eventData.message,
-                      progress: 50,
-                      step: 2,
-                      totalSteps: 3
-                    });
+                if (line.startsWith('data:')) {
+                  const dataStr = line.slice(5).trim();
+                  try {
+                    const eventData = JSON.parse(dataStr);
+
+                    // Re-streamer les événements delta (texte du mémo)
+                    if (eventData.text) {
+                      sendEvent('delta', { text: eventData.text });
+                    }
+
+                    // Re-streamer les statuts (recherches Linkup)
+                    if (eventData.message) {
+                      lastStatusMessage = eventData.message;
+                      sendEvent('status', { 
+                        message: eventData.message,
+                        progress: 50,
+                        step: 2,
+                        totalSteps: 3
+                      });
+                    }
+
+                    // Événement done : récupérer les données extraites
+                    if (eventData.success && eventData.extractedData) {
+                      extractedData = eventData.extractedData;
+                      memoComplete = true;
+                      console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [STEP 2] Memo generated and data extracted successfully`);
+                    }
+
+                    // Événement error
+                    if (eventData.error) {
+                      throw new Error(eventData.error);
+                    }
+
+                  } catch (e) {
+                    console.error(`[${new Date().toISOString()}] [ORCHESTRATOR] [ERROR] Failed to parse SSE data:`, e, dataStr);
                   }
-
-                  // Événement done : récupérer les données extraites
-                  if (eventData.success && eventData.extractedData) {
-                    extractedData = eventData.extractedData;
-                    memoComplete = true;
-                    console.log('✅ Memo generated and data extracted');
-                    console.log('📊 Extracted data:', extractedData);
-                  }
-
-                  // Événement error
-                  if (eventData.error) {
-                    throw new Error(eventData.error);
-                  }
-
-                } catch (e) {
-                  console.error('Failed to parse SSE data:', e, dataStr);
                 }
               }
             }
+          } finally {
+            clearTimeout(sseTimeout);
           }
 
           if (!extractedData) {
-            throw new Error('No extracted data received from Claude');
+            const errorContext = errorReceived 
+              ? `Error event received. Last status: ${lastStatusMessage}` 
+              : `No data extracted. Last status: ${lastStatusMessage}`;
+            throw new Error(`Claude failed to extract data. ${errorContext}. Check memo generation logs for details.`);
           }
+
+          const memoDuration = Date.now() - memoStartTime;
+          console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [STEP 2] Memo generation completed in ${memoDuration}ms`);
 
           sendEvent('status', { 
             message: 'Mémo et données extraites avec succès', 
@@ -302,6 +334,9 @@ serve(async (req) => {
           // - Updates analysis status and timestamps
           // - Finalizes progress to 100%
           // ============================================================================
+          const finalizationStartTime = Date.now();
+          console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [STEP 3] Starting finalization`);
+          
           sendEvent('status', {
             message: 'Finalisation de l\'analyse...', 
             progress: 85,
@@ -339,7 +374,10 @@ serve(async (req) => {
             throw new Error(finalizationResult.error || 'Finalization failed');
           }
 
-          console.log('✅ Complete analysis pipeline finished');
+          const finalizationDuration = Date.now() - finalizationStartTime;
+          const totalDuration = Date.now() - orchestratorStartTime;
+          console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [STEP 3] Finalization completed in ${finalizationDuration}ms`);
+          console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [END] Complete analysis pipeline finished in ${totalDuration}ms`);
 
           sendEvent('status', { 
             message: 'Analyse terminée avec succès', 
@@ -350,7 +388,8 @@ serve(async (req) => {
           sendEvent('done', { success: true });
 
         } catch (error) {
-          console.error('Error in orchestrator:', error);
+          const totalDuration = Date.now() - orchestratorStartTime;
+          console.error(`[${new Date().toISOString()}] [ORCHESTRATOR] [ERROR] Failed after ${totalDuration}ms:`, error);
           
           const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
           const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';

@@ -9,7 +9,8 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  console.log('🚀 Starting memo generation with Claude + Linkup (streaming)');
+  const functionStartTime = Date.now();
+  console.log(`[${new Date().toISOString()}] [MEMO-GEN] [START] Starting memo generation with Claude + Linkup`);
   
   // Parse request body
   let dealId: string;
@@ -81,7 +82,7 @@ serve(async (req) => {
     );
   }
 
-  console.log('📄 Deal loaded:', deal.startup_name);
+  console.log(`[${new Date().toISOString()}] [MEMO-GEN] [INFO] Deal loaded: ${deal.startup_name}`);
 
   // System prompt
   const systemPrompt = `You are a senior investment analyst specialized in producing ultra-effective investment memos for VC funds. Your mission is to transform complex, messy inputs into decision-ready analyses that can be read in 2–3 minutes (<1000 words) while preserving all substance required for an informed investment decision.
@@ -258,14 +259,15 @@ ${deal.personal_notes || 'Aucun contexte additionnel fourni'}
 
   // Helper: Linkup search
   async function callLinkupSearch(query: string, depth: string = "standard") {
+    const searchStartTime = Date.now();
     const cleanQuery = String(query).trim();
     
     if (!cleanQuery) {
-      console.error('❌ [LINKUP] Empty query after sanitization');
+      console.error(`[${new Date().toISOString()}] [LINKUP] [ERROR] Empty query after sanitization`);
       return { error: 'Empty search query' };
     }
     
-    console.log(`🔍 [LINKUP] "${cleanQuery}" (${depth})`);
+    console.log(`[${new Date().toISOString()}] [LINKUP] [START] Query: "${cleanQuery}" (${depth})`);
     
     try {
       const response = await fetch("https://api.linkup.so/v1/search", {
@@ -283,12 +285,14 @@ ${deal.personal_notes || 'Aucun contexte additionnel fourni'}
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('❌ [LINKUP] Error:', errorText);
+        const duration = Date.now() - searchStartTime;
+        console.error(`[${new Date().toISOString()}] [LINKUP] [ERROR] Failed in ${duration}ms: ${errorText}`);
         return { error: `Linkup failed (${response.status}): ${errorText}` };
       }
 
       const data = await response.json();
-      console.log(`✅ [LINKUP] Results (${data.answer?.length || 0} chars)`);
+      const duration = Date.now() - searchStartTime;
+      console.log(`[${new Date().toISOString()}] [LINKUP] [SUCCESS] Completed in ${duration}ms (${data.answer?.length || 0} chars)`);
       
       return { 
         answer: data.answer || "No answer received", 
@@ -296,9 +300,53 @@ ${deal.personal_notes || 'Aucun contexte additionnel fourni'}
       };
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
-      console.error('❌ [LINKUP] Exception:', errorMsg);
+      const duration = Date.now() - searchStartTime;
+      console.error(`[${new Date().toISOString()}] [LINKUP] [ERROR] Exception after ${duration}ms: ${errorMsg}`);
       return { error: `Linkup exception: ${errorMsg}` };
     }
+  }
+
+  // Helper: Call Claude with retry on rate limit (429)
+  async function callClaudeWithRetry(
+    anthropic: any,
+    config: any,
+    sendEvent: (event: string, data: any) => void,
+    maxRetries: number = 3
+  ) {
+    const delays = [0, 60000, 120000]; // 0s, 60s, 120s
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      const attemptStartTime = Date.now();
+      
+      try {
+        console.log(`[${new Date().toISOString()}] [CLAUDE] [ATTEMPT ${attempt}/${maxRetries}] Starting call`);
+        
+        const stream = await anthropic.messages.stream(config);
+        
+        console.log(`[${new Date().toISOString()}] [CLAUDE] [SUCCESS] Stream created in ${Date.now() - attemptStartTime}ms`);
+        return stream;
+        
+      } catch (error: any) {
+        const attemptDuration = Date.now() - attemptStartTime;
+        
+        if (error.status === 429 && attempt < maxRetries) {
+          const delay = delays[attempt];
+          console.warn(`[${new Date().toISOString()}] [CLAUDE] [RATE-LIMIT] Attempt ${attempt}/${maxRetries} failed after ${attemptDuration}ms. Retrying in ${delay/1000}s...`);
+          sendEvent('status', { 
+            message: `⏳ Rate limit atteint, nouvelle tentative dans ${delay/1000}s (tentative ${attempt + 1}/${maxRetries})...` 
+          });
+          
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+          
+        } else {
+          console.error(`[${new Date().toISOString()}] [CLAUDE] [ERROR] Attempt ${attempt}/${maxRetries} failed after ${attemptDuration}ms:`, error.message);
+          throw error;
+        }
+      }
+    }
+    
+    throw new Error(`Claude API failed after ${maxRetries} attempts`);
   }
 
   // Create SSE stream
@@ -324,11 +372,12 @@ ${deal.personal_notes || 'Aucun contexte additionnel fourni'}
 
         while (iterationCount < MAX_ITERATIONS && !memoReady) {
           iterationCount++;
-          console.log(`🔄 [CLAUDE] Iteration ${iterationCount}`);
+          const iterationStartTime = Date.now();
+          console.log(`[${new Date().toISOString()}] [CLAUDE] [ITERATION ${iterationCount}/${MAX_ITERATIONS}] Starting`);
           
           // Check global timeout
           if (Date.now() - startTime > FUNCTION_TIMEOUT_MS) {
-            console.error('⏱️ [TIMEOUT] Function approaching timeout limit');
+            console.error(`[${new Date().toISOString()}] [TIMEOUT] Function approaching timeout limit (${FUNCTION_TIMEOUT_MS}ms)`);
             sendEvent('error', { 
               message: 'Fonction proche de la limite de temps. Le mémo sera regénéré automatiquement.' 
             });
@@ -337,60 +386,44 @@ ${deal.personal_notes || 'Aucun contexte additionnel fourni'}
           
           let linkupSearchesThisIteration = 0;
 
-          // ✅ Use native streaming with retry on 429
-          let stream;
-          try {
-            stream = await anthropic.messages.stream({
+          // ✅ Use native streaming with multi-retry on 429
+          const stream = await callClaudeWithRetry(
+            anthropic,
+            {
               model: "claude-haiku-4-5-20251001",
               max_tokens: 16000,
               temperature: 1,
               system: systemPrompt,
               messages: messages,
               tools: tools
-            });
-          } catch (error: any) {
-            // Retry on rate limit
-            if (error.status === 429) {
-              console.warn('⚠️ [CLAUDE] Rate limit hit (429), retrying in 60s...');
-              sendEvent('status', { message: '⏳ Rate limit atteint, nouvelle tentative dans 60s...' });
-              await new Promise(resolve => setTimeout(resolve, 60000));
-              
-              // Retry once
-              stream = await anthropic.messages.stream({
-                model: "claude-haiku-4-5-20251001",
-                max_tokens: 16000,
-                temperature: 1,
-                system: systemPrompt,
-                messages: messages,
-                tools: tools
-              });
-            } else {
-              throw error;
-            }
-          }
+            },
+            sendEvent,
+            3 // Max 3 attempts
+          );
 
           let toolResults: any[] = [];
           
           // ✅ Listen to streaming events in real-time
           stream
-            .on('text', (text) => {
+            .on('text', (text: any) => {
               // Token-by-token streaming
               sendEvent('delta', { text });
             })
-            .on('contentBlock', (block) => {
+            .on('contentBlock', (block: any) => {
               if (block.type === 'tool_use') {
-                console.log(`🔧 [CLAUDE] Tool: ${block.name}`);
+                console.log(`[${new Date().toISOString()}] [CLAUDE] [TOOL] ${block.name}`);
               }
             })
-            .on('message', (message) => {
-              console.log(`📊 [CLAUDE] Stop: ${message.stop_reason}`);
+            .on('message', (message: any) => {
+              console.log(`[${new Date().toISOString()}] [CLAUDE] [STOP] ${message.stop_reason}`);
             });
 
           // ✅ Wait for complete response
           const finalMessage = await stream.finalMessage();
+          const iterationDuration = Date.now() - iterationStartTime;
           
           // ✅ Log stop reason for debugging
-          console.log(`📊 [CLAUDE] Stop reason: ${finalMessage.stop_reason}`);
+          console.log(`[${new Date().toISOString()}] [CLAUDE] [ITERATION ${iterationCount}] Completed in ${iterationDuration}ms, stop_reason: ${finalMessage.stop_reason}, tokens: ${finalMessage.usage?.input_tokens}→${finalMessage.usage?.output_tokens}`);
           
           // ✅ Add response to conversation
           messages.push({ role: "assistant", content: finalMessage.content });
@@ -403,7 +436,7 @@ ${deal.personal_notes || 'Aucun contexte additionnel fourni'}
                 
                 // Block excessive searches
                 if (linkupSearchesThisIteration > MAX_LINKUP_SEARCHES_PER_ITERATION) {
-                  console.warn(`⚠️ [LINKUP] Max searches reached for iteration ${iterationCount} (${linkupSearchesThisIteration}/${MAX_LINKUP_SEARCHES_PER_ITERATION})`);
+                  console.warn(`[${new Date().toISOString()}] [LINKUP] [LIMIT] Max searches reached for iteration ${iterationCount} (${linkupSearchesThisIteration}/${MAX_LINKUP_SEARCHES_PER_ITERATION})`);
                   toolResults.push({
                     type: "tool_result",
                     tool_use_id: block.id,
@@ -468,7 +501,7 @@ ${deal.personal_notes || 'Aucun contexte additionnel fourni'}
               }
               
               if (block.name === 'output_memo') {
-                console.log('✅ [CLAUDE] Memo ready!');
+                console.log(`[${new Date().toISOString()}] [OUTPUT_MEMO] [RECEIVED] Memo ready`);
                 memoReady = true;
                 finalData = block.input;
               }
@@ -483,7 +516,8 @@ ${deal.personal_notes || 'Aucun contexte additionnel fourni'}
 
           // ✅ Force stop after max iterations
           if (iterationCount >= MAX_ITERATIONS && !memoReady) {
-            console.warn(`⚠️ [CLAUDE] Max iterations reached (${MAX_ITERATIONS}). Forcing memo generation.`);
+            const fallbackStartTime = Date.now();
+            console.warn(`[${new Date().toISOString()}] [FALLBACK] [START] Max iterations reached (${MAX_ITERATIONS}). Forcing memo generation.`);
             const forceStopMessage = {
               role: "user" as const,
               content: `Vous avez atteint le nombre maximum d'itérations (${MAX_ITERATIONS}). Générez maintenant le mémo final avec toutes les informations collectées en utilisant l'outil output_memo.`
@@ -491,16 +525,21 @@ ${deal.personal_notes || 'Aucun contexte additionnel fourni'}
             messages.push(forceStopMessage);
             
             // Final call without tools to force output
-            const finalStream = await anthropic.messages.stream({
-              model: "claude-haiku-4-5-20251001",
-              max_tokens: 16000,
-              temperature: 1,
-              system: systemPrompt,
-              messages: messages,
-              tools: tools
-            });
+            const finalStream = await callClaudeWithRetry(
+              anthropic,
+              {
+                model: "claude-haiku-4-5-20251001",
+                max_tokens: 16000,
+                temperature: 1,
+                system: systemPrompt,
+                messages: messages,
+                tools: tools
+              },
+              sendEvent,
+              3
+            );
             
-            finalStream.on('text', (text) => sendEvent('delta', { text }));
+            finalStream.on('text', (text: any) => sendEvent('delta', { text }));
             const finalResponse = await finalStream.finalMessage();
             
             for (const block of finalResponse.content) {
@@ -511,9 +550,12 @@ ${deal.personal_notes || 'Aucun contexte additionnel fourni'}
               }
             }
             
+            const fallbackDuration = Date.now() - fallbackStartTime;
             if (!memoReady) {
+              console.error(`[${new Date().toISOString()}] [FALLBACK] [ERROR] Failed after ${fallbackDuration}ms`);
               throw new Error('Claude failed to generate memo after max iterations');
             }
+            console.log(`[${new Date().toISOString()}] [FALLBACK] [SUCCESS] Memo generated via fallback in ${fallbackDuration}ms`);
             break;
           }
 
@@ -537,8 +579,8 @@ ${deal.personal_notes || 'Aucun contexte additionnel fourni'}
         }
 
         // ✅ Logs détaillés pour debug
-        console.log('📝 [DEBUG] finalData keys:', Object.keys(finalData));
-        console.log('📝 [DEBUG] finalData:', JSON.stringify(finalData, null, 2));
+        console.log(`[${new Date().toISOString()}] [MEMO-GEN] [VALIDATION] finalData keys: ${Object.keys(finalData).join(', ')}`);
+        console.log(`[${new Date().toISOString()}] [MEMO-GEN] [DEBUG] Full data: ${JSON.stringify(finalData, null, 2)}`);
 
         const typed = finalData as {
           memo_markdown?: string;
@@ -554,9 +596,9 @@ ${deal.personal_notes || 'Aucun contexte additionnel fourni'}
 
         // ✅ Validation stricte du memo_markdown
         if (!typed.memo_markdown || typeof typed.memo_markdown !== 'string') {
-          console.error('❌ Missing or invalid memo_markdown in finalData');
-          console.error('📝 [DEBUG] finalData keys:', Object.keys(finalData));
-          console.error('📝 [DEBUG] memo_markdown value:', typed.memo_markdown);
+          console.error(`[${new Date().toISOString()}] [MEMO-GEN] [ERROR] Missing or invalid memo_markdown`);
+          console.error(`[${new Date().toISOString()}] [MEMO-GEN] [DEBUG] Keys: ${Object.keys(finalData).join(', ')}`);
+          console.error(`[${new Date().toISOString()}] [MEMO-GEN] [DEBUG] Value: ${typed.memo_markdown}`);
           sendEvent('error', { 
             message: 'Claude n\'a pas renvoyé le mémo complet (champ manquant ou invalide)' 
           });
@@ -565,7 +607,7 @@ ${deal.personal_notes || 'Aucun contexte additionnel fourni'}
 
         const memoText = typed.memo_markdown.trim();
         if (memoText.length < 100) {
-          console.error('❌ Memo too short:', memoText.length, 'chars');
+          console.error(`[${new Date().toISOString()}] [MEMO-GEN] [ERROR] Memo too short: ${memoText.length} chars`);
           console.error('📝 [DEBUG] Memo content preview:', memoText.substring(0, 200));
           sendEvent('error', { 
             message: `Le mémo généré est trop court (${memoText.length} caractères, probablement tronqué)` 
