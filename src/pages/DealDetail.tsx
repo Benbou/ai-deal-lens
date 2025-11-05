@@ -5,14 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Download, Trash2, Loader2, AlertCircle, CheckCircle2, Clock, Search, Activity } from "lucide-react";
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import { toast } from 'sonner';
 import { useStreamAnalysis } from '@/hooks/useStreamAnalysis';
 import { useAuth } from '@/contexts/AuthContext';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { InvestmentMemoDisplay } from "@/components/InvestmentMemoDisplay";
 interface AnalysisResult {
   status?: string;
   full_text?: string;
@@ -323,84 +322,16 @@ export default function DealDetail() {
             </div>
             {currentStatus && isStreaming && <p className="text-sm text-muted-foreground mb-6">{currentStatus}</p>}
             
-            <ReactMarkdown remarkPlugins={[remarkGfm]} components={{
-          h1: ({
-            node,
-            ...props
-          }) => <h1 className="scroll-m-20 text-4xl font-extrabold tracking-tight mb-8 mt-0" {...props} />,
-          h2: ({
-            node,
-            ...props
-          }) => <h2 className="scroll-m-20 border-b pb-2 tracking-tight first:mt-0 mt-10 mb-4 text-3xl font-semibold" {...props} />,
-          h3: ({
-            node,
-            ...props
-          }) => <h3 className="scroll-m-20 text-2xl font-semibold tracking-tight mt-8 mb-4" {...props} />,
-          h4: ({
-            node,
-            ...props
-          }) => <h4 className="scroll-m-20 text-xl font-semibold tracking-tight mt-6 mb-3" {...props} />,
-          p: ({
-            node,
-            ...props
-          }) => <p className="leading-7 [&:not(:first-child)]:mt-6" {...props} />,
-          ul: ({
-            node,
-            ...props
-          }) => <ul className="my-6 ml-6 list-disc [&>li]:mt-2" {...props} />,
-          ol: ({
-            node,
-            ...props
-          }) => <ol className="my-6 ml-6 list-decimal [&>li]:mt-2" {...props} />,
-          li: ({
-            node,
-            ...props
-          }) => <li className="leading-7" {...props} />,
-          blockquote: ({
-            node,
-            ...props
-          }) => <blockquote className="mt-6 border-l-2 pl-6 italic" {...props} />,
-          table: ({
-            node,
-            ...props
-          }) => <div className="my-6 w-full overflow-y-auto">
-                    <table className="w-full" {...props} />
-                  </div>,
-          thead: ({
-            node,
-            ...props
-          }) => <thead {...props} />,
-          tr: ({
-            node,
-            ...props
-          }) => <tr className="m-0 border-t p-0" {...props} />,
-          th: ({
-            node,
-            ...props
-          }) => <th className="border px-4 py-2 text-left font-bold [&[align=center]]:text-center [&[align=right]]:text-right" {...props} />,
-          td: ({
-            node,
-            ...props
-          }) => <td className="border px-4 py-2 text-left [&[align=center]]:text-center [&[align=right]]:text-right" {...props} />,
-          code: ({
-            node,
-            ...props
-          }) => <code className="relative rounded border px-[0.3rem] py-[0.2rem] font-mono text-sm font-semibold" {...props} />,
-          strong: ({
-            node,
-            ...props
-          }) => <strong className="font-semibold" {...props} />,
-          em: ({
-            node,
-            ...props
-          }) => <em className="italic" {...props} />,
-          a: ({
-            node,
-            ...props
-          }) => <a className="font-medium underline underline-offset-4" {...props} />
-        }}>
-              {displayText}
-            </ReactMarkdown>
+            <InvestmentMemoDisplay 
+              memoMarkdown={displayText}
+              dealData={{
+                companyName: deal?.company_name,
+                sector: deal?.sector,
+                arr: deal?.current_arr_cents,
+                yoyGrowth: deal?.yoy_growth_percent,
+              }}
+              isStreaming={isStreaming}
+            />
           </article>
         </div>}
 
