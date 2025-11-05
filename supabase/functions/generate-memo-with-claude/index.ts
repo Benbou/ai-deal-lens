@@ -400,24 +400,46 @@ ${deal.personal_notes || 'Aucun contexte additionnel fourni'}
         let iterationCount = 0;
         const MAX_ITERATIONS = 3;
         const MAX_LINKUP_SEARCHES_PER_ITERATION = 3;
-        const FUNCTION_TIMEOUT_MS = 110 * 1000; // 110 seconds
+        const SAFETY_TIMEOUT_MS = 100 * 1000; // 100s (10s before CPU timeout)
         let memoReady = false;
         let finalData: any = null;
+        let isPartialMemo = false;
         const linkupSearches: any[] = [];
         const startTime = Date.now();
+        
+        // Safety timer to force finalization before CPU timeout
+        let safetyTimerTriggered = false;
+        const safetyTimer = setTimeout(() => {
+          safetyTimerTriggered = true;
+          isPartialMemo = true;
+          console.warn(`[${new Date().toISOString()}] [SAFETY] Timer triggered at 100s - forcing finalization`);
+          sendEvent('status', { 
+            message: '⚠️ Analyse longue détectée - finalisation en cours avec les données disponibles...' 
+          });
+        }, SAFETY_TIMEOUT_MS);
 
-        while (iterationCount < MAX_ITERATIONS && !memoReady) {
+        while (iterationCount < MAX_ITERATIONS && !memoReady && !safetyTimerTriggered) {
           iterationCount++;
           const iterationStartTime = Date.now();
           console.log(`[${new Date().toISOString()}] [CLAUDE] [ITERATION ${iterationCount}/${MAX_ITERATIONS}] Starting`);
           
-          // Check global timeout
-          if (Date.now() - startTime > FUNCTION_TIMEOUT_MS) {
-            console.error(`[${new Date().toISOString()}] [TIMEOUT] Function approaching timeout limit (${FUNCTION_TIMEOUT_MS}ms)`);
-            sendEvent('error', { 
-              message: 'Fonction proche de la limite de temps. Le mémo sera regénéré automatiquement.' 
-            });
-            throw new Error('Function timeout approaching');
+          // Check safety timeout - force finalization if triggered
+          if (safetyTimerTriggered) {
+            console.warn(`[${new Date().toISOString()}] [SAFETY] Timeout triggered - forcing output_memo with available data`);
+            
+            // Force a minimal memo generation with available data
+            const partialMemoContent = `# Mémo d'Investissement Partiel : ${deal.startup_name}\n\n⚠️ **Note** : Ce mémo a été généré partiellement en raison d'un timeout. Relancez l'analyse pour obtenir un mémo complet.\n\n## Informations disponibles\n\nDeck analysé : ${deal.startup_name}\n\nLes recherches web et l'analyse complète n'ont pas pu être finalisées dans le temps imparti.`;
+            
+            finalData = {
+              memo_markdown: partialMemoContent,
+              company_name: deal.startup_name || 'N/A',
+              sector: deal.sector || 'N/A',
+              solution_summary: 'Analyse partielle - timeout',
+              is_partial: true
+            };
+            
+            memoReady = true;
+            break;
           }
           
           let linkupSearchesThisIteration = 0;
@@ -547,6 +569,33 @@ ${deal.personal_notes || 'Aucun contexte additionnel fourni'}
           // ✅ Continue conversation if tools were called
           if (toolResults.length > 0 && !memoReady) {
             messages.push({ role: "user", content: toolResults });
+            
+            // Progressive save: update analyses.result with current iteration data (non-blocking)
+            const progressData = {
+              iteration: iterationCount,
+              messages_count: messages.length,
+              linkup_searches: linkupSearches.length,
+              timestamp: new Date().toISOString(),
+              is_partial: true,
+              partial_memo: finalData || null
+            };
+            
+            // Background save without blocking the stream
+            supabaseClient
+              .from('analyses')
+              .update({ 
+                result: progressData,
+                current_step: `Itération ${iterationCount}/${MAX_ITERATIONS} - Recherches en cours`
+              })
+              .eq('id', analysisId)
+              .then(({ error }) => {
+                if (error) {
+                  console.error(`[${new Date().toISOString()}] [BG-SAVE] Failed to save progress:`, error);
+                } else {
+                  console.log(`[${new Date().toISOString()}] [BG-SAVE] Iteration ${iterationCount} saved`);
+                }
+              });
+            
             continue;
           }
 
@@ -609,6 +658,9 @@ ${deal.personal_notes || 'Aucun contexte additionnel fourni'}
             break;
           }
         }
+        
+        // Clear safety timer
+        clearTimeout(safetyTimer);
 
         if (!memoReady || !finalData) {
           throw new Error('Max iterations reached without memo');
@@ -651,14 +703,15 @@ ${deal.personal_notes || 'Aucun contexte additionnel fourni'}
           throw new Error(`Generated memo is suspiciously short: ${memoText.length} chars`);
         }
 
-        console.log(`✅ Memo validated: ${memoText.length} chars`);
+        console.log(`✅ Memo validated: ${memoText.length} chars${isPartialMemo ? ' (PARTIAL)' : ''}`);
 
-        // ✅ Sauvegarde sécurisée avec métadonnées
+        // ✅ Sauvegarde sécurisée avec métadonnées et flag partial
         const { error: updateError } = await supabaseClient
           .from('analyses')
           .update({
             result: { 
               full_text: memoText,
+              is_partial: isPartialMemo,
               metadata: {
                 linkup_searches: linkupSearches,
                 iterations: iterationCount,
@@ -694,7 +747,8 @@ ${deal.personal_notes || 'Aucun contexte additionnel fourni'}
         sendEvent('done', {
           success: true,
           memoLength: memoText.length,
-          extractedData: sanitizedData
+          extractedData: sanitizedData,
+          is_partial: isPartialMemo
         });
 
         console.log('✅ Done event sent with extractedData');
