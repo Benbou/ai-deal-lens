@@ -5,84 +5,133 @@ import { corsHeaders } from '../_shared/cors.ts';
 import { sanitizeExtractedData } from '../_shared/data-validators.ts';
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
-
-  const functionStartTime = Date.now();
-  console.log(`[${new Date().toISOString()}] [MEMO-GEN] [START] Starting memo generation with Claude + Linkup`);
-  
-  // Parse request body
-  let dealId: string;
-  let markdownText: string;
-  let analysisId: string;
-  
   try {
-    const body = await req.json();
-    dealId = body.dealId;
-    markdownText = body.markdownText;
-    analysisId = body.analysisId;
-
-    if (!dealId || !markdownText || !analysisId) {
-      throw new Error('Missing required parameters');
+    console.log('[MEMO-GEN] [INIT] === FUNCTION STARTED ===');
+    
+    if (req.method === 'OPTIONS') {
+      console.log('[MEMO-GEN] [INIT] OPTIONS request, returning CORS');
+      return new Response(null, { headers: corsHeaders });
     }
-  } catch (error) {
-    return new Response(
-      JSON.stringify({ success: false, error: 'Invalid request' }),
-      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  }
 
-  // Initialize API keys
-  const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
-  const LINKUP_API_KEY = Deno.env.get('LINKUP_API_KEY');
-  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    console.log('[MEMO-GEN] [INIT] POST request received');
+    const functionStartTime = Date.now();
+    
+    // Parse request body
+    let dealId: string;
+    let markdownText: string;
+    let analysisId: string;
+    
+    try {
+      console.log('[MEMO-GEN] [INIT] Parsing request body...');
+      const body = await req.json();
+      console.log('[MEMO-GEN] [INIT] Body parsed successfully');
+      
+      dealId = body.dealId;
+      markdownText = body.markdownText;
+      analysisId = body.analysisId;
 
-  if (!ANTHROPIC_API_KEY || !LINKUP_API_KEY) {
-    return new Response(
-      JSON.stringify({ success: false, error: 'API keys not configured' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  }
+      if (!dealId || !markdownText || !analysisId) {
+        console.error('[MEMO-GEN] [ERROR] Missing parameters:', {
+          dealId: !!dealId,
+          markdownText: !!markdownText,
+          analysisId: !!analysisId
+        });
+        throw new Error('Missing required parameters');
+      }
+      console.log('[MEMO-GEN] [INIT] Parameters validated');
+    } catch (error) {
+      console.error('[MEMO-GEN] [ERROR] Body parsing failed:', error);
+      return new Response(
+        JSON.stringify({ success: false, error: 'Invalid request' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
-  const anthropic = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
-  const supabaseClient = createClient(supabaseUrl, supabaseServiceKey);
+    // Initialize API keys
+    console.log('[MEMO-GEN] [INIT] Checking API keys...');
+    const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
+    const LINKUP_API_KEY = Deno.env.get('LINKUP_API_KEY');
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    
+    console.log('[MEMO-GEN] [INIT] API keys status:', {
+      anthropic: !!ANTHROPIC_API_KEY,
+      linkup: !!LINKUP_API_KEY,
+      supabaseUrl: !!supabaseUrl,
+      supabaseServiceKey: !!supabaseServiceKey
+    });
 
-  // Verify authorization
-  const authHeader = req.headers.get('Authorization');
-  if (!authHeader) {
-    return new Response(
-      JSON.stringify({ success: false, error: 'Unauthorized' }),
-      { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  }
+    if (!ANTHROPIC_API_KEY || !LINKUP_API_KEY) {
+      console.error('[MEMO-GEN] [ERROR] API keys missing');
+      return new Response(
+        JSON.stringify({ success: false, error: 'API keys not configured' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
-  const token = authHeader.replace('Bearer ', '');
-  const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token);
-  if (userError || !user) {
-    return new Response(
-      JSON.stringify({ success: false, error: 'Unauthorized' }),
-      { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  }
+    console.log('[MEMO-GEN] [INIT] Initializing Anthropic client...');
+    const anthropic = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
+    console.log('[MEMO-GEN] [INIT] Anthropic client initialized');
+    
+    console.log('[MEMO-GEN] [INIT] Creating Supabase client...');
+    const supabaseClient = createClient(supabaseUrl, supabaseServiceKey);
+    console.log('[MEMO-GEN] [INIT] Supabase client created');
 
-  // Fetch deal
-  const { data: deal, error: dealError } = await supabaseClient
-    .from('deals')
-    .select('*')
-    .eq('id', dealId)
-    .eq('user_id', user.id)
-    .single();
+    // Verify authorization - SIMPLIFIED (decode JWT directly)
+    console.log('[MEMO-GEN] [INIT] Verifying auth...');
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      console.error('[MEMO-GEN] [ERROR] No auth header');
+      return new Response(
+        JSON.stringify({ success: false, error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
-  if (dealError || !deal) {
-    return new Response(
-      JSON.stringify({ success: false, error: 'Deal not found' }),
-      { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  }
+    console.log('[MEMO-GEN] [INIT] Auth header present, extracting user ID from JWT...');
+    const token = authHeader.replace('Bearer ', '');
+    
+    let userId: string;
+    try {
+      // Decode JWT to extract user_id without calling auth.getUser()
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      userId = payload.sub;
+      console.log('[MEMO-GEN] [INIT] User ID extracted from JWT:', userId);
+    } catch (error) {
+      console.error('[MEMO-GEN] [ERROR] Failed to decode JWT:', error);
+      return new Response(
+        JSON.stringify({ success: false, error: 'Invalid token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
-  console.log(`[${new Date().toISOString()}] [MEMO-GEN] [INFO] Deal loaded: ${deal.startup_name}`);
+    // Fetch deal to verify ownership
+    console.log('[MEMO-GEN] [INIT] Fetching deal...');
+    const { data: deal, error: dealError } = await supabaseClient
+      .from('deals')
+      .select('*')
+      .eq('id', dealId)
+      .eq('user_id', userId)
+      .single();
+
+    if (dealError) {
+      console.error('[MEMO-GEN] [ERROR] Deal fetch failed:', dealError);
+      return new Response(
+        JSON.stringify({ success: false, error: 'Database error' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!deal) {
+      console.error('[MEMO-GEN] [ERROR] Deal not found or access denied');
+      return new Response(
+        JSON.stringify({ success: false, error: 'Deal not found or access denied' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log('[MEMO-GEN] [START] Starting memo generation with Claude + Linkup');
+    console.log('[MEMO-GEN] [INFO] Deal loaded:', deal.startup_name);
 
   // System prompt
   const systemPrompt = `Tu es un analyste senior en capital-risque d'un fonds early-stage français (pre-seed à série A).
@@ -772,4 +821,25 @@ ${deal.personal_notes || 'Aucun contexte additionnel fourni'}
       'Connection': 'keep-alive'
     }
   });
+  } catch (error) {
+    console.error('[MEMO-GEN] [FATAL] Uncaught error in main handler:', error);
+    console.error('[MEMO-GEN] [FATAL] Stack trace:', error instanceof Error ? error.stack : 'N/A');
+    console.error('[MEMO-GEN] [FATAL] Error details:', {
+      name: error instanceof Error ? error.name : 'Unknown',
+      message: error instanceof Error ? error.message : String(error)
+    });
+    
+    return new Response(
+      JSON.stringify({ 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error',
+        errorType: error instanceof Error ? error.name : 'Unknown',
+        stack: error instanceof Error ? error.stack : undefined
+      }),
+      { 
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    );
+  }
 });
