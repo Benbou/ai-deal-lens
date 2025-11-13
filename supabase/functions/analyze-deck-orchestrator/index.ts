@@ -23,12 +23,19 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 
 serve(async (req) => {
+  console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [INIT] === FUNCTION STARTED ===`);
+  console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [INIT] Method: ${req.method}`);
+  
   if (req.method === 'OPTIONS') {
+    console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [INIT] OPTIONS request - returning CORS`);
     return new Response(null, { headers: corsHeaders });
   }
 
   const authHeader = req.headers.get('Authorization');
+  console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [INIT] Auth header present: ${!!authHeader}`);
+  
   if (!authHeader) {
+    console.error(`[${new Date().toISOString()}] [ORCHESTRATOR] [ERROR] No authorization header`);
     return new Response(JSON.stringify({ error: 'No authorization header' }), {
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -36,12 +43,16 @@ serve(async (req) => {
   }
 
   try {
+    console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [INIT] Parsing request body...`);
     const { dealId } = await req.json();
+    console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [INIT] Deal ID: ${dealId}`);
     
     if (!dealId) {
+      console.error(`[${new Date().toISOString()}] [ORCHESTRATOR] [ERROR] Missing dealId`);
       throw new Error('dealId is required');
     }
 
+    console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [INIT] Creating Supabase client...`);
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
@@ -51,17 +62,27 @@ serve(async (req) => {
         }
       }
     );
+    console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [INIT] Supabase client created`);
 
     // Verify user owns this deal
+    console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [INIT] Verifying deal ownership...`);
     const { data: deal, error: dealError } = await supabaseClient
       .from('deals')
       .select('id, user_id')
       .eq('id', dealId)
       .single();
 
-    if (dealError || !deal) {
+    if (dealError) {
+      console.error(`[${new Date().toISOString()}] [ORCHESTRATOR] [ERROR] Deal fetch error:`, dealError);
       throw new Error('Deal not found or access denied');
     }
+    
+    if (!deal) {
+      console.error(`[${new Date().toISOString()}] [ORCHESTRATOR] [ERROR] Deal not found`);
+      throw new Error('Deal not found or access denied');
+    }
+    
+    console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [INIT] Deal verified, user: ${deal.user_id}`);
 
     const orchestratorStartTime = Date.now();
     console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [START] Starting orchestrated analysis for deal: ${dealId}`);

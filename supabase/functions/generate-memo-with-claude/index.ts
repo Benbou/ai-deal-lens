@@ -447,9 +447,9 @@ ${deal.personal_notes || 'Aucun contexte additionnel fourni'}
       try {
         let messages: any[] = [{ role: "user", content: userMessage }];
         let iterationCount = 0;
-        const MAX_ITERATIONS = 3;
-        const MAX_LINKUP_SEARCHES_PER_ITERATION = 3;
-        const SAFETY_TIMEOUT_MS = 100 * 1000; // 100s (10s before CPU timeout)
+        const MAX_ITERATIONS = 2; // Reduced from 3 to avoid CPU timeout
+        const MAX_LINKUP_SEARCHES_PER_ITERATION = 2; // Reduced from 3
+        const SAFETY_TIMEOUT_MS = 80 * 1000; // 80s (20s margin before CPU timeout)
         let memoReady = false;
         let finalData: any = null;
         let isPartialMemo = false;
