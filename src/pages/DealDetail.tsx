@@ -72,8 +72,8 @@ export default function DealDetail() {
         }).limit(1).maybeSingle();
         setAnalysis(analysisData);
 
-        // Auto-start analysis if no analysis exists yet OR if processing
-        if (dealData && (!analysisData || analysisData.status === 'processing')) {
+        // Auto-start analysis if no analysis exists yet OR if pending/processing
+        if (dealData && (!analysisData || analysisData.status === 'pending' || analysisData.status === 'processing')) {
           startAnalysis(id);
         }
       } finally {

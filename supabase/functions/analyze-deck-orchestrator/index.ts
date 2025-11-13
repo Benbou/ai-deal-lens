@@ -154,10 +154,10 @@ serve(async (req) => {
           console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [STEP 1] Starting OCR extraction`);
           
           sendEvent('status', {
-            message: 'Extraction du texte du deck via OCR...', 
+            message: '📄 Étape 1/3 : Extraction du texte du pitch deck (OCR)...', 
             progress: 0,
             step: 1,
-            totalSteps: 4
+            totalSteps: 3
           });
 
           await supabaseClient
@@ -191,10 +191,10 @@ serve(async (req) => {
           console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [STEP 1] OCR completed in ${ocrDuration}ms: ${ocrResult.characterCount} characters`);
 
           sendEvent('status', { 
-            message: 'Texte extrait avec succès', 
+            message: '✅ Texte extrait avec succès', 
             progress: 25,
             step: 1,
-            totalSteps: 4
+            totalSteps: 3
           });
 
           await supabaseClient
@@ -217,7 +217,7 @@ serve(async (req) => {
           console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [STEP 2] Starting memo generation with Claude`);
           
           sendEvent('status', { 
-            message: 'Génération du mémo d\'investissement avec Claude...', 
+            message: '🤖 Étape 2/3 : Analyse approfondie avec Claude AI (recherches web + génération du mémo)...', 
             progress: 25,
             step: 2,
             totalSteps: 3
@@ -338,7 +338,7 @@ serve(async (req) => {
           console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [STEP 2] Memo generation completed in ${memoDuration}ms`);
 
           sendEvent('status', { 
-            message: 'Mémo et données extraites avec succès', 
+            message: '✅ Mémo d\'investissement généré avec succès', 
             progress: 85,
             step: 2,
             totalSteps: 3
@@ -359,7 +359,7 @@ serve(async (req) => {
           console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [STEP 3] Starting finalization`);
           
           sendEvent('status', {
-            message: 'Finalisation de l\'analyse...', 
+            message: '💾 Étape 3/3 : Mise à jour du dashboard...', 
             progress: 85,
             step: 3,
             totalSteps: 3
