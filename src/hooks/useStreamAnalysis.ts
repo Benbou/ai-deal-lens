@@ -20,6 +20,7 @@ export function useStreamAnalysis() {
         throw new Error('Not authenticated');
       }
 
+      // Use supabase.functions.invoke with streaming
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-deck-orchestrator`,
         {
@@ -27,13 +28,16 @@ export function useStreamAnalysis() {
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${session.access_token}`,
+            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
           },
           body: JSON.stringify({ dealId }),
         }
       );
 
       if (!response.ok) {
-        throw new Error('Failed to start analysis');
+        const errorText = await response.text();
+        console.error('Analysis failed:', response.status, errorText);
+        throw new Error(`Failed to start analysis: ${response.status}`);
       }
 
       const reader = response.body?.getReader();
@@ -75,6 +79,9 @@ export function useStreamAnalysis() {
                 // Status event with message
                 setCurrentStatus(data.message);
                 console.log('Status:', data.message);
+              } else if (data.error) {
+                // Error event
+                throw new Error(data.error);
               }
             } catch (e) {
               console.error('Failed to parse SSE data:', e, dataStr);
