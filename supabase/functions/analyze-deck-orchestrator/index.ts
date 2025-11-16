@@ -1,30 +1,177 @@
 /**
  * Analyze Deck Orchestrator Edge Function
- * 
+ *
  * Orchestrates the complete pitch deck analysis pipeline.
  * Coordinates multiple edge functions and streams progress via SSE.
- * 
+ *
  * Pipeline Steps:
  * 1. OCR Extraction (0% → 25%): Extract text from PDF using Mistral OCR
- * 2. Memo Generation (25% → 75%): Generate investment memo using Dust AI
- * 3. Data Extraction (75% → 90%): Extract structured fields using Claude
- * 4. Finalization (90% → 100%): Update deal record and mark complete
- * 
+ * 2. Quick Context (25% → 45%): Fast extraction of key data points using Claude
+ * 3. Memo Generation (45% → 85%): Generate detailed investment memo using Claude + Linkup
+ * 4. Finalization (85% → 100%): Update deal record and mark complete
+ *
  * @param {string} dealId - UUID of the deal to analyze
  * @returns {Stream} SSE stream with status, delta, and error events
- * 
+ *
  * Error Handling:
  * - Failed analyses are marked as 'failed' with error messages
  * - Admin alerts are sent on failures
  * - Progress tracking ensures resumability
+ *
+ * Architecture Improvements:
+ * - Type-safe with TypeScript interfaces
+ * - Centralized constants and error messages
+ * - Modular helper functions
+ * - Better error handling and logging
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
+import {
+  PROGRESS,
+  TOTAL_PIPELINE_STEPS,
+  STATUS_MESSAGES,
+  SSE_STREAM_TIMEOUT_MS,
+  STREAM_CLOSE_DELAY_MS,
+  LOG_PREFIX,
+  ERROR_MESSAGES,
+  ANALYSIS_STATUS,
+} from '../_shared/constants.ts';
+import type {
+  AnalyzeOrchestratorRequest,
+  ProcessOCRResponse,
+  QuickExtractResponse,
+  FinalizeAnalysisResponse,
+  SSEEventData,
+  DealRecord,
+  AnalysisRecord,
+  ExtractedDealData,
+} from '../_shared/types.ts';
+import { withTimeout, formatUserError, extractErrorDetails } from '../_shared/error-handling.ts';
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+/**
+ * Creates a formatted log message with timestamp and context
+ */
+function log(prefix: string, level: string, message: string, context?: any): void {
+  const timestamp = new Date().toISOString();
+  const contextStr = context ? ` ${JSON.stringify(context)}` : '';
+  console.log(`[${timestamp}] ${prefix} [${level}] ${message}${contextStr}`);
+}
+
+/**
+ * Creates an SSE event sender with proper encoding
+ */
+function createEventSender(controller: ReadableStreamDefaultController, streamClosed: { value: boolean }) {
+  const encoder = new TextEncoder();
+
+  return (event: string, data: any) => {
+    if (streamClosed.value) {
+      console.warn('⚠️ Attempted to send event after stream closed:', event);
+      return;
+    }
+    try {
+      const message = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+      controller.enqueue(encoder.encode(message));
+    } catch (error) {
+      console.error('Error sending event:', error);
+      streamClosed.value = true;
+    }
+  };
+}
+
+/**
+ * Updates analysis progress in database
+ */
+async function updateAnalysisProgress(
+  supabaseClient: any,
+  analysisId: string,
+  progress: number,
+  step: string
+): Promise<void> {
+  await supabaseClient
+    .from('analyses')
+    .update({
+      progress_percent: progress,
+      current_step: step,
+    })
+    .eq('id', analysisId);
+}
+
+/**
+ * Marks analysis as failed and sends admin alert
+ */
+async function handleAnalysisFailure(
+  dealId: string,
+  analysisId: string | undefined,
+  error: Error,
+  currentStep?: string
+): Promise<void> {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+
+  if (!analysisId) {
+    log(LOG_PREFIX.ORCHESTRATOR, LOG_PREFIX.ERROR, 'No analysis ID for failure handling', { dealId });
+    return;
+  }
+
+  const supabaseServiceClient = createClient(supabaseUrl, supabaseServiceKey);
+
+  // Check if analysis is already completed (avoid overwriting success)
+  const { data: currentAnalysis } = await supabaseServiceClient
+    .from('analyses')
+    .select('status, current_step')
+    .eq('id', analysisId)
+    .single();
+
+  if (currentAnalysis?.status === ANALYSIS_STATUS.COMPLETED) {
+    log(LOG_PREFIX.ORCHESTRATOR, LOG_PREFIX.INFO, 'Analysis already completed, skipping failure update');
+    return;
+  }
+
+  // Update analysis to failed
+  await supabaseServiceClient
+    .from('analyses')
+    .update({
+      status: ANALYSIS_STATUS.FAILED,
+      error_message: error.message,
+      completed_at: new Date().toISOString(),
+    })
+    .eq('id', analysisId);
+
+  // Send admin alert
+  try {
+    log(LOG_PREFIX.ORCHESTRATOR, LOG_PREFIX.INFO, 'Sending admin alert...');
+    await fetch(`${supabaseUrl}/functions/v1/send-admin-alert`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${supabaseServiceKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        dealId,
+        error: error.message,
+        step: currentStep || currentAnalysis?.current_step || 'Unknown',
+        timestamp: new Date().toISOString(),
+        stackTrace: error.stack,
+      }),
+    });
+    log(LOG_PREFIX.ORCHESTRATOR, LOG_PREFIX.INFO, 'Admin alert sent successfully');
+  } catch (alertError) {
+    console.error('Failed to send admin alert:', alertError);
+  }
+}
+
+// ============================================================================
+// MAIN HANDLER
+// ============================================================================
 
 serve(async (req) => {
-  console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [INIT] === FUNCTION STARTED ===`);
-  console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [INIT] Method: ${req.method}`);
+  log(LOG_PREFIX.ORCHESTRATOR, LOG_PREFIX.INIT, '=== FUNCTION STARTED ===');
+  log(LOG_PREFIX.ORCHESTRATOR, LOG_PREFIX.INIT, `Method: ${req.method}`);
   
   if (req.method === 'OPTIONS') {
     console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [INIT] OPTIONS request - returning CORS`);

@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { Download, Trash2, Loader2, AlertCircle, CheckCircle2, Clock, Search, Activity } from "lucide-react";
+import { Download, Trash2, Loader2, AlertCircle, CheckCircle2, Clock, Search, Activity, TrendingUp, BarChart3, Zap } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import { toast } from 'sonner';
@@ -12,6 +12,7 @@ import { useStreamAnalysis } from '@/hooks/useStreamAnalysis';
 import { useAuth } from '@/contexts/AuthContext';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { InvestmentMemoDisplay } from "@/components/InvestmentMemoDisplay";
+import { motion, AnimatePresence } from "framer-motion";
 interface AnalysisResult {
   status?: string;
   full_text?: string;
@@ -187,32 +188,135 @@ export default function DealDetail() {
   const isCompleted = analysisStatus === 'completed' && !isStreaming;
   const displayName = deal.company_name || deal.startup_name;
   const displayText = isStreaming ? streamingText : analysis?.result?.full_text || '';
-  return <div className="space-y-6 max-w-full overflow-x-hidden">
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">{displayName}</h1>
-          <div className="flex gap-2 mt-2">
-            <Badge>{deal.sector}</Badge>
-            {deal.stage && <Badge variant="outline">{deal.stage}</Badge>}
-            {isProcessing && <Badge className="bg-warning text-warning-foreground flex items-center gap-1">
-                Analyse en cours
-                <span className="animate-pulse">...</span>
-              </Badge>}
-            {isCompleted && <Badge className="bg-success text-success-foreground flex items-center gap-2 animate-fade-in">
-                <CheckCircle2 className="h-3 w-3" />
-                Analysé
-              </Badge>}
-          </div>
+
+  return (
+    <motion.div
+      className="space-y-6 max-w-full overflow-x-hidden"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+    >
+      {/* Header Section with Animation */}
+      <motion.div
+        className="flex items-center justify-between flex-wrap gap-4"
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: 0.1, type: "spring", stiffness: 100 }}
+      >
+        <div className="space-y-2">
+          <motion.h1
+            className="text-3xl font-bold bg-gradient-to-r from-foreground via-foreground to-foreground/70 bg-clip-text"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            {displayName}
+          </motion.h1>
+          <motion.div
+            className="flex gap-2 flex-wrap"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3, staggerChildren: 0.1 }}
+          >
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ delay: 0.4, type: "spring", stiffness: 200 }}
+            >
+              <Badge className="hover:scale-110 transition-transform cursor-default">
+                {deal.sector}
+              </Badge>
+            </motion.div>
+
+            {deal.stage && (
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: 0.5, type: "spring", stiffness: 200 }}
+              >
+                <Badge variant="outline" className="hover:scale-110 transition-transform cursor-default">
+                  {deal.stage}
+                </Badge>
+              </motion.div>
+            )}
+
+            <AnimatePresence mode="wait">
+              {isProcessing && (
+                <motion.div
+                  key="processing"
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0, opacity: 0 }}
+                  transition={{ type: "spring", stiffness: 200 }}
+                >
+                  <Badge className="bg-warning text-warning-foreground flex items-center gap-1.5">
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                    >
+                      <Zap className="h-3 w-3" />
+                    </motion.div>
+                    <span>Analyse en cours</span>
+                    <motion.span
+                      animate={{ opacity: [0.3, 1, 0.3] }}
+                      transition={{ duration: 1.5, repeat: Infinity }}
+                    >
+                      ...
+                    </motion.span>
+                  </Badge>
+                </motion.div>
+              )}
+
+              {isCompleted && (
+                <motion.div
+                  key="completed"
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0, opacity: 0 }}
+                  transition={{ type: "spring", stiffness: 200 }}
+                >
+                  <Badge className="bg-success text-success-foreground flex items-center gap-2">
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ delay: 0.2, type: "spring", stiffness: 300 }}
+                    >
+                      <CheckCircle2 className="h-3 w-3" />
+                    </motion.div>
+                    Analysé
+                  </Badge>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
         </div>
-        <div className="flex gap-2">
-          {isAdmin && <Button onClick={() => navigate(`/deal/${id}/workflow`)} variant="outline">
-              <Activity className="mr-2 h-4 w-4" />
-              Voir workflow
-            </Button>}
-          {deal.deck_files?.[0] && <Button onClick={handleDownloadDeck} variant="outline">
-              <Download className="mr-2 h-4 w-4" />
-              Télécharger le deck
-            </Button>}
+
+        {/* Action Buttons with Stagger Animation */}
+        <motion.div
+          className="flex gap-2 flex-wrap"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.4 }}
+        >
+          {isAdmin && (
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Button onClick={() => navigate(`/deal/${id}/workflow`)} variant="outline">
+                <Activity className="mr-2 h-4 w-4" />
+                Voir workflow
+              </Button>
+            </motion.div>
+          )}
+
+          {deal.deck_files?.[0] && (
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Button onClick={handleDownloadDeck} variant="outline">
+                <Download className="mr-2 h-4 w-4" />
+                Télécharger le deck
+              </Button>
+            </motion.div>
+          )}
+
+          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="destructive" disabled={deleting}>
@@ -236,42 +340,154 @@ export default function DealDetail() {
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
-        </div>
-      </div>
+          </motion.div>
+        </motion.div>
+      </motion.div>
 
-      <Card className="p-6">
-        <h2 className="text-2xl font-semibold mb-4">Informations du Deal</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <div>
-            <p className="text-sm text-muted-foreground mb-1">Montant levé</p>
-            <p className="text-xl font-semibold">{formatCurrency(deal.amount_raised_cents, deal.currency)}</p>
-          </div>
-          <div>
+      {/* Deal Information Card with Animation */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.5, type: "spring", stiffness: 80 }}
+      >
+      <Card className="p-6 hover:shadow-lg transition-shadow duration-300">
+        <motion.h2
+          className="text-2xl font-semibold mb-4 flex items-center gap-2"
+          initial={{ opacity: 0, x: -10 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.6 }}
+        >
+          <BarChart3 className="h-5 w-5 text-primary" />
+          Informations du Deal
+        </motion.h2>
+
+        <motion.div
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+          initial="hidden"
+          animate="visible"
+          variants={{
+            hidden: { opacity: 0 },
+            visible: {
+              opacity: 1,
+              transition: { staggerChildren: 0.1, delayChildren: 0.7 },
+            },
+          }}
+        >
+          <motion.div
+            variants={{
+              hidden: { opacity: 0, y: 10 },
+              visible: { opacity: 1, y: 0 },
+            }}
+            className="group"
+          >
+            <p className="text-sm text-muted-foreground mb-1 flex items-center gap-1">
+              <TrendingUp className="h-3 w-3" />
+              Montant levé
+            </p>
+            <p className="text-xl font-semibold group-hover:text-primary transition-colors">
+              {formatCurrency(deal.amount_raised_cents, deal.currency)}
+            </p>
+          </motion.div>
+
+          <motion.div
+            variants={{
+              hidden: { opacity: 0, y: 10 },
+              visible: { opacity: 1, y: 0 },
+            }}
+            className="group"
+          >
             <p className="text-sm text-muted-foreground mb-1">Valorisation pré-money</p>
-            <p className="text-xl font-semibold">{formatCurrency(deal.pre_money_valuation_cents, deal.currency)}</p>
-          </div>
-          {deal.current_arr_cents !== undefined && deal.current_arr_cents !== null && <div>
+            <p className="text-xl font-semibold group-hover:text-primary transition-colors">
+              {formatCurrency(deal.pre_money_valuation_cents, deal.currency)}
+            </p>
+          </motion.div>
+
+          {deal.current_arr_cents !== undefined && deal.current_arr_cents !== null && (
+            <motion.div
+              variants={{
+                hidden: { opacity: 0, y: 10 },
+                visible: { opacity: 1, y: 0 },
+              }}
+              className="group"
+            >
               <p className="text-sm text-muted-foreground mb-1">CA / ARR actuel</p>
-              <p className="text-xl font-semibold">{formatCurrency(deal.current_arr_cents, deal.currency)}</p>
-            </div>}
-          {deal.yoy_growth_percent !== undefined && deal.yoy_growth_percent !== null && <div>
+              <p className="text-xl font-semibold group-hover:text-primary transition-colors">
+                {formatCurrency(deal.current_arr_cents, deal.currency)}
+              </p>
+            </motion.div>
+          )}
+
+          {deal.yoy_growth_percent !== undefined && deal.yoy_growth_percent !== null && (
+            <motion.div
+              variants={{
+                hidden: { opacity: 0, y: 10 },
+                visible: { opacity: 1, y: 0 },
+              }}
+              className="group"
+            >
               <p className="text-sm text-muted-foreground mb-1">Croissance YoY</p>
-              <p className="text-xl font-semibold text-green-600">+{deal.yoy_growth_percent.toFixed(1)}%</p>
-            </div>}
-          {deal.mom_growth_percent !== undefined && deal.mom_growth_percent !== null && <div>
+              <motion.p
+                className="text-xl font-semibold text-green-600"
+                whileHover={{ scale: 1.1 }}
+              >
+                +{deal.yoy_growth_percent.toFixed(1)}%
+              </motion.p>
+            </motion.div>
+          )}
+
+          {deal.mom_growth_percent !== undefined && deal.mom_growth_percent !== null && (
+            <motion.div
+              variants={{
+                hidden: { opacity: 0, y: 10 },
+                visible: { opacity: 1, y: 0 },
+              }}
+              className="group"
+            >
               <p className="text-sm text-muted-foreground mb-1">Croissance MoM</p>
-              <p className="text-xl font-semibold text-green-600">+{deal.mom_growth_percent.toFixed(1)}%</p>
-            </div>}
-        </div>
-        {deal.solution_summary && <div className="mt-6 pt-6 border-t">
+              <motion.p
+                className="text-xl font-semibold text-green-600"
+                whileHover={{ scale: 1.1 }}
+              >
+                +{deal.mom_growth_percent.toFixed(1)}%
+              </motion.p>
+            </motion.div>
+          )}
+        </motion.div>
+
+        {deal.solution_summary && (
+          <motion.div
+            className="mt-6 pt-6 border-t"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 1.2 }}
+          >
             <p className="text-sm text-muted-foreground mb-2">Résumé de la solution</p>
             <p className="text-base leading-relaxed">{deal.solution_summary}</p>
-          </div>}
+          </motion.div>
+        )}
       </Card>
+      </motion.div>
 
-      {error && <Card className="p-8 border-destructive bg-destructive/10">
-          <div className="flex flex-col items-center gap-4 text-center">
-            <AlertCircle className="h-12 w-12 text-destructive" />
+      {/* Error State with Animation */}
+      <AnimatePresence>
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: -20 }}
+            transition={{ type: "spring", stiffness: 200, damping: 20 }}
+          >
+            <Card className="p-8 border-destructive bg-destructive/10 hover:shadow-xl transition-shadow">
+              <div className="flex flex-col items-center gap-4 text-center">
+                <motion.div
+                  animate={{
+                    rotate: [0, 10, -10, 10, 0],
+                    scale: [1, 1.1, 1.1, 1.1, 1],
+                  }}
+                  transition={{ duration: 0.6 }}
+                >
+                  <AlertCircle className="h-12 w-12 text-destructive" />
+                </motion.div>
             <div>
               <h3 className="text-xl font-semibold mb-2 text-destructive">
                 Erreur lors de l'analyse
@@ -283,17 +499,34 @@ export default function DealDetail() {
                 Notre équipe technique a été automatiquement notifiée. 
                 Vous pouvez réessayer ou nous contacter si le problème persiste.
               </p>
-              <Button onClick={() => {
-            reset();
-            if (id) startAnalysis(id);
-          }} variant="outline">
-                Réessayer l'analyse
-              </Button>
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <Button
+                  onClick={() => {
+                    reset();
+                    if (id) startAnalysis(id);
+                  }}
+                  variant="outline"
+                >
+                  Réessayer l'analyse
+                </Button>
+              </motion.div>
             </div>
           </div>
-        </Card>}
+        </Card>
+        </motion.div>
+      )}
+      </AnimatePresence>
 
-      {!error && (isDealProcessing || isStreaming) && !displayText && <Card className="p-12 text-center">
+      {/* Loading State with Animation */}
+      <AnimatePresence>
+      {!error && (isDealProcessing || isStreaming) && !displayText && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.9 }}
+          transition={{ type: "spring", stiffness: 150 }}
+        >
+        <Card className="p-12 text-center hover:shadow-xl transition-shadow">
           <div className="flex flex-col items-center gap-4">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
             <div>
@@ -307,9 +540,21 @@ export default function DealDetail() {
               </p>
             </div>
           </div>
-        </Card>}
+        </Card>
+        </motion.div>
+      )}
+      </AnimatePresence>
 
-      {(isStreaming || isCompleted) && displayText && <div className="max-w-4xl mx-auto">
+      {/* Investment Memo Display */}
+      <AnimatePresence>
+      {(isStreaming || isCompleted) && displayText && (
+        <motion.div
+          className="max-w-4xl mx-auto"
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -30 }}
+          transition={{ type: "spring", stiffness: 100, damping: 20 }}
+        >
           <article className="prose prose-lg dark:prose-invert max-w-none">
             <div className="flex items-center justify-between mb-6">
               <h1 className="scroll-m-20 text-4xl font-extrabold tracking-tight mb-0">
@@ -333,9 +578,18 @@ export default function DealDetail() {
               isStreaming={isStreaming}
             />
           </article>
-        </div>}
+        </motion.div>
+      )}
+      </AnimatePresence>
 
-      {isAdmin && (isStreaming || isCompleted) && analysis?.result && <div className="max-w-4xl mx-auto mt-12 pt-8 border-t">
+      {/* Admin AI Details */}
+      {isAdmin && (isStreaming || isCompleted) && analysis?.result && (
+        <motion.div
+          className="max-w-4xl mx-auto mt-12 pt-8 border-t"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.5 }}
+        >
           <details open={showAIDetails} onToggle={(e) => setShowAIDetails((e.target as HTMLDetailsElement).open)}>
             <summary className="cursor-pointer text-lg font-semibold mb-4 list-none flex items-center justify-between">
               <span>Réflexion de l'IA</span>
@@ -402,12 +656,23 @@ export default function DealDetail() {
                 </div>}
             </div>
           </details>
-        </div>}
+        </motion.div>
+      )}
 
-      {!isProcessing && !isCompleted && <Card className="p-12 text-center">
+      {/* No Analysis State */}
+      {!isProcessing && !isCompleted && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.3 }}
+        >
+        <Card className="p-12 text-center">
           <div className="text-muted-foreground">
             <p>L'analyse n'a pas encore démarré</p>
           </div>
-        </Card>}
-    </div>;
+        </Card>
+        </motion.div>
+      )}
+    </motion.div>
+  );
 }
