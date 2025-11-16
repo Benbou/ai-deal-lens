@@ -194,33 +194,91 @@ serve(async (req) => {
             message: '✅ Texte extrait avec succès', 
             progress: 25,
             step: 1,
-            totalSteps: 3
+            totalSteps: 4
           });
 
           await supabaseClient
             .from('analyses')
             .update({ 
               progress_percent: 25, 
-              current_step: 'Génération du mémo d\'investissement' 
+              current_step: 'OCR terminé, analyse du contexte...' 
             })
             .eq('id', analysisId);
 
           // ============================================================================
-          // STEP 2: MEMO + EXTRACTION with Claude + Linkup (Progress: 25% → 85%)
+          // STEP 2: Quick Extract Context (Progress: 25% → 40%)
+          // ============================================================================
+          console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [STEP 2] Starting quick context extraction`);
+          
+          sendEvent('status', { 
+            message: '🔍 Étape 2/4 : Analyse rapide du contexte (données clés)...', 
+            progress: 30,
+            step: 2,
+            totalSteps: 4
+          });
+
+          const quickExtractStart = Date.now();
+          const quickExtractResponse = await fetch(
+            `${supabaseUrl}/functions/v1/quick-extract-context`,
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': authHeader,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                dealId,
+                ocrText: markdownText
+              })
+            }
+          );
+
+          if (!quickExtractResponse.ok) {
+            const errorText = await quickExtractResponse.text();
+            throw new Error(`Quick extract failed: ${quickExtractResponse.status} - ${errorText}`);
+          }
+
+          const { quickData } = await quickExtractResponse.json();
+          const quickExtractDuration = Date.now() - quickExtractStart;
+
+          console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [STEP 2] Quick extract completed in ${quickExtractDuration}ms`);
+
+          sendEvent('quick_context', { 
+            data: quickData,
+            progress: 40
+          });
+
+          sendEvent('status', { 
+            message: '✅ Contexte disponible, génération du mémo détaillé...', 
+            progress: 45,
+            step: 2,
+            totalSteps: 4
+          });
+
+          await supabaseClient
+            .from('analyses')
+            .update({
+              progress_percent: 45,
+              current_step: 'Contexte prêt, génération du mémo...'
+            })
+            .eq('id', analysisId);
+
+          // ============================================================================
+          // STEP 3: MEMO + EXTRACTION with Claude + Linkup (Progress: 45% → 85%)
           // ============================================================================
           // Generate detailed investment memo using Claude Haiku 4.5 with:
-          // - Extended thinking (2500 tokens)
+          // - Extended thinking (1500 tokens, reduced from 2500)
           // - Linkup web search for market validation
           // - Structured JSON output (memo + extracted data)
           // ============================================================================
           const memoStartTime = Date.now();
-          console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [STEP 2] Starting memo generation with Claude`);
+          console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [STEP 3] Starting memo generation with Claude`);
           
           sendEvent('status', { 
-            message: '🤖 Étape 2/3 : Analyse approfondie avec Claude AI (recherches web + génération du mémo)...', 
-            progress: 25,
-            step: 2,
-            totalSteps: 3
+            message: '🤖 Étape 3/4 : Analyse approfondie avec Claude AI (recherches web + génération du mémo)...', 
+            progress: 45,
+            step: 3,
+            totalSteps: 4
           });
           const memoResponse = await fetch(
             `${supabaseUrl}/functions/v1/generate-memo-with-claude`,
@@ -335,13 +393,13 @@ serve(async (req) => {
           }
 
           const memoDuration = Date.now() - memoStartTime;
-          console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [STEP 2] Memo generation completed in ${memoDuration}ms`);
+          console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [STEP 3] Memo generation completed in ${memoDuration}ms`);
 
           sendEvent('status', { 
             message: '✅ Mémo d\'investissement généré avec succès', 
             progress: 85,
-            step: 2,
-            totalSteps: 3
+            step: 3,
+            totalSteps: 4
           });
 
           // Step 3 merged with Step 2 (Claude generates memo + extracts data in one call)

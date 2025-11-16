@@ -25,6 +25,7 @@ export type Database = {
           error_message: string | null
           id: string
           progress_percent: number | null
+          quick_context: Json | null
           result: Json | null
           started_at: string | null
           status: string | null
@@ -39,6 +40,7 @@ export type Database = {
           error_message?: string | null
           id?: string
           progress_percent?: number | null
+          quick_context?: Json | null
           result?: Json | null
           started_at?: string | null
           status?: string | null
@@ -53,6 +55,7 @@ export type Database = {
           error_message?: string | null
           id?: string
           progress_percent?: number | null
+          quick_context?: Json | null
           result?: Json | null
           started_at?: string | null
           status?: string | null
