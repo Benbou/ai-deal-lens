@@ -12,6 +12,9 @@ verify_jwt = true
 [functions.generate-memo-with-claude]
 verify_jwt = true
 
+[functions.quick-extract-context]
+verify_jwt = true
+
 [functions.finalize-analysis]
 verify_jwt = true
 
