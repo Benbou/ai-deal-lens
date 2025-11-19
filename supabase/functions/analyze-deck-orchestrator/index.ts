@@ -200,14 +200,17 @@ serve(async (req) => {
             },
             {
               name: "output_memo",
-              description: "Output the final investment memo.",
+              description: "Output the final complete investment memo. This tool MUST be called once all web searches are completed.",
               input_schema: {
                 type: "object" as const,
                 properties: {
-                  memo_markdown: { type: "string", description: "Full investment memo in Markdown" },
+                  memo_markdown: { 
+                    type: "string", 
+                    description: "COMPLETE investment memo in Markdown format (2000-3000 words minimum). This is the full detailed memo following the structure in the system prompt, NOT a summary. Must include all sections: Executive Summary, Problem, Solution, Market, Business Model, Traction, Competition, Team, Risks, Recommendation, etc." 
+                  },
                   company_name: { type: "string" },
                   sector: { type: "string" },
-                  solution_summary: { type: "string" },
+                  solution_summary: { type: "string", description: "Brief one-sentence summary (max 200 characters)" },
                   amount_raised_cents: { type: "number" },
                   pre_money_valuation_cents: { type: "number" },
                   current_arr_cents: { type: "number" },
@@ -292,6 +295,15 @@ serve(async (req) => {
           if (!memoReady || !finalData) {
             throw new Error('Failed to generate memo after max iterations');
           }
+
+          // Validate that memo_markdown exists and is not empty
+          if (!finalData.memo_markdown || finalData.memo_markdown.trim().length === 0) {
+            console.error('❌ output_memo was called but memo_markdown is empty or missing');
+            console.error('finalData received:', JSON.stringify(finalData, null, 2));
+            throw new Error('Claude called output_memo but did not provide memo_markdown content');
+          }
+
+          console.log(`✅ Memo generated successfully, length: ${finalData.memo_markdown.length} characters`);
 
           // ============================================================================
           // STEP 4: FINALIZATION (85% -> 100%)
