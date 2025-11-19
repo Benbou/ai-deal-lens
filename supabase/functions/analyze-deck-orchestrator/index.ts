@@ -204,9 +204,9 @@ serve(async (req) => {
               input_schema: {
                 type: "object" as const,
                 properties: {
-                  memo_markdown: { 
-                    type: "string", 
-                    description: "COMPLETE investment memo in Markdown format (2000-3000 words minimum). This is the full detailed memo following the structure in the system prompt, NOT a summary. Must include all sections: Executive Summary, Problem, Solution, Market, Business Model, Traction, Competition, Team, Risks, Recommendation, etc." 
+                  memo_markdown: {
+                    type: "string",
+                    description: "COMPLETE investment memo in Markdown format (2000-3000 words minimum). This is the full detailed memo following the structure in the system prompt, NOT a summary. Must include all sections: Executive Summary, Problem, Solution, Market, Business Model, Traction, Competition, Team, Risks, Recommendation, etc."
                   },
                   company_name: { type: "string" },
                   sector: { type: "string" },
@@ -275,8 +275,27 @@ serve(async (req) => {
                     content: JSON.stringify(searchResult)
                   });
                 } else if (block.name === 'output_memo') {
-                  memoReady = true;
-                  finalData = block.input;
+                  const input = block.input as any;
+
+                  // Validate that memo_markdown exists and is not empty
+                  if (input.memo_markdown && input.memo_markdown.trim().length > 100) {
+                    memoReady = true;
+                    finalData = input;
+
+                    toolResults.push({
+                      type: "tool_result",
+                      tool_use_id: block.id,
+                      content: "Memo accepted successfully."
+                    });
+                  } else {
+                    console.warn('⚠️ Claude called output_memo with empty or too short memo_markdown. Rejecting and asking for retry.');
+                    toolResults.push({
+                      type: "tool_result",
+                      tool_use_id: block.id,
+                      is_error: true,
+                      content: "Error: memo_markdown was empty or too short. You MUST provide the COMPLETE investment memo in markdown format (2000+ words) in the memo_markdown field. Do not output a summary. Do not output empty text. Retry now with the full content."
+                    });
+                  }
                 }
               }
             }
@@ -285,8 +304,8 @@ serve(async (req) => {
               messages.push({ role: "user", content: toolResults });
             } else if (toolResults.length === 0 && !memoReady && iterationCount > 1) {
               // If Claude is not calling tools after first iteration, remind it
-              messages.push({ 
-                role: "user", 
+              messages.push({
+                role: "user",
                 content: "RAPPEL CRITIQUE : Tu DOIS appeler les outils. Si tu n'as pas encore fait de recherches, appelle linkup_search. Si toutes les recherches sont terminées, appelle output_memo. NE GÉNÈRE PAS DE TEXTE NARRATIF."
               });
             }
