@@ -223,7 +223,7 @@ serve(async (req) => {
           let memoReady = false;
           let finalData: any = null;
           let iterationCount = 0;
-          const MAX_ITERATIONS = 5;
+          const MAX_ITERATIONS = 15; // Increased to allow 6 searches + output_memo + retries
 
           while (iterationCount < MAX_ITERATIONS && !memoReady) {
             iterationCount++;
@@ -280,6 +280,12 @@ serve(async (req) => {
 
             if (toolResults.length > 0 && !memoReady) {
               messages.push({ role: "user", content: toolResults });
+            } else if (toolResults.length === 0 && !memoReady && iterationCount > 1) {
+              // If Claude is not calling tools after first iteration, remind it
+              messages.push({ 
+                role: "user", 
+                content: "RAPPEL CRITIQUE : Tu DOIS appeler les outils. Si tu n'as pas encore fait de recherches, appelle linkup_search. Si toutes les recherches sont terminées, appelle output_memo. NE GÉNÈRE PAS DE TEXTE NARRATIF."
+              });
             }
           }
 
