@@ -152,18 +152,21 @@ ${personalNotes || 'Aucun contexte additionnel fourni'}
    - Métriques de référence du secteur
 
 2. **PHASE GÉNÉRATION** : Une fois TOUTES les recherches terminées, appelle l'outil \`output_memo\` avec :
-   - \`memo_markdown\` : Le mémo complet en Markdown suivant la structure définie dans le system prompt
+   - \`memo_markdown\` : Le mémo COMPLET (2000-3000 mots) en Markdown suivant TOUTE la structure du system prompt (Executive Summary, Problème, Solution, Marché, Business Model, Traction, Concurrence, Équipe, Risques, Benchmarks, Recommandation)
    - Les données extraites (company_name, sector, solution_summary, etc.)
+
+**CRITIQUE : Le champ memo_markdown doit contenir le mémo COMPLET détaillé, PAS un résumé.**
 
 **IMPORTANT :**
 - NE GÉNÈRE AUCUN TEXTE NARRATIF comme "Je vais analyser..." ou "Commençons par..."
 - APPELLE DIRECTEMENT les outils sans introduction
 - TOUTES les recherches DOIVENT être complétées AVANT d'appeler output_memo
-- Le mémo final doit être complet et prêt à présenter au comité d'investissement
+- Le mémo final dans \`memo_markdown\` doit être complet (2000-3000 mots) et prêt à présenter au comité d'investissement
 
-**FORMAT MARKDOWN REQUIS pour output_memo :**
+**FORMAT MARKDOWN REQUIS pour memo_markdown :**
 - Titre principal avec #
 - Sections avec ##
 - Sous-sections avec ###
 - Listes à puces (-) et gras (**texte**)
 - Tableaux Markdown (|---|---| ) pour les métriques`;
+
