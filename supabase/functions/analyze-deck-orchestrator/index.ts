@@ -2,187 +2,30 @@
  * Analyze Deck Orchestrator Edge Function
  *
  * Orchestrates the complete pitch deck analysis pipeline.
- * Coordinates multiple edge functions and streams progress via SSE.
+ * Coordinates multiple steps and streams progress via SSE.
  *
  * Pipeline Steps:
- * 1. OCR Extraction (0% → 25%): Extract text from PDF using Mistral OCR
+ * 1. OCR Extraction (0% → 25%): Extract text from PDF using Mistral OCR (via separate function)
  * 2. Quick Context (25% → 45%): Fast extraction of key data points using Claude
  * 3. Memo Generation (45% → 85%): Generate detailed investment memo using Claude + Linkup
  * 4. Finalization (85% → 100%): Update deal record and mark complete
- *
- * @param {string} dealId - UUID of the deal to analyze
- * @returns {Stream} SSE stream with status, delta, and error events
- *
- * Error Handling:
- * - Failed analyses are marked as 'failed' with error messages
- * - Admin alerts are sent on failures
- * - Progress tracking ensures resumability
- *
- * Architecture Improvements:
- * - Type-safe with TypeScript interfaces
- * - Centralized constants and error messages
- * - Modular helper functions
- * - Better error handling and logging
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { Anthropic } from "https://esm.sh/@anthropic-ai/sdk@0.30.1";
+import { Resend } from 'https://esm.sh/resend@2.0.0';
 import { corsHeaders } from '../_shared/cors.ts';
-import {
-  PROGRESS,
-  TOTAL_PIPELINE_STEPS,
-  STATUS_MESSAGES,
-  SSE_STREAM_TIMEOUT_MS,
-  STREAM_CLOSE_DELAY_MS,
-  LOG_PREFIX,
-  ERROR_MESSAGES,
-  ANALYSIS_STATUS,
-} from '../_shared/constants.ts';
-import type {
-  AnalyzeOrchestratorRequest,
-  ProcessOCRResponse,
-  QuickExtractResponse,
-  FinalizeAnalysisResponse,
-  SSEEventData,
-  DealRecord,
-  AnalysisRecord,
-  ExtractedDealData,
-} from '../_shared/types.ts';
-import { withTimeout, formatUserError, extractErrorDetails } from '../_shared/error-handling.ts';
-
-// ============================================================================
-// HELPER FUNCTIONS
-// ============================================================================
-
-/**
- * Creates a formatted log message with timestamp and context
- */
-function log(prefix: string, level: string, message: string, context?: any): void {
-  const timestamp = new Date().toISOString();
-  const contextStr = context ? ` ${JSON.stringify(context)}` : '';
-  console.log(`[${timestamp}] ${prefix} [${level}] ${message}${contextStr}`);
-}
-
-/**
- * Creates an SSE event sender with proper encoding
- */
-function createEventSender(controller: ReadableStreamDefaultController, streamClosed: { value: boolean }) {
-  const encoder = new TextEncoder();
-
-  return (event: string, data: any) => {
-    if (streamClosed.value) {
-      console.warn('⚠️ Attempted to send event after stream closed:', event);
-      return;
-    }
-    try {
-      const message = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
-      controller.enqueue(encoder.encode(message));
-    } catch (error) {
-      console.error('Error sending event:', error);
-      streamClosed.value = true;
-    }
-  };
-}
-
-/**
- * Updates analysis progress in database
- */
-async function updateAnalysisProgress(
-  supabaseClient: any,
-  analysisId: string,
-  progress: number,
-  step: string
-): Promise<void> {
-  await supabaseClient
-    .from('analyses')
-    .update({
-      progress_percent: progress,
-      current_step: step,
-    })
-    .eq('id', analysisId);
-}
-
-/**
- * Marks analysis as failed and sends admin alert
- */
-async function handleAnalysisFailure(
-  dealId: string,
-  analysisId: string | undefined,
-  error: Error,
-  currentStep?: string
-): Promise<void> {
-  const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-
-  if (!analysisId) {
-    log(LOG_PREFIX.ORCHESTRATOR, LOG_PREFIX.ERROR, 'No analysis ID for failure handling', { dealId });
-    return;
-  }
-
-  const supabaseServiceClient = createClient(supabaseUrl, supabaseServiceKey);
-
-  // Check if analysis is already completed (avoid overwriting success)
-  const { data: currentAnalysis } = await supabaseServiceClient
-    .from('analyses')
-    .select('status, current_step')
-    .eq('id', analysisId)
-    .single();
-
-  if (currentAnalysis?.status === ANALYSIS_STATUS.COMPLETED) {
-    log(LOG_PREFIX.ORCHESTRATOR, LOG_PREFIX.INFO, 'Analysis already completed, skipping failure update');
-    return;
-  }
-
-  // Update analysis to failed
-  await supabaseServiceClient
-    .from('analyses')
-    .update({
-      status: ANALYSIS_STATUS.FAILED,
-      error_message: error.message,
-      completed_at: new Date().toISOString(),
-    })
-    .eq('id', analysisId);
-
-  // Send admin alert
-  try {
-    log(LOG_PREFIX.ORCHESTRATOR, LOG_PREFIX.INFO, 'Sending admin alert...');
-    await fetch(`${supabaseUrl}/functions/v1/send-admin-alert`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${supabaseServiceKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        dealId,
-        error: error.message,
-        step: currentStep || currentAnalysis?.current_step || 'Unknown',
-        timestamp: new Date().toISOString(),
-        stackTrace: error.stack,
-      }),
-    });
-    log(LOG_PREFIX.ORCHESTRATOR, LOG_PREFIX.INFO, 'Admin alert sent successfully');
-  } catch (alertError) {
-    console.error('Failed to send admin alert:', alertError);
-  }
-}
-
-// ============================================================================
-// MAIN HANDLER
-// ============================================================================
+import { sanitizeExtractedData, prepareDataForUpdate } from '../_shared/data-validators.ts';
+import { QUICK_EXTRACT_PROMPT, MEMO_SYSTEM_PROMPT, MEMO_USER_PROMPT } from '../_shared/prompts.ts';
 
 serve(async (req) => {
-  log(LOG_PREFIX.ORCHESTRATOR, LOG_PREFIX.INIT, '=== FUNCTION STARTED ===');
-  log(LOG_PREFIX.ORCHESTRATOR, LOG_PREFIX.INIT, `Method: ${req.method}`);
-  
+  // Handle CORS
   if (req.method === 'OPTIONS') {
-    console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [INIT] OPTIONS request - returning CORS`);
     return new Response(null, { headers: corsHeaders });
   }
 
   const authHeader = req.headers.get('Authorization');
-  console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [INIT] Auth header present: ${!!authHeader}`);
-  
   if (!authHeader) {
-    console.error(`[${new Date().toISOString()}] [ORCHESTRATOR] [ERROR] No authorization header`);
     return new Response(JSON.stringify({ error: 'No authorization header' }), {
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -190,49 +33,37 @@ serve(async (req) => {
   }
 
   try {
-    console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [INIT] Parsing request body...`);
     const { dealId } = await req.json();
-    console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [INIT] Deal ID: ${dealId}`);
-    
-    if (!dealId) {
-      console.error(`[${new Date().toISOString()}] [ORCHESTRATOR] [ERROR] Missing dealId`);
-      throw new Error('dealId is required');
+    if (!dealId) throw new Error('dealId is required');
+
+    // Initialize clients
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY');
+    const linkupApiKey = Deno.env.get('LINKUP_API_KEY');
+    const resendApiKey = Deno.env.get('RESEND_API_KEY');
+
+    if (!anthropicApiKey || !linkupApiKey || !resendApiKey) {
+      throw new Error('Missing API keys configuration');
     }
 
-    console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [INIT] Creating Supabase client...`);
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        global: {
-          headers: { Authorization: authHeader }
-        }
-      }
-    );
-    console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [INIT] Supabase client created`);
+    const supabaseClient = createClient(supabaseUrl, supabaseServiceKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
 
-    // Verify user owns this deal
-    console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [INIT] Verifying deal ownership...`);
+    const anthropic = new Anthropic({ apiKey: anthropicApiKey });
+    const resend = new Resend(resendApiKey);
+
+    // Verify deal ownership
     const { data: deal, error: dealError } = await supabaseClient
       .from('deals')
-      .select('id, user_id')
+      .select('id, user_id, startup_name, personal_notes')
       .eq('id', dealId)
       .single();
 
-    if (dealError) {
-      console.error(`[${new Date().toISOString()}] [ORCHESTRATOR] [ERROR] Deal fetch error:`, dealError);
+    if (dealError || !deal) {
       throw new Error('Deal not found or access denied');
     }
-    
-    if (!deal) {
-      console.error(`[${new Date().toISOString()}] [ORCHESTRATOR] [ERROR] Deal not found`);
-      throw new Error('Deal not found or access denied');
-    }
-    
-    console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [INIT] Deal verified, user: ${deal.user_id}`);
-
-    const orchestratorStartTime = Date.now();
-    console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [START] Starting orchestrated analysis for deal: ${dealId}`);
 
     // Create analysis record
     const { data: analysis, error: analysisError } = await supabaseClient
@@ -247,437 +78,281 @@ serve(async (req) => {
       .select()
       .single();
 
-    if (analysisError || !analysis) {
-      throw new Error('Failed to create analysis record');
-    }
-
+    if (analysisError || !analysis) throw new Error('Failed to create analysis record');
     const analysisId = analysis.id;
-    console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [INFO] Created analysis record: ${analysisId}`);
 
     // Update deal status
     await supabaseClient
       .from('deals')
-      .update({
-        status: 'processing',
-        analysis_started_at: new Date().toISOString()
-      })
+      .update({ status: 'processing', analysis_started_at: new Date().toISOString() })
       .eq('id', dealId);
 
-    // Start streaming response
+    // Start Streaming
     const stream = new ReadableStream({
       async start(controller) {
         const encoder = new TextEncoder();
         let streamClosed = false;
 
         const sendEvent = (event: string, data: any) => {
-          if (streamClosed) {
-            console.warn('⚠️ Attempted to send event after stream closed:', event);
-            return;
-          }
+          if (streamClosed) return;
           try {
             const message = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
             controller.enqueue(encoder.encode(message));
-          } catch (error) {
-            console.error('Error sending event:', error);
+          } catch (e) {
+            console.error('Error sending event:', e);
             streamClosed = true;
           }
         };
 
         try {
-          const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-          const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-
           // ============================================================================
-          // STEP 1: OCR EXTRACTION (Progress: 0% → 25%)
+          // STEP 1: OCR EXTRACTION (0% -> 25%)
           // ============================================================================
-          // Extract text from PDF deck using Mistral OCR API
-          // - Retrieves deck file from Supabase Storage
-          // - Creates signed URL (valid for 1 hour)
-          // - Sends to Mistral OCR API (mistral-ocr-latest model)
-          // - Receives markdown-formatted text with page separators
-          // - Updates progress: 0% → 10% → 25%
-          // ============================================================================
-          const ocrStartTime = Date.now();
-          console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [STEP 1] Starting OCR extraction`);
-          
           sendEvent('status', {
-            message: '📄 Étape 1/3 : Extraction du texte du pitch deck (OCR)...', 
+            message: '📄 Étape 1/3 : Extraction du texte du pitch deck (OCR)...',
             progress: 0,
             step: 1,
             totalSteps: 3
           });
 
-          await supabaseClient
-            .from('analyses')
-            .update({ 
-              progress_percent: 10, 
-              current_step: 'Extraction OCR en cours' 
-            })
-            .eq('id', analysisId);
-
+          // Call separate OCR function (kept separate for isolation)
           const ocrResponse = await fetch(`${supabaseUrl}/functions/v1/process-pdf-ocr`, {
             method: 'POST',
-            headers: {
-              'Authorization': authHeader,
-              'Content-Type': 'application/json',
-            },
+            headers: { 'Authorization': authHeader, 'Content-Type': 'application/json' },
             body: JSON.stringify({ dealId }),
           });
 
-          if (!ocrResponse.ok) {
-            throw new Error('OCR processing failed');
-          }
-
+          if (!ocrResponse.ok) throw new Error('OCR processing failed');
           const ocrResult = await ocrResponse.json();
-          if (!ocrResult.success) {
-            throw new Error(ocrResult.error || 'OCR failed');
-          }
+          if (!ocrResult.success) throw new Error(ocrResult.error || 'OCR failed');
 
           const markdownText = ocrResult.markdownText;
-          const ocrDuration = Date.now() - ocrStartTime;
-          console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [STEP 1] OCR completed in ${ocrDuration}ms: ${ocrResult.characterCount} characters`);
 
-          sendEvent('status', { 
-            message: '✅ Texte extrait avec succès', 
+          sendEvent('status', {
+            message: '✅ Texte extrait avec succès',
             progress: 25,
             step: 1,
-            totalSteps: 4
+            totalSteps: 3
           });
 
-          await supabaseClient
-            .from('analyses')
-            .update({ 
-              progress_percent: 25, 
-              current_step: 'OCR terminé, analyse du contexte...' 
-            })
-            .eq('id', analysisId);
-
           // ============================================================================
-          // STEP 2: Quick Extract Context (Progress: 25% → 40%)
+          // STEP 2: QUICK CONTEXT (25% -> 45%)
           // ============================================================================
-          console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [STEP 2] Starting quick context extraction`);
-          
-          sendEvent('status', { 
-            message: '🔍 Étape 2/4 : Analyse rapide du contexte (données clés)...', 
+          sendEvent('status', {
+            message: '🔍 Étape 2/3 : Analyse rapide du contexte...',
             progress: 30,
             step: 2,
-            totalSteps: 4
+            totalSteps: 3
           });
 
-          const quickExtractStart = Date.now();
-          const quickExtractResponse = await fetch(
-            `${supabaseUrl}/functions/v1/quick-extract-context`,
-            {
-              method: 'POST',
-              headers: {
-                'Authorization': authHeader,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                dealId,
-                ocrText: markdownText
-              })
-            }
-          );
-
-          if (!quickExtractResponse.ok) {
-            const errorText = await quickExtractResponse.text();
-            throw new Error(`Quick extract failed: ${quickExtractResponse.status} - ${errorText}`);
-          }
-
-          const { quickData } = await quickExtractResponse.json();
-          const quickExtractDuration = Date.now() - quickExtractStart;
-
-          console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [STEP 2] Quick extract completed in ${quickExtractDuration}ms`);
-
-          sendEvent('quick_context', { 
-            data: quickData,
-            progress: 40
+          const quickExtractMsg = await anthropic.messages.create({
+            model: "claude-sonnet-4-5",
+            max_tokens: 600,
+            temperature: 0,
+            messages: [{ role: "user", content: QUICK_EXTRACT_PROMPT(markdownText) }]
           });
 
-          sendEvent('status', { 
-            message: '✅ Contexte disponible, génération du mémo détaillé...', 
-            progress: 45,
-            step: 2,
-            totalSteps: 4
-          });
+          const quickContentBlock = quickExtractMsg.content[0];
+          if (quickContentBlock.type !== 'text') throw new Error('Unexpected response from Claude (Quick Extract)');
 
-          await supabaseClient
-            .from('analyses')
-            .update({
-              progress_percent: 45,
-              current_step: 'Contexte prêt, génération du mémo...'
-            })
-            .eq('id', analysisId);
-
-          // ============================================================================
-          // STEP 3: MEMO + EXTRACTION with Claude + Linkup (Progress: 45% → 85%)
-          // ============================================================================
-          // Generate detailed investment memo using Claude Haiku 4.5 with:
-          // - Extended thinking (1500 tokens, reduced from 2500)
-          // - Linkup web search for market validation
-          // - Structured JSON output (memo + extracted data)
-          // ============================================================================
-          const memoStartTime = Date.now();
-          console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [STEP 3] Starting memo generation with Claude`);
-          
-          sendEvent('status', { 
-            message: '🤖 Étape 3/4 : Analyse approfondie avec Claude AI (recherches web + génération du mémo)...', 
-            progress: 45,
-            step: 3,
-            totalSteps: 4
-          });
-          const memoResponse = await fetch(
-            `${supabaseUrl}/functions/v1/generate-memo-with-claude`,
-            {
-              method: 'POST',
-              headers: {
-                'Authorization': authHeader,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ 
-                dealId, 
-                markdownText, 
-                analysisId 
-              }),
-            }
-          );
-
-          if (!memoResponse.ok) {
-            const errorText = await memoResponse.text();
-            throw new Error(`Memo generation failed: ${errorText}`);
-          }
-
-          // Lire le stream SSE de Claude
-          const reader = memoResponse.body?.getReader();
-          const decoder = new TextDecoder();
-          if (!reader) throw new Error('No response stream from Claude');
-
-          let buffer = '';
-          let extractedData: any = null;
-          let memoComplete = false;
-          let lastStatusMessage = '';
-          let errorReceived = false;
-          
-          // Add 10-minute timeout for SSE stream
-          const sseTimeout = setTimeout(() => {
-            console.error(`[${new Date().toISOString()}] [ORCHESTRATOR] [TIMEOUT] SSE stream timeout after 10 minutes`);
-            throw new Error('SSE stream timeout after 10 minutes');
-          }, 10 * 60 * 1000);
-
+          let quickData;
           try {
-            while (!memoComplete) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split('\n');
-            buffer = lines.pop() || '';
-
-              for (const line of lines) {
-                if (!line.trim() || line.startsWith(':')) continue;
-
-                // Log all SSE events for debugging
-                console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [SSE] Received: ${line.substring(0, 100)}...`);
-
-                if (line.startsWith('event:')) {
-                  const eventType = line.slice(6).trim();
-                  if (eventType === 'error') {
-                    errorReceived = true;
-                    console.error(`[${new Date().toISOString()}] [ORCHESTRATOR] [SSE] Error event received from Claude`);
-                  }
-                  continue;
-                }
-
-                if (line.startsWith('data:')) {
-                  const dataStr = line.slice(5).trim();
-                  try {
-                    const eventData = JSON.parse(dataStr);
-
-                    // Re-streamer les événements delta (texte du mémo)
-                    if (eventData.text) {
-                      sendEvent('delta', { text: eventData.text });
-                    }
-
-                    // Re-streamer les statuts (recherches Linkup)
-                    if (eventData.message) {
-                      lastStatusMessage = eventData.message;
-                      sendEvent('status', { 
-                        message: eventData.message,
-                        progress: 50,
-                        step: 2,
-                        totalSteps: 3
-                      });
-                    }
-
-                    // Événement done : récupérer les données extraites
-                    if (eventData.success && eventData.extractedData) {
-                      extractedData = eventData.extractedData;
-                      memoComplete = true;
-                      console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [STEP 2] Memo generated and data extracted successfully`);
-                    }
-
-                    // Événement error
-                    if (eventData.error) {
-                      throw new Error(eventData.error);
-                    }
-
-                  } catch (e) {
-                    console.error(`[${new Date().toISOString()}] [ORCHESTRATOR] [ERROR] Failed to parse SSE data:`, e, dataStr);
-                  }
-                }
-              }
-            }
-          } finally {
-            clearTimeout(sseTimeout);
+            let jsonText = quickContentBlock.text.trim();
+            if (jsonText.startsWith('```json')) jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+            else if (jsonText.startsWith('```')) jsonText = jsonText.replace(/```\n?/g, '');
+            quickData = JSON.parse(jsonText);
+          } catch (e) {
+            console.error('Quick extract JSON parse error:', e);
+            // Continue without quick data if fails, or throw? Let's throw to be safe.
+            throw new Error('Failed to parse Quick Extract JSON');
           }
 
-          if (!extractedData) {
-            const errorContext = errorReceived 
-              ? `Error event received. Last status: ${lastStatusMessage}` 
-              : `No data extracted. Last status: ${lastStatusMessage}`;
-            throw new Error(`Claude failed to extract data. ${errorContext}. Check memo generation logs for details.`);
-          }
+          sendEvent('quick_context', { data: quickData, progress: 40 });
 
-          const memoDuration = Date.now() - memoStartTime;
-          console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [STEP 3] Memo generation completed in ${memoDuration}ms`);
-
-          sendEvent('status', { 
-            message: '✅ Mémo d\'investissement généré avec succès', 
-            progress: 85,
-            step: 3,
-            totalSteps: 4
-          });
-
-          // Step 3 merged with Step 2 (Claude generates memo + extracts data in one call)
+          await supabaseClient.from('analyses').update({
+            quick_context: quickData,
+            progress_percent: 40,
+            current_step: 'Contexte prêt'
+          }).eq('id', analysisId);
 
           // ============================================================================
-          // STEP 3: FINALIZATION (Progress: 85% → 100%)
+          // STEP 3: MEMO GENERATION (45% -> 85%)
           // ============================================================================
-          // Update deal record with extracted data and mark analysis complete
-          // - Updates deals table with all structured fields
-          // - Sets deal status to 'completed'
-          // - Updates analysis status and timestamps
-          // - Finalizes progress to 100%
-          // ============================================================================
-          const finalizationStartTime = Date.now();
-          console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [STEP 3] Starting finalization`);
-          
           sendEvent('status', {
-            message: '💾 Étape 3/3 : Mise à jour du dashboard...', 
-            progress: 85,
+            message: '🤖 Étape 3/3 : Analyse approfondie avec Claude AI...',
+            progress: 45,
             step: 3,
             totalSteps: 3
           });
 
-          await supabaseClient
-            .from('analyses')
-            .update({ 
-              progress_percent: 95, 
-              current_step: 'Finalisation' 
-            })
-            .eq('id', analysisId);
-
-          const finalizationResponse = await fetch(`${supabaseUrl}/functions/v1/finalize-analysis`, {
-            method: 'POST',
-            headers: {
-              'Authorization': authHeader,
-              'Content-Type': 'application/json',
+          const tools = [
+            {
+              name: "linkup_search",
+              description: "Search the web for up-to-date information.",
+              input_schema: {
+                type: "object" as const,
+                properties: {
+                  query: { type: "string", description: "Search query" },
+                  depth: { type: "string", enum: ["standard", "deep"] }
+                },
+                required: ["query"]
+              }
             },
-            body: JSON.stringify({ 
-              dealId, 
-              analysisId, 
-              extractedData: extractedData 
-            }),
+            {
+              name: "output_memo",
+              description: "Output the final investment memo.",
+              input_schema: {
+                type: "object" as const,
+                properties: {
+                  memo_markdown: { type: "string", description: "Full investment memo in Markdown" },
+                  company_name: { type: "string" },
+                  sector: { type: "string" },
+                  solution_summary: { type: "string" },
+                  amount_raised_cents: { type: "number" },
+                  pre_money_valuation_cents: { type: "number" },
+                  current_arr_cents: { type: "number" },
+                  yoy_growth_percent: { type: "number" },
+                  mom_growth_percent: { type: "number" }
+                },
+                required: ["memo_markdown", "company_name", "sector", "solution_summary"]
+              }
+            }
+          ];
+
+          let messages: any[] = [{ role: "user", content: MEMO_USER_PROMPT(markdownText, deal.personal_notes) }];
+          let memoReady = false;
+          let finalData: any = null;
+          let iterationCount = 0;
+          const MAX_ITERATIONS = 5;
+
+          while (iterationCount < MAX_ITERATIONS && !memoReady) {
+            iterationCount++;
+
+            const stream = await anthropic.messages.stream({
+              model: "claude-haiku-4-5-20251001",
+              max_tokens: 8000,
+              temperature: 1,
+              system: MEMO_SYSTEM_PROMPT,
+              messages: messages,
+              tools: tools
+            });
+
+            let toolResults: any[] = [];
+
+            stream.on('text', (text) => {
+              sendEvent('delta', { text });
+            });
+
+            const finalMessage = await stream.finalMessage();
+            messages.push({ role: "assistant", content: finalMessage.content });
+
+            for (const block of finalMessage.content) {
+              if (block.type === 'tool_use') {
+                if (block.name === 'linkup_search') {
+                  const input = block.input as any;
+                  sendEvent('status', { message: `🔍 Recherche: ${input.query}` });
+
+                  // Call Linkup
+                  let searchResult;
+                  try {
+                    const linkupRes = await fetch("https://api.linkup.so/v1/search", {
+                      method: "POST",
+                      headers: { "Authorization": `Bearer ${linkupApiKey}`, "Content-Type": "application/json" },
+                      body: JSON.stringify({ q: input.query, depth: input.depth || "standard", outputType: "sourcedAnswer" })
+                    });
+                    if (!linkupRes.ok) throw new Error(await linkupRes.text());
+                    searchResult = await linkupRes.json();
+                  } catch (e: any) {
+                    searchResult = { error: e.message };
+                  }
+
+                  toolResults.push({
+                    type: "tool_result",
+                    tool_use_id: block.id,
+                    content: JSON.stringify(searchResult)
+                  });
+                } else if (block.name === 'output_memo') {
+                  memoReady = true;
+                  finalData = block.input;
+                }
+              }
+            }
+
+            if (toolResults.length > 0 && !memoReady) {
+              messages.push({ role: "user", content: toolResults });
+            }
+          }
+
+          if (!memoReady || !finalData) {
+            throw new Error('Failed to generate memo after max iterations');
+          }
+
+          // ============================================================================
+          // STEP 4: FINALIZATION (85% -> 100%)
+          // ============================================================================
+          sendEvent('status', {
+            message: '💾 Finalisation...',
+            progress: 90,
+            step: 3,
+            totalSteps: 3
           });
 
-          if (!finalizationResponse.ok) {
-            throw new Error('Finalization failed');
-          }
+          // Save full result to analysis
+          await supabaseClient.from('analyses').update({
+            result: { full_text: finalData.memo_markdown },
+            progress_percent: 95,
+            status: 'completed',
+            completed_at: new Date().toISOString(),
+            current_step: 'Terminé'
+          }).eq('id', analysisId);
 
-          const finalizationResult = await finalizationResponse.json();
-          if (!finalizationResult.success) {
-            throw new Error(finalizationResult.error || 'Finalization failed');
-          }
+          // Update deal
+          const sanitized = sanitizeExtractedData(finalData);
+          const { update: dealUpdate } = prepareDataForUpdate(sanitized);
+          dealUpdate.status = 'completed';
+          dealUpdate.analysis_completed_at = new Date().toISOString();
 
-          const finalizationDuration = Date.now() - finalizationStartTime;
-          const totalDuration = Date.now() - orchestratorStartTime;
-          console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [STEP 3] Finalization completed in ${finalizationDuration}ms`);
-          console.log(`[${new Date().toISOString()}] [ORCHESTRATOR] [END] Complete analysis pipeline finished in ${totalDuration}ms`);
+          await supabaseClient.from('deals').update(dealUpdate).eq('id', dealId);
 
-          sendEvent('status', { 
-            message: 'Analyse terminée avec succès', 
+          sendEvent('status', {
+            message: 'Analyse terminée avec succès',
             progress: 100,
             step: 3,
             totalSteps: 3
           });
-          sendEvent('done', { success: true });
 
-        } catch (error) {
-          const totalDuration = Date.now() - orchestratorStartTime;
-          console.error(`[${new Date().toISOString()}] [ORCHESTRATOR] [ERROR] Failed after ${totalDuration}ms:`, error);
-          
-          const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-          const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-          
-          // Update analysis to failed
-          if (analysisId) {
-            const supabaseServiceClient = createClient(
-              supabaseUrl,
-              supabaseServiceKey
-            );
-
-            const { data: currentAnalysis } = await supabaseServiceClient
-              .from('analyses')
-              .select('status, current_step')
-              .eq('id', analysisId)
-              .single();
-
-            if (currentAnalysis?.status !== 'completed') {
-              await supabaseServiceClient
-                .from('analyses')
-                .update({ 
-                  status: 'failed', 
-                  error_message: error instanceof Error ? error.message : 'Unknown error',
-                  completed_at: new Date().toISOString()
-                })
-                .eq('id', analysisId);
-            }
-
-            // Send admin alert
-            try {
-              console.log('📧 Sending admin alert...');
-              await fetch(`${supabaseUrl}/functions/v1/send-admin-alert`, {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${supabaseServiceKey}`,
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  dealId,
-                  error: error instanceof Error ? error.message : 'Unknown error',
-                  step: currentAnalysis?.current_step || 'Unknown',
-                  timestamp: new Date().toISOString(),
-                  stackTrace: error instanceof Error ? error.stack : undefined
-                })
-              });
-              console.log('✅ Admin alert sent');
-            } catch (alertError) {
-              console.error('Failed to send admin alert:', alertError);
-            }
-          }
-
-          sendEvent('error', { 
-            message: error instanceof Error ? error.message : 'Analysis failed' 
+          sendEvent('done', {
+            success: true,
+            extractedData: sanitized
           });
-        } finally {
-          await new Promise(resolve => setTimeout(resolve, 100));
-          streamClosed = true;
+
+        } catch (error: any) {
+          console.error('Pipeline error:', error);
+
+          // Update analysis to failed
+          await supabaseClient.from('analyses').update({
+            status: 'failed',
+            error_message: error.message,
+            completed_at: new Date().toISOString()
+          }).eq('id', analysisId);
+
+          // Send Admin Alert (Resend)
           try {
-            controller.close();
+            const adminEmail = Deno.env.get('ADMIN_EMAIL') || 'benjamin@alboteam.com';
+            await resend.emails.send({
+              from: 'DealFlow Alerts <onboarding@resend.dev>',
+              to: [adminEmail],
+              subject: `🚨 Erreur analyse - Deal ${dealId}`,
+              html: `<p>Error: ${error.message}</p><p>Deal ID: ${dealId}</p>`
+            });
           } catch (e) {
-            console.warn('Stream already closed');
+            console.error('Failed to send admin alert:', e);
           }
+
+          sendEvent('error', { message: error.message });
+        } finally {
+          streamClosed = true;
+          try { controller.close(); } catch { }
         }
       }
     });
@@ -691,16 +366,10 @@ serve(async (req) => {
       },
     });
 
-  } catch (error) {
-    console.error('Error in analyze-deck-orchestrator:', error);
-    return new Response(
-      JSON.stringify({
-        error: error instanceof Error ? error.message : 'Unknown error'
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
+  } catch (error: any) {
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 });

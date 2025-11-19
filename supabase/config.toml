@@ -1,24 +1,9 @@
 project_id = "lnybmpzrrpxzwkqsiaic"
 
-# [functions.analyze-deck] - DEPRECATED: Use analyze-deck-orchestrator instead
-# verify_jwt = true
-
 [functions.analyze-deck-orchestrator]
 verify_jwt = true
 
 [functions.process-pdf-ocr]
-verify_jwt = true
-
-[functions.generate-memo-with-claude]
-verify_jwt = true
-
-[functions.quick-extract-context]
-verify_jwt = true
-
-[functions.finalize-analysis]
-verify_jwt = true
-
-[functions.send-admin-alert]
 verify_jwt = true
 
 [functions.whatsapp-webhook]
