@@ -13,6 +13,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { InvestmentMemoDisplay } from "@/components/InvestmentMemoDisplay";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAnalysisRealtime } from '@/hooks/useAnalysisRealtime';
+import { DealAnalysisDashboard } from '@/components/DealAnalysisDashboard';
+import { AnalysisProgressBar } from '@/components/AnalysisProgressBar';
 interface AnalysisResult {
   status?: string;
   full_text?: string;
@@ -58,6 +61,7 @@ export default function DealDetail() {
     reset
   } = useStreamAnalysis();
   const [showAIDetails, setShowAIDetails] = useState(false);
+  const realtimeAnalysis = useAnalysisRealtime(id || '');
   useEffect(() => {
     if (!id) return;
     const load = async () => {
@@ -343,6 +347,28 @@ export default function DealDetail() {
           </motion.div>
         </motion.div>
       </motion.div>
+
+      {/* Analysis Progress Bar - Always visible during analysis */}
+      {realtimeAnalysis && (realtimeAnalysis.status === 'processing' || realtimeAnalysis.status === 'queued') && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3, type: "spring", stiffness: 80 }}
+        >
+          <AnalysisProgressBar analysis={realtimeAnalysis} />
+        </motion.div>
+      )}
+
+      {/* Quick Context Dashboard - Appears at 40% progress */}
+      {realtimeAnalysis && realtimeAnalysis.progress_percent && realtimeAnalysis.progress_percent >= 40 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4, type: "spring", stiffness: 80 }}
+        >
+          <DealAnalysisDashboard dealId={id || ''} />
+        </motion.div>
+      )}
 
       {/* Deal Information Card with Animation */}
       <motion.div
