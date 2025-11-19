@@ -136,24 +136,34 @@ Ton rôle : analyser un pitch deck avec l'esprit critique d'un investisseur prof
 - Ne fais PAS d'hypothèses chiffrées non fondées
 - Termine TOUJOURS par une recommandation claire (GO/NO-GO/GO conditionnel) avec ticket suggéré et conditions DD`;
 
-export const MEMO_USER_PROMPT = (markdownText: string, personalNotes: string) => `Tu dois analyser ce pitch deck et produire un mémo d'investissement complet en français.
-
-**FORMAT DE SORTIE REQUIS :**
-- Utilise le format Markdown avec une structure claire
-- Commence par un titre principal avec #
-- Utilise ## pour les sections principales
-- Utilise ### pour les sous-sections
-- Utilise des listes à puces (-) et du gras (**texte**) pour l'emphase
-- Sépare bien les sections avec des lignes vides
-- Utilise des tableaux Markdown quand approprié (|---|---|)
-
-**PITCH DECK (OCR MARKDOWN) :**
+export const MEMO_USER_PROMPT = (markdownText: string, personalNotes: string) => `**PITCH DECK (OCR MARKDOWN) :**
 
 ${markdownText}
 
 **CONTEXTE ADDITIONNEL DE L'INVESTISSEUR :**
 ${personalNotes || 'Aucun contexte additionnel fourni'}
 
-**INSTRUCTIONS IMPORTANTES :**
-1. Utilise l'outil 'linkup_search' pour effectuer 3-6 recherches web ciblées afin de valider le marché, la concurrence, les fondateurs et les métriques clés
-2. Une fois tes recherches terminées, produis le mémo en utilisant l'outil 'output_memo'`;
+**WORKFLOW OBLIGATOIRE - APPELLE UNIQUEMENT LES OUTILS, PAS DE TEXTE NARRATIF :**
+
+1. **PHASE RECHERCHE** : Appelle l'outil \`linkup_search\` 3-6 fois pour valider :
+   - Taille et croissance du marché (TAM/SAM)
+   - Concurrents directs et indirects
+   - Équipe fondatrice (LinkedIn, antécédents)
+   - Métriques de référence du secteur
+
+2. **PHASE GÉNÉRATION** : Une fois TOUTES les recherches terminées, appelle l'outil \`output_memo\` avec :
+   - \`memo_markdown\` : Le mémo complet en Markdown suivant la structure définie dans le system prompt
+   - Les données extraites (company_name, sector, solution_summary, etc.)
+
+**IMPORTANT :**
+- NE GÉNÈRE AUCUN TEXTE NARRATIF comme "Je vais analyser..." ou "Commençons par..."
+- APPELLE DIRECTEMENT les outils sans introduction
+- TOUTES les recherches DOIVENT être complétées AVANT d'appeler output_memo
+- Le mémo final doit être complet et prêt à présenter au comité d'investissement
+
+**FORMAT MARKDOWN REQUIS pour output_memo :**
+- Titre principal avec #
+- Sections avec ##
+- Sous-sections avec ###
+- Listes à puces (-) et gras (**texte**)
+- Tableaux Markdown (|---|---| ) pour les métriques`;
