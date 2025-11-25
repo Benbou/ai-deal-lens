@@ -231,14 +231,22 @@ serve(async (req) => {
           while (iterationCount < MAX_ITERATIONS && !memoReady) {
             iterationCount++;
 
-            const stream = await anthropic.messages.stream({
-              model: "claude-haiku-4-5-20251001",
+            // Force tool usage on first iteration with tool_choice
+            const streamConfig: any = {
+              model: "claude-sonnet-4-5",
               max_tokens: 8000,
-              temperature: 1,
+              temperature: 0.3,
               system: MEMO_SYSTEM_PROMPT,
               messages: messages,
               tools: tools
-            });
+            };
+
+            // Force linkup_search on first iteration to ensure Claude starts with research
+            if (iterationCount === 1) {
+              streamConfig.tool_choice = { type: "tool", name: "linkup_search" };
+            }
+
+            const stream = await anthropic.messages.stream(streamConfig);
 
             let toolResults: any[] = [];
 
