@@ -145,10 +145,12 @@ serve(async (req) => {
             totalSteps: 3
           });
 
+          // ⚠️ CRITICAL: DO NOT MODIFY THIS MODEL CONFIG WITHOUT EXPLICIT USER REQUEST
+          // Using Haiku 4.5 for cost efficiency during testing phase
           const quickExtractMsg = await anthropic.messages.create({
-            model: "claude-opus-4-1-20250805",
-            max_tokens: 600,
-            temperature: 0,
+            model: "claude-haiku-4-5-20251001",
+            max_tokens: 22000,
+            temperature: 1,
             messages: [{ role: "user", content: QUICK_EXTRACT_PROMPT(markdownText) }]
           });
 
@@ -231,14 +233,19 @@ serve(async (req) => {
           while (iterationCount < MAX_ITERATIONS && !memoReady) {
             iterationCount++;
 
-            // Force tool usage on first iteration with tool_choice
+            // ⚠️ CRITICAL: DO NOT MODIFY THIS MODEL CONFIG WITHOUT EXPLICIT USER REQUEST
+            // Using Haiku 4.5 with extended thinking for cost-efficient deep analysis
             const streamConfig: any = {
-              model: "claude-opus-4-1-20250805",
-              max_tokens: 8000,
-              temperature: 0.3,
+              model: "claude-haiku-4-5-20251001",
+              max_tokens: 22000,
+              temperature: 1,
               system: MEMO_SYSTEM_PROMPT,
               messages: messages,
-              tools: tools
+              tools: tools,
+              thinking: {
+                type: "enabled",
+                budget_tokens: 10000
+              }
             };
 
             // Force linkup_search on first iteration to ensure Claude starts with research
