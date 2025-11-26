@@ -1,15 +1,141 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { AlertCircle, Target, DollarSign } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { AlertCircle, TrendingUp, Target, Users, DollarSign, Sparkles } from "lucide-react";
 import { ParsedMemo, parseMemoMarkdown } from "@/utils/memoParser";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { motion, useInView, useAnimation, AnimatePresence } from "framer-motion";
+import { useRef, useEffect } from "react";
 
 interface InvestmentMemoDisplayProps {
   memoMarkdown: string;
+  dealData?: {
+    companyName?: string;
+    sector?: string;
+    arr?: number;
+    yoyGrowth?: number;
+  };
+  isStreaming?: boolean;
 }
 
-export function InvestmentMemoDisplay({ memoMarkdown }: InvestmentMemoDisplayProps) {
+// ============================================================================
+// ANIMATION VARIANTS
+// ============================================================================
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+      delayChildren: 0.05,
+    },
+  },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      type: "spring" as const,
+      stiffness: 100,
+      damping: 15,
+    },
+  },
+};
+
+const cardVariants = {
+  hidden: { opacity: 0, scale: 0.95, y: 20 },
+  visible: {
+    opacity: 1,
+    scale: 1,
+    y: 0,
+    transition: {
+      type: "spring" as const,
+      stiffness: 80,
+      damping: 12,
+      mass: 0.8,
+    },
+  },
+};
+
+const metricVariants = {
+  hidden: { opacity: 0, scale: 0.8, rotateX: -10 },
+  visible: {
+    opacity: 1,
+    scale: 1,
+    rotateX: 0,
+    transition: {
+      type: "spring" as const,
+      stiffness: 100,
+      damping: 10,
+    },
+  },
+};
+
+const badgeVariants = {
+  hidden: { opacity: 0, scale: 0 },
+  visible: {
+    opacity: 1,
+    scale: 1,
+    transition: {
+      type: "spring" as const,
+      stiffness: 200,
+      damping: 15,
+    },
+  },
+};
+
+const streamingTextVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      duration: 0.2,
+    },
+  },
+};
+
+// ============================================================================
+// ANIMATED WRAPPER COMPONENT
+// ============================================================================
+
+interface AnimatedCardProps {
+  children: React.ReactNode;
+  delay?: number;
+  className?: string;
+}
+
+const AnimatedCard = ({ children, delay = 0, className }: AnimatedCardProps) => {
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: true, margin: "-50px" });
+
+  return (
+    <motion.div
+      ref={ref}
+      initial="hidden"
+      animate={isInView ? "visible" : "hidden"}
+      variants={cardVariants}
+      transition={{ delay }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  );
+};
+
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
+
+export function InvestmentMemoDisplay({
+  memoMarkdown,
+  dealData,
+  isStreaming
+}: InvestmentMemoDisplayProps) {
   const parsed: ParsedMemo = parseMemoMarkdown(memoMarkdown);
 
   const getDecisionColor = (decision?: string) => {
@@ -29,12 +155,141 @@ export function InvestmentMemoDisplay({ memoMarkdown }: InvestmentMemoDisplayPro
   };
 
   return (
-    <div className="space-y-6"
+    <motion.div
+      className="space-y-6"
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
     >
+      {/* Header with Animations */}
+      <motion.div className="space-y-4" variants={itemVariants}>
+        {parsed.title && (
+          <motion.h1
+            className="text-4xl font-extrabold tracking-tight bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{
+              type: "spring",
+              stiffness: 100,
+              damping: 15,
+              delay: 0.1,
+            }}
+          >
+            {parsed.title}
+          </motion.h1>
+        )}
 
-      {/* Executive Summary */}
+        <motion.div
+          className="flex flex-wrap gap-2 items-center"
+          variants={containerVariants}
+        >
+          {parsed.dealSource && (
+            <motion.div variants={badgeVariants}>
+              <Badge variant="outline" className="hover:scale-105 transition-transform">
+                {parsed.dealSource}
+              </Badge>
+            </motion.div>
+          )}
+
+          {parsed.executiveSummary?.decision && (
+            <motion.div variants={badgeVariants}>
+              <Badge
+                variant={getDecisionColor(parsed.executiveSummary.decision)}
+                className="hover:scale-105 transition-transform shadow-sm"
+              >
+                {getDecisionLabel(parsed.executiveSummary.decision)}
+              </Badge>
+            </motion.div>
+          )}
+
+          {isStreaming && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0 }}
+            >
+              <Badge className="bg-primary/10 text-primary border-primary/20 hover:scale-105 transition-transform">
+                <motion.div
+                  className="flex items-center gap-1.5"
+                  animate={{
+                    opacity: [0.5, 1, 0.5],
+                  }}
+                  transition={{
+                    duration: 1.5,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  }}
+                >
+                  <Sparkles className="h-3 w-3" />
+                  <span className="text-xs font-medium">Génération en cours</span>
+                </motion.div>
+              </Badge>
+            </motion.div>
+          )}
+        </motion.div>
+      </motion.div>
+
+      {/* Key Metrics with Stagger Animation */}
+      {parsed.metrics && parsed.metrics.length > 0 && (
+        <motion.div
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"
+          variants={containerVariants}
+        >
+          {parsed.metrics.slice(0, 4).map((metric, idx) => (
+            <motion.div
+              key={idx}
+              variants={metricVariants}
+              whileHover={{
+                scale: 1.05,
+                y: -5,
+                transition: { type: "spring", stiffness: 300, damping: 20 },
+              }}
+              className="group"
+            >
+              <Card className="h-full border-2 hover:border-primary/50 hover:shadow-lg transition-all duration-300 overflow-hidden relative">
+                {/* Gradient overlay on hover */}
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+                <CardHeader className="pb-2 relative z-10">
+                  <CardTitle className="text-sm font-medium text-muted-foreground group-hover:text-primary transition-colors">
+                    {metric.label}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="relative z-10">
+                  <motion.div
+                    className="text-2xl font-bold bg-gradient-to-br from-foreground to-foreground/70 bg-clip-text text-transparent"
+                    initial={{ scale: 0.8 }}
+                    animate={{ scale: 1 }}
+                    transition={{
+                      type: "spring",
+                      stiffness: 200,
+                      delay: idx * 0.1 + 0.3,
+                    }}
+                  >
+                    {metric.value}
+                  </motion.div>
+                  {metric.benchmark && (
+                    <motion.p
+                      className="text-xs text-muted-foreground mt-1"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: idx * 0.1 + 0.5 }}
+                    >
+                      Benchmark: {metric.benchmark}
+                    </motion.p>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
+        </motion.div>
+      )}
+
+      {/* Executive Summary with Animation */}
       {parsed.executiveSummary && (
-          <Card className={`transition-all duration-300 hover:shadow-lg ${
+        <AnimatedCard delay={0.2}>
+          <Card
+            className={`transition-all duration-300 hover:shadow-xl ${
               parsed.executiveSummary.decision === 'GO'
                 ? 'border-primary/50 hover:border-primary'
                 : parsed.executiveSummary.decision === 'NO-GO'
@@ -42,7 +297,8 @@ export function InvestmentMemoDisplay({ memoMarkdown }: InvestmentMemoDisplayPro
                 : parsed.executiveSummary.decision === 'CONDITIONAL'
                 ? 'border-secondary/50 hover:border-secondary'
                 : ''
-            }`}>
+            }`}
+          >
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Target className="h-5 w-5" />
@@ -99,11 +355,13 @@ export function InvestmentMemoDisplay({ memoMarkdown }: InvestmentMemoDisplayPro
             )}
           </CardContent>
         </Card>
+        </AnimatedCard>
       )}
 
-      {/* Terms */}
+      {/* Terms with Animation */}
       {parsed.terms && (
-        <Card className="hover:shadow-lg transition-all duration-300">
+        <AnimatedCard delay={0.3}>
+        <Card className="hover:shadow-xl transition-all duration-300">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <DollarSign className="h-5 w-5" />
@@ -155,11 +413,13 @@ export function InvestmentMemoDisplay({ memoMarkdown }: InvestmentMemoDisplayPro
             )}
           </CardContent>
         </Card>
+        </AnimatedCard>
       )}
 
-      {/* Other Sections */}
+      {/* Other Sections with Stagger Animation */}
       {parsed.sections && parsed.sections.map((section, idx) => (
-        <Card key={idx} className="hover:shadow-lg transition-all duration-300">
+        <AnimatedCard key={idx} delay={0.4 + idx * 0.1}>
+        <Card className="hover:shadow-xl transition-all duration-300">
           <CardHeader>
             <CardTitle>{section.title}</CardTitle>
           </CardHeader>
@@ -190,11 +450,17 @@ export function InvestmentMemoDisplay({ memoMarkdown }: InvestmentMemoDisplayPro
             </ReactMarkdown>
           </CardContent>
         </Card>
+        </AnimatedCard>
       ))}
 
-      {/* Final Recommendation */}
+      {/* Final Recommendation with Emphasis Animation */}
       {parsed.recommendation && parsed.recommendation.decision && (
-        <Card className={`transition-all duration-300 hover:shadow-lg ${
+        <AnimatedCard delay={0.5}>
+        <motion.div
+          whileHover={{ scale: 1.02 }}
+          transition={{ type: "spring", stiffness: 300, damping: 20 }}
+        >
+        <Card className={`transition-all duration-300 hover:shadow-2xl ${
           parsed.recommendation.decision === 'GO' ? 'border-primary bg-primary/5 hover:bg-primary/10' :
           parsed.recommendation.decision === 'NO-GO' ? 'border-destructive bg-destructive/5 hover:bg-destructive/10' :
           'border-secondary bg-secondary/5 hover:bg-secondary/10'
@@ -235,7 +501,9 @@ export function InvestmentMemoDisplay({ memoMarkdown }: InvestmentMemoDisplayPro
             )}
           </CardContent>
         </Card>
+        </motion.div>
+        </AnimatedCard>
       )}
-    </div>
+    </motion.div>
   );
 }
