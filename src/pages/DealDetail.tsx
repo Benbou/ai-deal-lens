@@ -12,7 +12,6 @@ import { useStreamAnalysis } from '@/hooks/useStreamAnalysis';
 import { useAuth } from '@/contexts/AuthContext';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { InvestmentMemoDisplay } from "@/components/InvestmentMemoDisplay";
-import { motion, AnimatePresence } from "framer-motion";
 import { useAnalysisRealtime } from '@/hooks/useAnalysisRealtime';
 import { DealAnalysisDashboard } from '@/components/DealAnalysisDashboard';
 import { AnalysisProgressBar } from '@/components/AnalysisProgressBar';
@@ -195,136 +194,68 @@ export default function DealDetail() {
   const displayText = isStreaming ? streamingText : analysis?.result?.full_text || '';
 
   return (
-    <motion.div
-      className="space-y-6 max-w-full overflow-x-hidden"
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-    >
-      {/* Header Section with Animation */}
-      <motion.div
-        className="flex items-center justify-between flex-wrap gap-4"
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ delay: 0.1, type: "spring", stiffness: 100 }}
-      >
+    <div className="space-y-6 max-w-full overflow-x-hidden">
+      {/* Header Section */}
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="space-y-2">
-          <motion.h1
-            className="text-3xl font-bold bg-gradient-to-r from-foreground via-foreground to-foreground/70 bg-clip-text"
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-          >
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-foreground via-foreground to-foreground/70 bg-clip-text">
             {displayName}
-          </motion.h1>
-          <motion.div
-            className="flex gap-2 flex-wrap"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.3, staggerChildren: 0.1 }}
-          >
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ delay: 0.4, type: "spring", stiffness: 200 }}
-            >
+          </h1>
+          <div className="flex gap-2 flex-wrap">
+            <div>
               <Badge className="hover:scale-110 transition-transform cursor-default">
                 {deal.sector}
               </Badge>
-            </motion.div>
+            </div>
 
             {deal.stage && (
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ delay: 0.5, type: "spring", stiffness: 200 }}
-              >
+              <div>
                 <Badge variant="outline" className="hover:scale-110 transition-transform cursor-default">
                   {deal.stage}
                 </Badge>
-              </motion.div>
+              </div>
             )}
 
-            <AnimatePresence mode="wait">
-              {isProcessing && (
-                <motion.div
-                  key="processing"
-                  initial={{ scale: 0, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0, opacity: 0 }}
-                  transition={{ type: "spring", stiffness: 200 }}
-                >
-                  <Badge className="bg-warning text-warning-foreground flex items-center gap-1.5">
-                    <motion.div
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                    >
-                      <Zap className="h-3 w-3" />
-                    </motion.div>
-                    <span>Analyse en cours</span>
-                    <motion.span
-                      animate={{ opacity: [0.3, 1, 0.3] }}
-                      transition={{ duration: 1.5, repeat: Infinity }}
-                    >
-                      ...
-                    </motion.span>
-                  </Badge>
-                </motion.div>
-              )}
+            {isProcessing && (
+              <div>
+                <Badge className="bg-warning text-warning-foreground flex items-center gap-1.5">
+                  <Zap className="h-3 w-3" />
+                  <span>Analyse en cours</span>
+                  <span>...</span>
+                </Badge>
+              </div>
+            )}
 
-              {isCompleted && (
-                <motion.div
-                  key="completed"
-                  initial={{ scale: 0, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0, opacity: 0 }}
-                  transition={{ type: "spring", stiffness: 200 }}
-                >
-                  <Badge className="bg-success text-success-foreground flex items-center gap-2">
-                    <motion.div
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      transition={{ delay: 0.2, type: "spring", stiffness: 300 }}
-                    >
-                      <CheckCircle2 className="h-3 w-3" />
-                    </motion.div>
-                    Analysé
-                  </Badge>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </motion.div>
+            {isCompleted && (
+              <div>
+                <Badge className="bg-success text-success-foreground flex items-center gap-2">
+                  <CheckCircle2 className="h-3 w-3" />
+                  Analysé
+                </Badge>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Action Buttons with Stagger Animation */}
-        <motion.div
-          className="flex gap-2 flex-wrap"
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.4 }}
-        >
+        {/* Action Buttons */}
+        <div className="flex gap-2 flex-wrap">
           {isAdmin && (
-            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-              <Button onClick={() => navigate(`/deal/${id}/workflow`)} variant="outline">
-                <Activity className="mr-2 h-4 w-4" />
-                Voir workflow
-              </Button>
-            </motion.div>
+            <Button onClick={() => navigate(`/deal/${id}/workflow`)} variant="outline" className="hover:scale-105 transition-transform">
+              <Activity className="mr-2 h-4 w-4" />
+              Voir workflow
+            </Button>
           )}
 
           {deal.deck_files?.[0] && (
-            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-              <Button onClick={handleDownloadDeck} variant="outline">
-                <Download className="mr-2 h-4 w-4" />
-                Télécharger le deck
-              </Button>
-            </motion.div>
+            <Button onClick={handleDownloadDeck} variant="outline" className="hover:scale-105 transition-transform">
+              <Download className="mr-2 h-4 w-4" />
+              Télécharger le deck
+            </Button>
           )}
 
-          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant="destructive" disabled={deleting}>
+              <Button variant="destructive" disabled={deleting} className="hover:scale-105 transition-transform">
                 <Trash2 className="mr-2 h-4 w-4" />
                 Supprimer
               </Button>
@@ -345,214 +276,121 @@ export default function DealDetail() {
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
-          </motion.div>
-        </motion.div>
-      </motion.div>
+        </div>
+      </div>
 
-      {/* Analysis Progress Steps - Modern 3-step pipeline UI */}
+      {/* Analysis Progress Steps */}
       {realtimeAnalysis && (realtimeAnalysis.status === 'processing' || realtimeAnalysis.status === 'queued') && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3, type: "spring", stiffness: 80 }}
-        >
+        <div>
           <AnalysisProgressSteps analysis={realtimeAnalysis} />
-        </motion.div>
+        </div>
       )}
 
       {/* Quick Context Dashboard - Appears at 40% progress */}
       {realtimeAnalysis && realtimeAnalysis.progress_percent && realtimeAnalysis.progress_percent >= 40 && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4, type: "spring", stiffness: 80 }}
-        >
+        <div>
           <DealAnalysisDashboard dealId={id || ''} />
-        </motion.div>
+        </div>
       )}
 
-      {/* Deal Information Card with Animation */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5, type: "spring", stiffness: 80 }}
-      >
-      <Card className="p-6 hover:shadow-lg transition-shadow duration-300">
-        <motion.h2
-          className="text-2xl font-semibold mb-4 flex items-center gap-2"
-          initial={{ opacity: 0, x: -10 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.6 }}
-        >
-          <BarChart3 className="h-5 w-5 text-primary" />
-          Informations du Deal
-        </motion.h2>
+      {/* Deal Information Card */}
+      <div>
+        <Card className="p-6 hover:shadow-lg transition-shadow duration-300">
+          <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
+            <BarChart3 className="h-5 w-5 text-primary" />
+            Informations du Deal
+          </h2>
 
-        <motion.div
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-          initial="hidden"
-          animate="visible"
-          variants={{
-            hidden: { opacity: 0 },
-            visible: {
-              opacity: 1,
-              transition: { staggerChildren: 0.1, delayChildren: 0.7 },
-            },
-          }}
-        >
-          <motion.div
-            variants={{
-              hidden: { opacity: 0, y: 10 },
-              visible: { opacity: 1, y: 0 },
-            }}
-            className="group"
-          >
-            <p className="text-sm text-muted-foreground mb-1 flex items-center gap-1">
-              <TrendingUp className="h-3 w-3" />
-              Montant levé
-            </p>
-            <p className="text-xl font-semibold group-hover:text-primary transition-colors">
-              {formatCurrency(deal.amount_raised_cents, deal.currency)}
-            </p>
-          </motion.div>
-
-          <motion.div
-            variants={{
-              hidden: { opacity: 0, y: 10 },
-              visible: { opacity: 1, y: 0 },
-            }}
-            className="group"
-          >
-            <p className="text-sm text-muted-foreground mb-1">Valorisation pré-money</p>
-            <p className="text-xl font-semibold group-hover:text-primary transition-colors">
-              {formatCurrency(deal.pre_money_valuation_cents, deal.currency)}
-            </p>
-          </motion.div>
-
-          {deal.current_arr_cents !== undefined && deal.current_arr_cents !== null && (
-            <motion.div
-              variants={{
-                hidden: { opacity: 0, y: 10 },
-                visible: { opacity: 1, y: 0 },
-              }}
-              className="group"
-            >
-              <p className="text-sm text-muted-foreground mb-1">CA / ARR actuel</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="group">
+              <p className="text-sm text-muted-foreground mb-1 flex items-center gap-1">
+                <TrendingUp className="h-3 w-3" />
+                Montant levé
+              </p>
               <p className="text-xl font-semibold group-hover:text-primary transition-colors">
-                {formatCurrency(deal.current_arr_cents, deal.currency)}
+                {formatCurrency(deal.amount_raised_cents, deal.currency)}
               </p>
-            </motion.div>
-          )}
+            </div>
 
-          {deal.yoy_growth_percent !== undefined && deal.yoy_growth_percent !== null && (
-            <motion.div
-              variants={{
-                hidden: { opacity: 0, y: 10 },
-                visible: { opacity: 1, y: 0 },
-              }}
-              className="group"
-            >
-              <p className="text-sm text-muted-foreground mb-1">Croissance YoY</p>
-              <motion.p
-                className="text-xl font-semibold text-green-600"
-                whileHover={{ scale: 1.1 }}
-              >
-                +{deal.yoy_growth_percent.toFixed(1)}%
-              </motion.p>
-            </motion.div>
-          )}
-
-          {deal.mom_growth_percent !== undefined && deal.mom_growth_percent !== null && (
-            <motion.div
-              variants={{
-                hidden: { opacity: 0, y: 10 },
-                visible: { opacity: 1, y: 0 },
-              }}
-              className="group"
-            >
-              <p className="text-sm text-muted-foreground mb-1">Croissance MoM</p>
-              <motion.p
-                className="text-xl font-semibold text-green-600"
-                whileHover={{ scale: 1.1 }}
-              >
-                +{deal.mom_growth_percent.toFixed(1)}%
-              </motion.p>
-            </motion.div>
-          )}
-        </motion.div>
-
-        {deal.solution_summary && (
-          <motion.div
-            className="mt-6 pt-6 border-t"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 1.2 }}
-          >
-            <p className="text-sm text-muted-foreground mb-2">Résumé de la solution</p>
-            <p className="text-base leading-relaxed">{deal.solution_summary}</p>
-          </motion.div>
-        )}
-      </Card>
-      </motion.div>
-
-      {/* Error State with Animation */}
-      <AnimatePresence>
-        {error && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: -20 }}
-            transition={{ type: "spring", stiffness: 200, damping: 20 }}
-          >
-            <Card className="p-8 border-destructive bg-destructive/10 hover:shadow-xl transition-shadow">
-              <div className="flex flex-col items-center gap-4 text-center">
-                <motion.div
-                  animate={{
-                    rotate: [0, 10, -10, 10, 0],
-                    scale: [1, 1.1, 1.1, 1.1, 1],
-                  }}
-                  transition={{ duration: 0.6 }}
-                >
-                  <AlertCircle className="h-12 w-12 text-destructive" />
-                </motion.div>
-            <div>
-              <h3 className="text-xl font-semibold mb-2 text-destructive">
-                Erreur lors de l'analyse
-              </h3>
-              <p className="text-muted-foreground mb-4">
-                {error}
+            <div className="group">
+              <p className="text-sm text-muted-foreground mb-1">Valorisation pré-money</p>
+              <p className="text-xl font-semibold group-hover:text-primary transition-colors">
+                {formatCurrency(deal.pre_money_valuation_cents, deal.currency)}
               </p>
-              <p className="text-sm text-muted-foreground mb-4">
-                Notre équipe technique a été automatiquement notifiée. 
-                Vous pouvez réessayer ou nous contacter si le problème persiste.
-              </p>
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+            </div>
+
+            {deal.current_arr_cents !== undefined && deal.current_arr_cents !== null && (
+              <div className="group">
+                <p className="text-sm text-muted-foreground mb-1">CA / ARR actuel</p>
+                <p className="text-xl font-semibold group-hover:text-primary transition-colors">
+                  {formatCurrency(deal.current_arr_cents, deal.currency)}
+                </p>
+              </div>
+            )}
+
+            {deal.yoy_growth_percent !== undefined && deal.yoy_growth_percent !== null && (
+              <div className="group">
+                <p className="text-sm text-muted-foreground mb-1">Croissance YoY</p>
+                <p className="text-xl font-semibold text-green-600 hover:scale-105 transition-transform">
+                  +{deal.yoy_growth_percent.toFixed(1)}%
+                </p>
+              </div>
+            )}
+
+            {deal.mom_growth_percent !== undefined && deal.mom_growth_percent !== null && (
+              <div className="group">
+                <p className="text-sm text-muted-foreground mb-1">Croissance MoM</p>
+                <p className="text-xl font-semibold text-green-600 hover:scale-105 transition-transform">
+                  +{deal.mom_growth_percent.toFixed(1)}%
+                </p>
+              </div>
+            )}
+          </div>
+
+          {deal.solution_summary && (
+            <div className="mt-6 pt-6 border-t">
+              <p className="text-sm text-muted-foreground mb-2">Résumé de la solution</p>
+              <p className="text-base leading-relaxed">{deal.solution_summary}</p>
+            </div>
+          )}
+        </Card>
+      </div>
+
+      {/* Error State */}
+      {error && (
+        <div>
+          <Card className="p-8 border-destructive bg-destructive/10 hover:shadow-xl transition-shadow">
+            <div className="flex flex-col items-center gap-4 text-center">
+              <AlertCircle className="h-12 w-12 text-destructive" />
+              <div>
+                <h3 className="text-xl font-semibold mb-2 text-destructive">
+                  Erreur lors de l'analyse
+                </h3>
+                <p className="text-muted-foreground mb-4">
+                  {error}
+                </p>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Notre équipe technique a été automatiquement notifiée.
+                  Vous pouvez réessayer ou nous contacter si le problème persiste.
+                </p>
                 <Button
                   onClick={() => {
                     reset();
                     if (id) startAnalysis(id);
                   }}
                   variant="outline"
+                  className="hover:scale-105 transition-transform"
                 >
                   Réessayer l'analyse
                 </Button>
-              </motion.div>
+              </div>
             </div>
-          </div>
-        </Card>
-        </motion.div>
+          </Card>
+        </div>
       )}
-      </AnimatePresence>
 
-      {/* Loading State with Animation */}
-      <AnimatePresence>
+      {/* Loading State */}
       {!error && (isDealProcessing || isStreaming) && !displayText && (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.9 }}
-          transition={{ type: "spring", stiffness: 150 }}
-        >
         <Card className="p-12 text-center hover:shadow-xl transition-shadow">
           <div className="flex flex-col items-center gap-4">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -568,20 +406,11 @@ export default function DealDetail() {
             </div>
           </div>
         </Card>
-        </motion.div>
       )}
-      </AnimatePresence>
 
       {/* Investment Memo Display */}
-      <AnimatePresence>
       {(isStreaming || isCompleted) && displayText && (
-        <motion.div
-          className="max-w-4xl mx-auto"
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -30 }}
-          transition={{ type: "spring", stiffness: 100, damping: 20 }}
-        >
+        <div className="max-w-4xl mx-auto">
           <article className="prose prose-lg dark:prose-invert max-w-none">
             <div className="flex items-center justify-between mb-6">
               <h1 className="scroll-m-20 text-4xl font-extrabold tracking-tight mb-0">
@@ -593,27 +422,30 @@ export default function DealDetail() {
                 </Badge>}
             </div>
             {currentStatus && isStreaming && <p className="text-sm text-muted-foreground mb-6">{currentStatus}</p>}
-            
-            <InvestmentMemoDisplay memoMarkdown={displayText} />
+
+            <InvestmentMemoDisplay
+              memoMarkdown={displayText}
+              dealData={{
+                companyName: deal?.company_name,
+                sector: deal?.sector,
+                arr: deal?.current_arr_cents,
+                yoyGrowth: deal?.yoy_growth_percent,
+              }}
+              isStreaming={isStreaming}
+            />
           </article>
-        </motion.div>
+        </div>
       )}
-      </AnimatePresence>
 
       {/* Admin AI Details */}
       {isAdmin && (isStreaming || isCompleted) && analysis?.result && (
-        <motion.div
-          className="max-w-4xl mx-auto mt-12 pt-8 border-t"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.5 }}
-        >
+        <div className="max-w-4xl mx-auto mt-12 pt-8 border-t">
           <details open={showAIDetails} onToggle={(e) => setShowAIDetails((e.target as HTMLDetailsElement).open)}>
             <summary className="cursor-pointer text-lg font-semibold mb-4 list-none flex items-center justify-between">
               <span>Réflexion de l'IA</span>
               <span className="text-sm text-muted-foreground">{showAIDetails ? 'Cliquer pour masquer' : 'Cliquer pour afficher'}</span>
             </summary>
-            
+
             <div className="space-y-6 pt-4">
               {/* Métadonnées */}
               {analysis.result.metadata && <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -674,23 +506,17 @@ export default function DealDetail() {
                 </div>}
             </div>
           </details>
-        </motion.div>
+        </div>
       )}
 
       {/* No Analysis State */}
       {!isProcessing && !isCompleted && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.3 }}
-        >
         <Card className="p-12 text-center">
           <div className="text-muted-foreground">
             <p>L'analyse n'a pas encore démarré</p>
           </div>
         </Card>
-        </motion.div>
       )}
-    </motion.div>
+    </div>
   );
 }

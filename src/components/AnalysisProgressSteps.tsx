@@ -1,4 +1,3 @@
-import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
@@ -73,12 +72,7 @@ function StepCard({ config, status, progress }: { config: StepConfig; status: St
     : 0;
 
   return (
-    <motion.div
-      animate={{
-        scale: isActive ? 1.05 : 1,
-      }}
-      transition={{ type: 'spring', stiffness: 200 }}
-    >
+    <div className={isActive ? 'scale-105 transition-transform' : 'transition-transform'}>
       <Card
         className={cn(
           'p-6 text-center transition-all',
@@ -87,11 +81,7 @@ function StepCard({ config, status, progress }: { config: StepConfig; status: St
           isPending && 'bg-muted/30 border-border'
         )}
       >
-        <motion.div
-          animate={isActive ? { rotate: 360 } : { rotate: 0 }}
-          transition={isActive ? { duration: 2, repeat: Infinity, ease: 'linear' } : {}}
-          className="mb-3 inline-block"
-        >
+        <div className="mb-3 inline-block">
           {isCompleted ? (
             <CheckCircle2 className="w-10 h-10 text-success" />
           ) : isActive ? (
@@ -99,7 +89,7 @@ function StepCard({ config, status, progress }: { config: StepConfig; status: St
           ) : (
             <Icon className="w-10 h-10 text-muted-foreground" />
           )}
-        </motion.div>
+        </div>
 
         <h3
           className={cn(
@@ -121,7 +111,7 @@ function StepCard({ config, status, progress }: { config: StepConfig; status: St
           </div>
         )}
       </Card>
-    </motion.div>
+    </div>
   );
 }
 
@@ -174,27 +164,14 @@ export function AnalysisProgressSteps({ analysis }: AnalysisProgressStepsProps) 
   const timeRemaining = Math.max(0, 600 - timeElapsed);
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="space-y-6"
-    >
+    <div className="space-y-6">
       {/* Hero Section */}
-      <motion.div
-        className="text-center"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.2 }}
-      >
-        <motion.div
-          animate={{ scale: [1, 1.05, 1] }}
-          transition={{ duration: 3, repeat: Infinity }}
-          className="mb-4 inline-block"
-        >
+      <div className="text-center">
+        <div className="mb-4 inline-block">
           <div className="w-20 h-20 mx-auto bg-gradient-to-br from-primary to-primary-glow rounded-full flex items-center justify-center shadow-glow">
             <Brain className="w-10 h-10 text-primary-foreground" />
           </div>
-        </motion.div>
+        </div>
 
         <h2 className="text-3xl font-bold mb-2">
           {isCompleted ? 'Analyse Terminée' : isFailed ? 'Analyse Échouée' : 'Analyse en Cours'}
@@ -206,7 +183,7 @@ export function AnalysisProgressSteps({ analysis }: AnalysisProgressStepsProps) 
             ? 'Une erreur est survenue'
             : 'Notre IA examine minutieusement votre deck...'}
         </p>
-      </motion.div>
+      </div>
 
       {/* Three-Step Pipeline */}
       {!isFailed && (
@@ -216,18 +193,13 @@ export function AnalysisProgressSteps({ analysis }: AnalysisProgressStepsProps) 
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {stepConfigs.map((config, idx) => (
-              <motion.div
-                key={config.key}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 * idx }}
-              >
+              <div key={config.key}>
                 <StepCard
                   config={config}
                   status={getStepStatus(progress, config)}
                   progress={progress}
                 />
-              </motion.div>
+              </div>
             ))}
           </div>
         </div>
@@ -243,20 +215,13 @@ export function AnalysisProgressSteps({ analysis }: AnalysisProgressStepsProps) 
             </div>
 
             <div className="bg-muted rounded-lg p-4 max-h-40 overflow-y-auto space-y-2 font-mono text-xs">
-              <AnimatePresence>
-                {activityLogs.slice(-10).map((log, idx) => (
-                  <motion.div
-                    key={idx}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    className="flex items-center gap-2 text-muted-foreground"
-                  >
-                    <span className="text-muted-foreground/60">{log.time}</span>
-                    <span className="text-primary">•</span>
-                    <span>{log.message}</span>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
+              {activityLogs.slice(-10).map((log, idx) => (
+                <div key={idx} className="flex items-center gap-2 text-muted-foreground">
+                  <span className="text-muted-foreground/60">{log.time}</span>
+                  <span className="text-primary">•</span>
+                  <span>{log.message}</span>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>
@@ -313,26 +278,14 @@ export function AnalysisProgressSteps({ analysis }: AnalysisProgressStepsProps) 
         </Card>
       )}
 
-      {/* Success Confetti Effect */}
-      <AnimatePresence>
-        {isCompleted && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 flex items-center justify-center pointer-events-none z-50"
-          >
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ type: 'spring', stiffness: 200 }}
-              className="text-6xl"
-            >
-              🎉
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.div>
+      {/* Success Message */}
+      {isCompleted && (
+        <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-50">
+          <div className="text-6xl">
+            🎉
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

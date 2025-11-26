@@ -1,15 +1,31 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { AlertCircle, Target, DollarSign } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { AlertCircle, TrendingUp, Target, Users, DollarSign, Sparkles } from "lucide-react";
 import { ParsedMemo, parseMemoMarkdown } from "@/utils/memoParser";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 interface InvestmentMemoDisplayProps {
   memoMarkdown: string;
+  dealData?: {
+    companyName?: string;
+    sector?: string;
+    arr?: number;
+    yoyGrowth?: number;
+  };
+  isStreaming?: boolean;
 }
 
-export function InvestmentMemoDisplay({ memoMarkdown }: InvestmentMemoDisplayProps) {
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
+
+export function InvestmentMemoDisplay({
+  memoMarkdown,
+  dealData,
+  isStreaming
+}: InvestmentMemoDisplayProps) {
   const parsed: ParsedMemo = parseMemoMarkdown(memoMarkdown);
 
   const getDecisionColor = (decision?: string) => {
@@ -29,20 +45,88 @@ export function InvestmentMemoDisplay({ memoMarkdown }: InvestmentMemoDisplayPro
   };
 
   return (
-    <div className="space-y-6"
-    >
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="space-y-4">
+        {parsed.title && (
+          <h1 className="text-4xl font-extrabold tracking-tight bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+            {parsed.title}
+          </h1>
+        )}
+
+        <div className="flex flex-wrap gap-2 items-center">
+          {parsed.dealSource && (
+            <Badge variant="outline" className="hover:scale-105 transition-transform">
+              {parsed.dealSource}
+            </Badge>
+          )}
+
+          {parsed.executiveSummary?.decision && (
+            <Badge
+              variant={getDecisionColor(parsed.executiveSummary.decision)}
+              className="hover:scale-105 transition-transform shadow-sm"
+            >
+              {getDecisionLabel(parsed.executiveSummary.decision)}
+            </Badge>
+          )}
+
+          {isStreaming && (
+            <Badge className="bg-primary/10 text-primary border-primary/20 hover:scale-105 transition-transform">
+              <div className="flex items-center gap-1.5">
+                <Sparkles className="h-3 w-3" />
+                <span className="text-xs font-medium">Génération en cours</span>
+              </div>
+            </Badge>
+          )}
+        </div>
+      </div>
+
+      {/* Key Metrics */}
+      {parsed.metrics && parsed.metrics.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {parsed.metrics.slice(0, 4).map((metric, idx) => (
+            <div
+              key={idx}
+              className="group hover:shadow-lg transition-all duration-300"
+            >
+              <Card className="h-full border-2 hover:border-primary/50 hover:shadow-lg transition-all duration-300 overflow-hidden relative">
+                {/* Gradient overlay on hover */}
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+                <CardHeader className="pb-2 relative z-10">
+                  <CardTitle className="text-sm font-medium text-muted-foreground group-hover:text-primary transition-colors">
+                    {metric.label}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="relative z-10">
+                  <div className="text-2xl font-bold bg-gradient-to-br from-foreground to-foreground/70 bg-clip-text text-transparent">
+                    {metric.value}
+                  </div>
+                  {metric.benchmark && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Benchmark: {metric.benchmark}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Executive Summary */}
       {parsed.executiveSummary && (
-          <Card className={`transition-all duration-300 hover:shadow-lg ${
-              parsed.executiveSummary.decision === 'GO'
-                ? 'border-primary/50 hover:border-primary'
-                : parsed.executiveSummary.decision === 'NO-GO'
-                ? 'border-destructive/50 hover:border-destructive'
-                : parsed.executiveSummary.decision === 'CONDITIONAL'
-                ? 'border-secondary/50 hover:border-secondary'
-                : ''
-            }`}>
+        <Card
+          className={`transition-all duration-300 hover:shadow-xl ${
+            parsed.executiveSummary.decision === 'GO'
+              ? 'border-primary/50 hover:border-primary'
+              : parsed.executiveSummary.decision === 'NO-GO'
+              ? 'border-destructive/50 hover:border-destructive'
+              : parsed.executiveSummary.decision === 'CONDITIONAL'
+              ? 'border-secondary/50 hover:border-secondary'
+              : ''
+          }`}
+        >
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Target className="h-5 w-5" />
@@ -56,7 +140,7 @@ export function InvestmentMemoDisplay({ memoMarkdown }: InvestmentMemoDisplayPro
                 <p className="text-sm leading-relaxed">{parsed.executiveSummary.what}</p>
               </div>
             )}
-            
+
             {parsed.executiveSummary.whyItWins && (
               <div>
                 <h4 className="font-semibold mb-2">Pourquoi ça gagne</h4>
@@ -103,7 +187,7 @@ export function InvestmentMemoDisplay({ memoMarkdown }: InvestmentMemoDisplayPro
 
       {/* Terms */}
       {parsed.terms && (
-        <Card className="hover:shadow-lg transition-all duration-300">
+        <Card className="hover:shadow-xl transition-all duration-300">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <DollarSign className="h-5 w-5" />
@@ -117,7 +201,7 @@ export function InvestmentMemoDisplay({ memoMarkdown }: InvestmentMemoDisplayPro
                 <span className="text-sm text-right">{parsed.terms.ticket}</span>
               </div>
             )}
-            
+
             {parsed.terms.preMoneyValuation && (
               <div className="flex justify-between items-start">
                 <span className="font-medium text-sm">Pré-money</span>
@@ -159,12 +243,12 @@ export function InvestmentMemoDisplay({ memoMarkdown }: InvestmentMemoDisplayPro
 
       {/* Other Sections */}
       {parsed.sections && parsed.sections.map((section, idx) => (
-        <Card key={idx} className="hover:shadow-lg transition-all duration-300">
+        <Card key={idx} className="hover:shadow-xl transition-all duration-300">
           <CardHeader>
             <CardTitle>{section.title}</CardTitle>
           </CardHeader>
           <CardContent>
-            <ReactMarkdown 
+            <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               components={{
                 h3: ({node, ...props}) => <h3 className="text-xl font-semibold mt-4 mb-2" {...props} />,
@@ -194,7 +278,7 @@ export function InvestmentMemoDisplay({ memoMarkdown }: InvestmentMemoDisplayPro
 
       {/* Final Recommendation */}
       {parsed.recommendation && parsed.recommendation.decision && (
-        <Card className={`transition-all duration-300 hover:shadow-lg ${
+        <Card className={`transition-all duration-300 hover:shadow-2xl ${
           parsed.recommendation.decision === 'GO' ? 'border-primary bg-primary/5 hover:bg-primary/10' :
           parsed.recommendation.decision === 'NO-GO' ? 'border-destructive bg-destructive/5 hover:bg-destructive/10' :
           'border-secondary bg-secondary/5 hover:bg-secondary/10'
@@ -206,7 +290,7 @@ export function InvestmentMemoDisplay({ memoMarkdown }: InvestmentMemoDisplayPro
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center gap-3">
-              <Badge 
+              <Badge
                 variant={getDecisionColor(parsed.recommendation.decision)}
                 className="text-base px-4 py-1"
               >
