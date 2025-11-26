@@ -5,8 +5,6 @@ import { AlertCircle, TrendingUp, Target, Users, DollarSign, Sparkles } from "lu
 import { ParsedMemo, parseMemoMarkdown } from "@/utils/memoParser";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { motion, useInView, useAnimation, AnimatePresence } from "framer-motion";
-import { useRef, useEffect } from "react";
 
 interface InvestmentMemoDisplayProps {
   memoMarkdown: string;
@@ -18,114 +16,6 @@ interface InvestmentMemoDisplayProps {
   };
   isStreaming?: boolean;
 }
-
-// ============================================================================
-// ANIMATION VARIANTS
-// ============================================================================
-
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.1,
-      delayChildren: 0.05,
-    },
-  },
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: {
-      type: "spring" as const,
-      stiffness: 100,
-      damping: 15,
-    },
-  },
-};
-
-const cardVariants = {
-  hidden: { opacity: 0, scale: 0.95, y: 20 },
-  visible: {
-    opacity: 1,
-    scale: 1,
-    y: 0,
-    transition: {
-      type: "spring" as const,
-      stiffness: 80,
-      damping: 12,
-      mass: 0.8,
-    },
-  },
-};
-
-const metricVariants = {
-  hidden: { opacity: 0, scale: 0.8, rotateX: -10 },
-  visible: {
-    opacity: 1,
-    scale: 1,
-    rotateX: 0,
-    transition: {
-      type: "spring" as const,
-      stiffness: 100,
-      damping: 10,
-    },
-  },
-};
-
-const badgeVariants = {
-  hidden: { opacity: 0, scale: 0 },
-  visible: {
-    opacity: 1,
-    scale: 1,
-    transition: {
-      type: "spring" as const,
-      stiffness: 200,
-      damping: 15,
-    },
-  },
-};
-
-const streamingTextVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      duration: 0.2,
-    },
-  },
-};
-
-// ============================================================================
-// ANIMATED WRAPPER COMPONENT
-// ============================================================================
-
-interface AnimatedCardProps {
-  children: React.ReactNode;
-  delay?: number;
-  className?: string;
-}
-
-const AnimatedCard = ({ children, delay = 0, className }: AnimatedCardProps) => {
-  const ref = useRef(null);
-  const isInView = useInView(ref, { once: true, margin: "-50px" });
-
-  return (
-    <motion.div
-      ref={ref}
-      initial="hidden"
-      animate={isInView ? "visible" : "hidden"}
-      variants={cardVariants}
-      transition={{ delay }}
-      className={className}
-    >
-      {children}
-    </motion.div>
-  );
-};
 
 // ============================================================================
 // MAIN COMPONENT
@@ -155,96 +45,49 @@ export function InvestmentMemoDisplay({
   };
 
   return (
-    <motion.div
-      className="space-y-6"
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
-    >
-      {/* Header with Animations */}
-      <motion.div className="space-y-4" variants={itemVariants}>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="space-y-4">
         {parsed.title && (
-          <motion.h1
-            className="text-4xl font-extrabold tracking-tight bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent"
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{
-              type: "spring",
-              stiffness: 100,
-              damping: 15,
-              delay: 0.1,
-            }}
-          >
+          <h1 className="text-4xl font-extrabold tracking-tight bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
             {parsed.title}
-          </motion.h1>
+          </h1>
         )}
 
-        <motion.div
-          className="flex flex-wrap gap-2 items-center"
-          variants={containerVariants}
-        >
+        <div className="flex flex-wrap gap-2 items-center">
           {parsed.dealSource && (
-            <motion.div variants={badgeVariants}>
-              <Badge variant="outline" className="hover:scale-105 transition-transform">
-                {parsed.dealSource}
-              </Badge>
-            </motion.div>
+            <Badge variant="outline" className="hover:scale-105 transition-transform">
+              {parsed.dealSource}
+            </Badge>
           )}
 
           {parsed.executiveSummary?.decision && (
-            <motion.div variants={badgeVariants}>
-              <Badge
-                variant={getDecisionColor(parsed.executiveSummary.decision)}
-                className="hover:scale-105 transition-transform shadow-sm"
-              >
-                {getDecisionLabel(parsed.executiveSummary.decision)}
-              </Badge>
-            </motion.div>
+            <Badge
+              variant={getDecisionColor(parsed.executiveSummary.decision)}
+              className="hover:scale-105 transition-transform shadow-sm"
+            >
+              {getDecisionLabel(parsed.executiveSummary.decision)}
+            </Badge>
           )}
 
           {isStreaming && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0 }}
-            >
-              <Badge className="bg-primary/10 text-primary border-primary/20 hover:scale-105 transition-transform">
-                <motion.div
-                  className="flex items-center gap-1.5"
-                  animate={{
-                    opacity: [0.5, 1, 0.5],
-                  }}
-                  transition={{
-                    duration: 1.5,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                  }}
-                >
-                  <Sparkles className="h-3 w-3" />
-                  <span className="text-xs font-medium">Génération en cours</span>
-                </motion.div>
-              </Badge>
-            </motion.div>
+            <Badge className="bg-primary/10 text-primary border-primary/20 hover:scale-105 transition-transform">
+              <div className="flex items-center gap-1.5">
+                <Sparkles className="h-3 w-3" />
+                <span className="text-xs font-medium">Génération en cours</span>
+              </div>
+            </Badge>
           )}
-        </motion.div>
-      </motion.div>
+        </div>
+      </div>
 
-      {/* Key Metrics with Stagger Animation */}
+      {/* Key Metrics */}
       {parsed.metrics && parsed.metrics.length > 0 && (
-        <motion.div
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"
-          variants={containerVariants}
-        >
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {parsed.metrics.slice(0, 4).map((metric, idx) => (
-            <motion.div
+            <div
               key={idx}
-              variants={metricVariants}
-              whileHover={{
-                scale: 1.05,
-                y: -5,
-                transition: { type: "spring", stiffness: 300, damping: 20 },
-              }}
-              className="group"
+              className="group hover:shadow-lg transition-all duration-300"
             >
               <Card className="h-full border-2 hover:border-primary/50 hover:shadow-lg transition-all duration-300 overflow-hidden relative">
                 {/* Gradient overlay on hover */}
@@ -256,49 +99,34 @@ export function InvestmentMemoDisplay({
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="relative z-10">
-                  <motion.div
-                    className="text-2xl font-bold bg-gradient-to-br from-foreground to-foreground/70 bg-clip-text text-transparent"
-                    initial={{ scale: 0.8 }}
-                    animate={{ scale: 1 }}
-                    transition={{
-                      type: "spring",
-                      stiffness: 200,
-                      delay: idx * 0.1 + 0.3,
-                    }}
-                  >
+                  <div className="text-2xl font-bold bg-gradient-to-br from-foreground to-foreground/70 bg-clip-text text-transparent">
                     {metric.value}
-                  </motion.div>
+                  </div>
                   {metric.benchmark && (
-                    <motion.p
-                      className="text-xs text-muted-foreground mt-1"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: idx * 0.1 + 0.5 }}
-                    >
+                    <p className="text-xs text-muted-foreground mt-1">
                       Benchmark: {metric.benchmark}
-                    </motion.p>
+                    </p>
                   )}
                 </CardContent>
               </Card>
-            </motion.div>
+            </div>
           ))}
-        </motion.div>
+        </div>
       )}
 
-      {/* Executive Summary with Animation */}
+      {/* Executive Summary */}
       {parsed.executiveSummary && (
-        <AnimatedCard delay={0.2}>
-          <Card
-            className={`transition-all duration-300 hover:shadow-xl ${
-              parsed.executiveSummary.decision === 'GO'
-                ? 'border-primary/50 hover:border-primary'
-                : parsed.executiveSummary.decision === 'NO-GO'
-                ? 'border-destructive/50 hover:border-destructive'
-                : parsed.executiveSummary.decision === 'CONDITIONAL'
-                ? 'border-secondary/50 hover:border-secondary'
-                : ''
-            }`}
-          >
+        <Card
+          className={`transition-all duration-300 hover:shadow-xl ${
+            parsed.executiveSummary.decision === 'GO'
+              ? 'border-primary/50 hover:border-primary'
+              : parsed.executiveSummary.decision === 'NO-GO'
+              ? 'border-destructive/50 hover:border-destructive'
+              : parsed.executiveSummary.decision === 'CONDITIONAL'
+              ? 'border-secondary/50 hover:border-secondary'
+              : ''
+          }`}
+        >
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Target className="h-5 w-5" />
@@ -312,7 +140,7 @@ export function InvestmentMemoDisplay({
                 <p className="text-sm leading-relaxed">{parsed.executiveSummary.what}</p>
               </div>
             )}
-            
+
             {parsed.executiveSummary.whyItWins && (
               <div>
                 <h4 className="font-semibold mb-2">Pourquoi ça gagne</h4>
@@ -355,12 +183,10 @@ export function InvestmentMemoDisplay({
             )}
           </CardContent>
         </Card>
-        </AnimatedCard>
       )}
 
-      {/* Terms with Animation */}
+      {/* Terms */}
       {parsed.terms && (
-        <AnimatedCard delay={0.3}>
         <Card className="hover:shadow-xl transition-all duration-300">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -375,7 +201,7 @@ export function InvestmentMemoDisplay({
                 <span className="text-sm text-right">{parsed.terms.ticket}</span>
               </div>
             )}
-            
+
             {parsed.terms.preMoneyValuation && (
               <div className="flex justify-between items-start">
                 <span className="font-medium text-sm">Pré-money</span>
@@ -413,18 +239,16 @@ export function InvestmentMemoDisplay({
             )}
           </CardContent>
         </Card>
-        </AnimatedCard>
       )}
 
-      {/* Other Sections with Stagger Animation */}
+      {/* Other Sections */}
       {parsed.sections && parsed.sections.map((section, idx) => (
-        <AnimatedCard key={idx} delay={0.4 + idx * 0.1}>
-        <Card className="hover:shadow-xl transition-all duration-300">
+        <Card key={idx} className="hover:shadow-xl transition-all duration-300">
           <CardHeader>
             <CardTitle>{section.title}</CardTitle>
           </CardHeader>
           <CardContent>
-            <ReactMarkdown 
+            <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               components={{
                 h3: ({node, ...props}) => <h3 className="text-xl font-semibold mt-4 mb-2" {...props} />,
@@ -450,16 +274,10 @@ export function InvestmentMemoDisplay({
             </ReactMarkdown>
           </CardContent>
         </Card>
-        </AnimatedCard>
       ))}
 
-      {/* Final Recommendation with Emphasis Animation */}
+      {/* Final Recommendation */}
       {parsed.recommendation && parsed.recommendation.decision && (
-        <AnimatedCard delay={0.5}>
-        <motion.div
-          whileHover={{ scale: 1.02 }}
-          transition={{ type: "spring", stiffness: 300, damping: 20 }}
-        >
         <Card className={`transition-all duration-300 hover:shadow-2xl ${
           parsed.recommendation.decision === 'GO' ? 'border-primary bg-primary/5 hover:bg-primary/10' :
           parsed.recommendation.decision === 'NO-GO' ? 'border-destructive bg-destructive/5 hover:bg-destructive/10' :
@@ -472,7 +290,7 @@ export function InvestmentMemoDisplay({
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center gap-3">
-              <Badge 
+              <Badge
                 variant={getDecisionColor(parsed.recommendation.decision)}
                 className="text-base px-4 py-1"
               >
@@ -501,9 +319,7 @@ export function InvestmentMemoDisplay({
             )}
           </CardContent>
         </Card>
-        </motion.div>
-        </AnimatedCard>
       )}
-    </motion.div>
+    </div>
   );
 }
