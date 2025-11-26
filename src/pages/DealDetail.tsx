@@ -16,6 +16,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useAnalysisRealtime } from '@/hooks/useAnalysisRealtime';
 import { DealAnalysisDashboard } from '@/components/DealAnalysisDashboard';
 import { AnalysisProgressBar } from '@/components/AnalysisProgressBar';
+import { AnalysisProgressSteps } from '@/components/AnalysisProgressSteps';
 interface AnalysisResult {
   status?: string;
   full_text?: string;
@@ -348,14 +349,14 @@ export default function DealDetail() {
         </motion.div>
       </motion.div>
 
-      {/* Analysis Progress Bar - Always visible during analysis */}
+      {/* Analysis Progress Steps - Modern 3-step pipeline UI */}
       {realtimeAnalysis && (realtimeAnalysis.status === 'processing' || realtimeAnalysis.status === 'queued') && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3, type: "spring", stiffness: 80 }}
         >
-          <AnalysisProgressBar analysis={realtimeAnalysis} />
+          <AnalysisProgressSteps analysis={realtimeAnalysis} />
         </motion.div>
       )}
 

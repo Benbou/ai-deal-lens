@@ -146,7 +146,7 @@ serve(async (req) => {
           });
 
           const quickExtractMsg = await anthropic.messages.create({
-            model: "claude-sonnet-4-5",
+            model: "claude-opus-4-1-20250805",
             max_tokens: 600,
             temperature: 0,
             messages: [{ role: "user", content: QUICK_EXTRACT_PROMPT(markdownText) }]
@@ -233,7 +233,7 @@ serve(async (req) => {
 
             // Force tool usage on first iteration with tool_choice
             const streamConfig: any = {
-              model: "claude-sonnet-4-5",
+              model: "claude-opus-4-1-20250805",
               max_tokens: 8000,
               temperature: 0.3,
               system: MEMO_SYSTEM_PROMPT,
