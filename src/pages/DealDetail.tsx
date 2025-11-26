@@ -594,16 +594,7 @@ export default function DealDetail() {
             </div>
             {currentStatus && isStreaming && <p className="text-sm text-muted-foreground mb-6">{currentStatus}</p>}
             
-            <InvestmentMemoDisplay 
-              memoMarkdown={displayText}
-              dealData={{
-                companyName: deal?.company_name,
-                sector: deal?.sector,
-                arr: deal?.current_arr_cents,
-                yoyGrowth: deal?.yoy_growth_percent,
-              }}
-              isStreaming={isStreaming}
-            />
+            <InvestmentMemoDisplay memoMarkdown={displayText} />
           </article>
         </motion.div>
       )}
