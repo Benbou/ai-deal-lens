@@ -13,6 +13,12 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        'lora': ['Lora', 'serif'],
+        'inter': ['Inter', 'sans-serif'],
+        'sans': ['Inter', 'sans-serif'],
+        'serif': ['Lora', 'serif'],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -75,6 +81,7 @@ export default {
         "gradient-primary": "var(--gradient-primary)",
         "gradient-success": "var(--gradient-success)",
         "gradient-hero": "var(--gradient-hero)",
+        "gradient-fade": "var(--gradient-fade)",
       },
       boxShadow: {
         elegant: "var(--shadow-elegant)",
