@@ -240,10 +240,6 @@ export default function DealDetail() {
 
         {/* Action Buttons */}
         <div className="flex gap-2 flex-wrap">
-          {isCompleted && (
-            <DealChatDrawer dealId={id || ''} companyName={displayName} />
-          )}
-
           {isAdmin && (
             <Button onClick={() => navigate(`/deal/${id}/workflow`)} variant="outline" className="hover:scale-105 transition-transform">
               <Activity className="mr-2 h-4 w-4" />
@@ -522,6 +518,9 @@ export default function DealDetail() {
           </div>
         </Card>
       )}
+
+      {/* Floating Chat Button - Always visible */}
+      <DealChatDrawer dealId={id || ''} companyName={displayName} />
     </div>
   );
 }
