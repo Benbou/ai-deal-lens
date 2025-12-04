@@ -16,6 +16,7 @@ import { useAnalysisRealtime } from '@/hooks/useAnalysisRealtime';
 import { DealAnalysisDashboard } from '@/components/DealAnalysisDashboard';
 import { AnalysisProgressBar } from '@/components/AnalysisProgressBar';
 import { AnalysisProgressSteps } from '@/components/AnalysisProgressSteps';
+import { DealChatDrawer } from '@/components/DealChatDrawer';
 interface AnalysisResult {
   status?: string;
   full_text?: string;
@@ -239,6 +240,10 @@ export default function DealDetail() {
 
         {/* Action Buttons */}
         <div className="flex gap-2 flex-wrap">
+          {isCompleted && (
+            <DealChatDrawer dealId={id || ''} companyName={displayName} />
+          )}
+
           {isAdmin && (
             <Button onClick={() => navigate(`/deal/${id}/workflow`)} variant="outline" className="hover:scale-105 transition-transform">
               <Activity className="mr-2 h-4 w-4" />
