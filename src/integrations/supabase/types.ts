@@ -75,14 +75,17 @@ export type Database = {
           amount_raised_cents: number | null
           analysis_completed_at: string | null
           analysis_started_at: string | null
+          analyzed_at: string | null
           company_name: string | null
           country: string
           created_at: string | null
           currency: string | null
           current_arr_cents: number | null
+          error_message: string | null
           id: string
           is_archived: boolean | null
           is_invested: boolean | null
+          memo_content: Json | null
           mom_growth_percent: number | null
           personal_notes: string | null
           pre_money_valuation_cents: number | null
@@ -102,14 +105,17 @@ export type Database = {
           amount_raised_cents?: number | null
           analysis_completed_at?: string | null
           analysis_started_at?: string | null
+          analyzed_at?: string | null
           company_name?: string | null
           country: string
           created_at?: string | null
           currency?: string | null
           current_arr_cents?: number | null
+          error_message?: string | null
           id?: string
           is_archived?: boolean | null
           is_invested?: boolean | null
+          memo_content?: Json | null
           mom_growth_percent?: number | null
           personal_notes?: string | null
           pre_money_valuation_cents?: number | null
@@ -129,14 +135,17 @@ export type Database = {
           amount_raised_cents?: number | null
           analysis_completed_at?: string | null
           analysis_started_at?: string | null
+          analyzed_at?: string | null
           company_name?: string | null
           country?: string
           created_at?: string | null
           currency?: string | null
           current_arr_cents?: number | null
+          error_message?: string | null
           id?: string
           is_archived?: boolean | null
           is_invested?: boolean | null
+          memo_content?: Json | null
           mom_growth_percent?: number | null
           personal_notes?: string | null
           pre_money_valuation_cents?: number | null

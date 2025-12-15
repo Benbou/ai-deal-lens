@@ -1,11 +1,5 @@
 project_id = "lnybmpzrrpxzwkqsiaic"
 
-[functions.analyze-deck-orchestrator]
-verify_jwt = true
-
-[functions.process-pdf-ocr]
-verify_jwt = true
-
 [functions.whatsapp-webhook]
 verify_jwt = false
 
