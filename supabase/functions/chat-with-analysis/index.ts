@@ -19,7 +19,7 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    // Get deal and analysis data for context
+    // Get deal data for context
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -30,15 +30,8 @@ serve(async (req) => {
       .eq("id", dealId)
       .single();
 
-    const { data: analysis } = await supabase
-      .from("analyses")
-      .select("*")
-      .eq("deal_id", dealId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    const memoText = analysis?.result?.full_text || "";
+    // Get memo from deal.memo_content instead of analyses table
+    const memoMarkdown = deal?.memo_content?.markdown || "";
     const deckOcr = deal?.deck_files?.[0]?.ocr_markdown || "";
     const companyName = deal?.company_name || deal?.startup_name || "l'entreprise";
 
@@ -47,7 +40,7 @@ serve(async (req) => {
 CONTEXTE DISPONIBLE:
 
 **Mémo d'investissement généré:**
-${memoText.substring(0, 15000)}
+${memoMarkdown.substring(0, 15000)}
 
 **Données extraites du deck (OCR):**
 ${deckOcr.substring(0, 10000)}

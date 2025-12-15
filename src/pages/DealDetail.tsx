@@ -4,34 +4,25 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { Download, Trash2, Loader2, AlertCircle, CheckCircle2, Clock, Search, Activity, TrendingUp, BarChart3, Zap } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
-import { fr } from "date-fns/locale";
+import { Download, Trash2, Loader2, AlertCircle, CheckCircle2, Clock, Activity, TrendingUp, BarChart3, RefreshCw } from "lucide-react";
 import { toast } from 'sonner';
-import { useStreamAnalysis } from '@/hooks/useStreamAnalysis';
 import { useAuth } from '@/contexts/AuthContext';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { InvestmentMemoDisplay } from "@/components/InvestmentMemoDisplay";
-import { useAnalysisRealtime } from '@/hooks/useAnalysisRealtime';
-import { DealAnalysisDashboard } from '@/components/DealAnalysisDashboard';
-import { AnalysisProgressBar } from '@/components/AnalysisProgressBar';
-import { AnalysisProgressSteps } from '@/components/AnalysisProgressSteps';
 import { DealChatDrawer } from '@/components/DealChatDrawer';
-interface AnalysisResult {
-  status?: string;
-  full_text?: string;
-  summary?: string;
-}
+
 interface DeckFile {
   storage_path: string;
   file_name: string;
 }
+
 interface Deal {
   id: string;
   startup_name: string;
   company_name?: string | null;
   sector: string;
   stage?: string | null;
+  status?: string | null;
   amount_raised_cents?: number | null;
   pre_money_valuation_cents?: number | null;
   current_arr_cents?: number | null;
@@ -39,116 +30,181 @@ interface Deal {
   mom_growth_percent?: number | null;
   solution_summary?: string | null;
   currency?: string;
+  memo_content?: { markdown?: string } | null;
+  error_message?: string | null;
+  analyzed_at?: string | null;
+  personal_notes?: string | null;
   deck_files?: DeckFile[];
 }
+
+const N8N_WEBHOOK_URL = 'https://n8n.alboteam.com/webhook/2551cfc4-1892-4926-9f17-746c9a51be71';
+
 export default function DealDetail() {
-  const {
-    id
-  } = useParams();
+  const { id } = useParams();
   const navigate = useNavigate();
-  const {
-    isAdmin
-  } = useAuth();
+  const { isAdmin } = useAuth();
   const [deal, setDeal] = useState<Deal | null>(null);
-  const [analysis, setAnalysis] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
-  const {
-    streamingText,
-    isStreaming,
-    error,
-    currentStatus,
-    startAnalysis,
-    reset
-  } = useStreamAnalysis();
-  const [showAIDetails, setShowAIDetails] = useState(false);
-  const realtimeAnalysis = useAnalysisRealtime(id || '');
+  const [retrying, setRetrying] = useState(false);
+
   useEffect(() => {
     if (!id) return;
+
     const load = async () => {
       try {
-        const {
-          data: dealData
-        } = await supabase.from('deals').select('*, deck_files(storage_path, file_name)').eq('id', id).single();
+        const { data: dealData } = await supabase
+          .from('deals')
+          .select('*, deck_files(storage_path, file_name)')
+          .eq('id', id)
+          .single();
+        
         setDeal(dealData as Deal);
-        const {
-          data: analysisData
-        } = await supabase.from('analyses').select('*').eq('deal_id', id).order('created_at', {
-          ascending: false
-        }).limit(1).maybeSingle();
-        setAnalysis(analysisData);
-
-        // Auto-start analysis if no analysis exists yet OR if pending/processing
-        if (dealData && (!analysisData || analysisData.status === 'pending' || analysisData.status === 'processing')) {
-          startAnalysis(id);
-        }
       } finally {
         setLoading(false);
       }
     };
+
     load();
 
-    // Subscribe to real-time updates on analyses
-    const analysisChannel = supabase.channel(`analysis-${id}`).on('postgres_changes', {
-      event: '*',
-      schema: 'public',
-      table: 'analyses',
-      filter: `deal_id=eq.${id}`
-    }, payload => {
-      console.log('Analysis update:', payload);
-      if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-        setAnalysis(payload.new as any);
-
-        // If analysis just completed, reset streaming
-        if (payload.new.status === 'completed') {
-          reset();
-        }
-      }
-    }).subscribe();
-
     // Subscribe to real-time updates on deals
-    const dealChannel = supabase.channel(`deal-${id}`).on('postgres_changes', {
-      event: 'UPDATE',
-      schema: 'public',
-      table: 'deals',
-      filter: `id=eq.${id}`
-    }, payload => {
-      console.log('Deal update:', payload);
-      if (payload.new) {
-        setDeal(prev => prev ? {
-          ...prev,
-          ...payload.new
-        } as Deal : null);
-      }
-    }).subscribe();
+    const dealChannel = supabase
+      .channel(`deal-${id}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'deals',
+        filter: `id=eq.${id}`
+      }, (payload) => {
+        console.log('Deal update:', payload);
+        if (payload.new) {
+          setDeal(prev => prev ? { ...prev, ...payload.new } as Deal : null);
+        }
+      })
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(analysisChannel);
       supabase.removeChannel(dealChannel);
     };
-  }, [id, startAnalysis, reset]);
+  }, [id]);
+
   const formatCurrency = (cents?: number | null, currency?: string) => {
     if (!cents) return '-';
     const millions = cents / 100 / 1000000;
     const symbol = currency === 'USD' ? '$' : '€';
     return `${symbol}${millions.toFixed(1)}M`;
   };
+
+  const handleRetryAnalysis = async () => {
+    if (!id || !deal) return;
+    
+    setRetrying(true);
+    
+    try {
+      // Reset status to pending
+      await supabase
+        .from('deals')
+        .update({
+          status: 'pending',
+          error_message: null,
+        })
+        .eq('id', id);
+
+      // Get the deck file to re-send
+      const { data: deckFile } = await supabase
+        .from('deck_files')
+        .select('storage_path, file_name')
+        .eq('deal_id', id)
+        .single();
+
+      if (!deckFile) {
+        throw new Error('Deck file not found');
+      }
+
+      // Download the file from storage
+      const { data: fileData, error: downloadError } = await supabase
+        .storage
+        .from('deck-files')
+        .download(deckFile.storage_path);
+
+      if (downloadError || !fileData) {
+        throw new Error('Failed to download deck file');
+      }
+
+      // Create a File object from the blob
+      const file = new File([fileData], deckFile.file_name, { type: 'application/pdf' });
+
+      // Send to N8N
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('deal_id', id);
+      formData.append('additional_context', deal.personal_notes || '');
+
+      const response = await fetch(N8N_WEBHOOK_URL, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`N8N analysis failed: ${response.status}`);
+      }
+
+      const n8nResponse = await response.json();
+
+      // Update deal with response
+      await supabase
+        .from('deals')
+        .update({
+          company_name: n8nResponse.company_name || deal.startup_name,
+          memo_content: { markdown: n8nResponse.memo_content },
+          status: 'completed',
+          analyzed_at: new Date().toISOString(),
+          error_message: null,
+        })
+        .eq('id', id);
+
+      toast.success('Analyse terminée avec succès');
+    } catch (error: any) {
+      console.error('Retry error:', error);
+      
+      await supabase
+        .from('deals')
+        .update({
+          status: 'error',
+          error_message: error.message || 'Unknown error',
+        })
+        .eq('id', id);
+
+      toast.error('L\'analyse a échoué. Veuillez réessayer.');
+    } finally {
+      setRetrying(false);
+    }
+  };
+
   if (loading) {
-    return <div className="flex items-center justify-center min-h-[400px]">
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-muted-foreground">Chargement...</div>
-      </div>;
+      </div>
+    );
   }
+
   if (!deal) {
-    return <div className="flex items-center justify-center min-h-[400px]">
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-muted-foreground">Deal non trouvé</div>
-      </div>;
+      </div>
+    );
   }
+
   const handleDownloadDeck = async () => {
     if (!deal?.deck_files?.[0]) return;
     try {
-      const {
-        data,
-        error
-      } = await supabase.storage.from('deck-files').createSignedUrl(deal.deck_files[0].storage_path, 60 * 60);
+      const { data, error } = await supabase
+        .storage
+        .from('deck-files')
+        .createSignedUrl(deal.deck_files[0].storage_path, 60 * 60);
+      
       if (error) throw error;
       if (data?.signedUrl) {
         window.open(data.signedUrl, '_blank', 'noopener');
@@ -158,26 +214,31 @@ export default function DealDetail() {
       toast.error('Échec du téléchargement du deck');
     }
   };
+
   const handleDeleteDeal = async () => {
     if (!id || !deal) return;
     setDeleting(true);
+
     try {
-      // Delete files from storage first
       if (deal.deck_files && deal.deck_files.length > 0) {
         const filePaths = deal.deck_files.map(f => f.storage_path);
-        const {
-          error: storageError
-        } = await supabase.storage.from('deck-files').remove(filePaths);
+        const { error: storageError } = await supabase
+          .storage
+          .from('deck-files')
+          .remove(filePaths);
+        
         if (storageError) {
           console.error('Error deleting files from storage:', storageError);
         }
       }
 
-      // Delete the deal (cascade will handle related records)
-      const {
-        error: deleteError
-      } = await supabase.from('deals').delete().eq('id', id);
+      const { error: deleteError } = await supabase
+        .from('deals')
+        .delete()
+        .eq('id', id);
+      
       if (deleteError) throw deleteError;
+
       toast.success('Deal supprimé avec succès');
       navigate('/dashboard');
     } catch (error: any) {
@@ -187,12 +248,13 @@ export default function DealDetail() {
       setDeleting(false);
     }
   };
-  const analysisStatus = analysis?.status || 'pending';
-  const isDealProcessing = (deal as any)?.status === 'processing';
-  const isProcessing = isDealProcessing || analysisStatus === 'processing' || isStreaming;
-  const isCompleted = analysisStatus === 'completed' && !isStreaming;
+
   const displayName = deal.company_name || deal.startup_name;
-  const displayText = isStreaming ? streamingText : analysis?.result?.full_text || '';
+  const status = deal.status || 'pending';
+  const isCompleted = status === 'completed';
+  const isPending = status === 'pending';
+  const isError = status === 'error';
+  const memoMarkdown = deal.memo_content?.markdown || '';
 
   return (
     <div className="space-y-6 max-w-full overflow-x-hidden">
@@ -203,37 +265,35 @@ export default function DealDetail() {
             {displayName}
           </h1>
           <div className="flex gap-2 flex-wrap">
-            <div>
-              <Badge className="hover:scale-110 transition-transform cursor-default">
-                {deal.sector}
-              </Badge>
-            </div>
+            <Badge className="hover:scale-110 transition-transform cursor-default">
+              {deal.sector}
+            </Badge>
 
             {deal.stage && (
-              <div>
-                <Badge variant="outline" className="hover:scale-110 transition-transform cursor-default">
-                  {deal.stage}
-                </Badge>
-              </div>
+              <Badge variant="outline" className="hover:scale-110 transition-transform cursor-default">
+                {deal.stage}
+              </Badge>
             )}
 
-            {isProcessing && (
-              <div>
-                <Badge className="bg-warning text-warning-foreground flex items-center gap-1.5">
-                  <Zap className="h-3 w-3" />
-                  <span>Analyse en cours</span>
-                  <span>...</span>
-                </Badge>
-              </div>
+            {isPending && (
+              <Badge className="bg-warning text-warning-foreground flex items-center gap-1.5">
+                <Clock className="h-3 w-3" />
+                <span>Analyse en cours...</span>
+              </Badge>
             )}
 
             {isCompleted && (
-              <div>
-                <Badge className="bg-success text-success-foreground flex items-center gap-2">
-                  <CheckCircle2 className="h-3 w-3" />
-                  Analysé
-                </Badge>
-              </div>
+              <Badge className="bg-success text-success-foreground flex items-center gap-2">
+                <CheckCircle2 className="h-3 w-3" />
+                Analysé
+              </Badge>
+            )}
+
+            {isError && (
+              <Badge className="bg-destructive text-destructive-foreground flex items-center gap-2">
+                <AlertCircle className="h-3 w-3" />
+                Erreur
+              </Badge>
             )}
           </div>
         </div>
@@ -265,8 +325,8 @@ export default function DealDetail() {
               <AlertDialogHeader>
                 <AlertDialogTitle>Êtes-vous sûr ?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Cette action est irréversible. Cela supprimera définitivement le deal,
-                  les analyses, les fichiers et toutes les données associées.
+                  Cette action est irréversible. Cela supprimera définitivement le deal
+                  et toutes les données associées.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -280,129 +340,113 @@ export default function DealDetail() {
         </div>
       </div>
 
-      {/* Analysis Progress Steps */}
-      {realtimeAnalysis && (realtimeAnalysis.status === 'processing' || realtimeAnalysis.status === 'queued') && (
-        <div>
-          <AnalysisProgressSteps analysis={realtimeAnalysis} />
-        </div>
-      )}
-
-      {/* Quick Context Dashboard - Appears at 40% progress */}
-      {realtimeAnalysis && realtimeAnalysis.progress_percent && realtimeAnalysis.progress_percent >= 40 && (
-        <div>
-          <DealAnalysisDashboard dealId={id || ''} />
-        </div>
-      )}
-
       {/* Deal Information Card */}
-      <div>
-        <Card className="p-6 hover:shadow-lg transition-shadow duration-300">
-          <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
-            <BarChart3 className="h-5 w-5 text-primary" />
-            Informations du Deal
-          </h2>
+      <Card className="p-6 hover:shadow-lg transition-shadow duration-300">
+        <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
+          <BarChart3 className="h-5 w-5 text-primary" />
+          Informations du Deal
+        </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div className="group">
-              <p className="text-sm text-muted-foreground mb-1 flex items-center gap-1">
-                <TrendingUp className="h-3 w-3" />
-                Montant levé
-              </p>
-              <p className="text-xl font-semibold group-hover:text-primary transition-colors">
-                {formatCurrency(deal.amount_raised_cents, deal.currency)}
-              </p>
-            </div>
-
-            <div className="group">
-              <p className="text-sm text-muted-foreground mb-1">Valorisation pré-money</p>
-              <p className="text-xl font-semibold group-hover:text-primary transition-colors">
-                {formatCurrency(deal.pre_money_valuation_cents, deal.currency)}
-              </p>
-            </div>
-
-            {deal.current_arr_cents !== undefined && deal.current_arr_cents !== null && (
-              <div className="group">
-                <p className="text-sm text-muted-foreground mb-1">CA / ARR actuel</p>
-                <p className="text-xl font-semibold group-hover:text-primary transition-colors">
-                  {formatCurrency(deal.current_arr_cents, deal.currency)}
-                </p>
-              </div>
-            )}
-
-            {deal.yoy_growth_percent !== undefined && deal.yoy_growth_percent !== null && (
-              <div className="group">
-                <p className="text-sm text-muted-foreground mb-1">Croissance YoY</p>
-                <p className="text-xl font-semibold text-green-600 hover:scale-105 transition-transform">
-                  +{deal.yoy_growth_percent.toFixed(1)}%
-                </p>
-              </div>
-            )}
-
-            {deal.mom_growth_percent !== undefined && deal.mom_growth_percent !== null && (
-              <div className="group">
-                <p className="text-sm text-muted-foreground mb-1">Croissance MoM</p>
-                <p className="text-xl font-semibold text-green-600 hover:scale-105 transition-transform">
-                  +{deal.mom_growth_percent.toFixed(1)}%
-                </p>
-              </div>
-            )}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="group">
+            <p className="text-sm text-muted-foreground mb-1 flex items-center gap-1">
+              <TrendingUp className="h-3 w-3" />
+              Montant levé
+            </p>
+            <p className="text-xl font-semibold group-hover:text-primary transition-colors">
+              {formatCurrency(deal.amount_raised_cents, deal.currency)}
+            </p>
           </div>
 
-          {deal.solution_summary && (
-            <div className="mt-6 pt-6 border-t">
-              <p className="text-sm text-muted-foreground mb-2">Résumé de la solution</p>
-              <p className="text-base leading-relaxed">{deal.solution_summary}</p>
+          <div className="group">
+            <p className="text-sm text-muted-foreground mb-1">Valorisation pré-money</p>
+            <p className="text-xl font-semibold group-hover:text-primary transition-colors">
+              {formatCurrency(deal.pre_money_valuation_cents, deal.currency)}
+            </p>
+          </div>
+
+          {deal.current_arr_cents !== undefined && deal.current_arr_cents !== null && (
+            <div className="group">
+              <p className="text-sm text-muted-foreground mb-1">CA / ARR actuel</p>
+              <p className="text-xl font-semibold group-hover:text-primary transition-colors">
+                {formatCurrency(deal.current_arr_cents, deal.currency)}
+              </p>
             </div>
           )}
-        </Card>
-      </div>
+
+          {deal.yoy_growth_percent !== undefined && deal.yoy_growth_percent !== null && (
+            <div className="group">
+              <p className="text-sm text-muted-foreground mb-1">Croissance YoY</p>
+              <p className="text-xl font-semibold text-green-600 hover:scale-105 transition-transform">
+                +{deal.yoy_growth_percent.toFixed(1)}%
+              </p>
+            </div>
+          )}
+
+          {deal.mom_growth_percent !== undefined && deal.mom_growth_percent !== null && (
+            <div className="group">
+              <p className="text-sm text-muted-foreground mb-1">Croissance MoM</p>
+              <p className="text-xl font-semibold text-green-600 hover:scale-105 transition-transform">
+                +{deal.mom_growth_percent.toFixed(1)}%
+              </p>
+            </div>
+          )}
+        </div>
+
+        {deal.solution_summary && (
+          <div className="mt-6 pt-6 border-t">
+            <p className="text-sm text-muted-foreground mb-2">Résumé de la solution</p>
+            <p className="text-base leading-relaxed">{deal.solution_summary}</p>
+          </div>
+        )}
+      </Card>
 
       {/* Error State */}
-      {error && (
-        <div>
-          <Card className="p-8 border-destructive bg-destructive/10 hover:shadow-xl transition-shadow">
-            <div className="flex flex-col items-center gap-4 text-center">
-              <AlertCircle className="h-12 w-12 text-destructive" />
-              <div>
-                <h3 className="text-xl font-semibold mb-2 text-destructive">
-                  Erreur lors de l'analyse
-                </h3>
+      {isError && (
+        <Card className="p-8 border-destructive bg-destructive/10 hover:shadow-xl transition-shadow">
+          <div className="flex flex-col items-center gap-4 text-center">
+            <AlertCircle className="h-12 w-12 text-destructive" />
+            <div>
+              <h3 className="text-xl font-semibold mb-2 text-destructive">
+                Erreur lors de l'analyse
+              </h3>
+              {deal.error_message && (
                 <p className="text-muted-foreground mb-4">
-                  {error}
+                  {deal.error_message}
                 </p>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Notre équipe technique a été automatiquement notifiée.
-                  Vous pouvez réessayer ou nous contacter si le problème persiste.
-                </p>
-                <Button
-                  onClick={() => {
-                    reset();
-                    if (id) startAnalysis(id);
-                  }}
-                  variant="outline"
-                  className="hover:scale-105 transition-transform"
-                >
-                  Réessayer l'analyse
-                </Button>
-              </div>
+              )}
+              <Button
+                onClick={handleRetryAnalysis}
+                disabled={retrying}
+                variant="outline"
+                className="hover:scale-105 transition-transform"
+              >
+                {retrying ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Analyse en cours...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Réessayer l'analyse
+                  </>
+                )}
+              </Button>
             </div>
-          </Card>
-        </div>
+          </div>
+        </Card>
       )}
 
-      {/* Loading State */}
-      {!error && (isDealProcessing || isStreaming) && !displayText && (
+      {/* Pending State */}
+      {isPending && (
         <Card className="p-12 text-center hover:shadow-xl transition-shadow">
           <div className="flex flex-col items-center gap-4">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
             <div>
               <h3 className="text-xl font-semibold mb-2">Analyse en cours</h3>
-              {currentStatus && <div className="flex items-center justify-center gap-2 mb-2">
-                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                  <span className="text-sm font-medium text-primary">{currentStatus}</span>
-                </div>}
               <p className="text-muted-foreground">
-                Notre IA analyse le deck en détail. Cela peut prendre quelques minutes...
+                Le deck est en cours d'analyse. Cela peut prendre quelques minutes...
               </p>
             </div>
           </div>
@@ -410,116 +454,39 @@ export default function DealDetail() {
       )}
 
       {/* Investment Memo Display */}
-      {(isStreaming || isCompleted) && displayText && (
+      {isCompleted && memoMarkdown && (
         <div className="max-w-4xl mx-auto">
           <article className="prose prose-lg dark:prose-invert max-w-none">
             <div className="flex items-center justify-between mb-6">
               <h1 className="scroll-m-20 text-4xl font-extrabold tracking-tight mb-0">
                 Mémo d'Investissement
               </h1>
-              {isStreaming && <Badge className="bg-primary animate-pulse flex items-center gap-2">
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                  Génération en cours...
-                </Badge>}
             </div>
-            {currentStatus && isStreaming && <p className="text-sm text-muted-foreground mb-6">{currentStatus}</p>}
 
             <InvestmentMemoDisplay
-              memoMarkdown={displayText}
+              memoMarkdown={memoMarkdown}
               dealData={{
                 companyName: deal?.company_name,
                 sector: deal?.sector,
                 arr: deal?.current_arr_cents,
                 yoyGrowth: deal?.yoy_growth_percent,
               }}
-              isStreaming={isStreaming}
+              isStreaming={false}
             />
           </article>
         </div>
       )}
 
-      {/* Admin AI Details */}
-      {isAdmin && (isStreaming || isCompleted) && analysis?.result && (
-        <div className="max-w-4xl mx-auto mt-12 pt-8 border-t">
-          <details open={showAIDetails} onToggle={(e) => setShowAIDetails((e.target as HTMLDetailsElement).open)}>
-            <summary className="cursor-pointer text-lg font-semibold mb-4 list-none flex items-center justify-between">
-              <span>Réflexion de l'IA</span>
-              <span className="text-sm text-muted-foreground">{showAIDetails ? 'Cliquer pour masquer' : 'Cliquer pour afficher'}</span>
-            </summary>
-
-            <div className="space-y-6 pt-4">
-              {/* Métadonnées */}
-              {analysis.result.metadata && <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {analysis.result.metadata.iterations && <div>
-                      <p className="text-sm text-muted-foreground">Itérations Claude</p>
-                      <p className="text-lg font-semibold">{analysis.result.metadata.iterations}</p>
-                    </div>}
-                  {analysis.result.metadata.total_tokens && <div>
-                      <p className="text-sm text-muted-foreground">Tokens utilisés</p>
-                      <p className="text-lg font-semibold">{analysis.result.metadata.total_tokens.toLocaleString()}</p>
-                    </div>}
-                  {analysis.result.metadata.linkup_searches_count !== undefined && <div>
-                      <p className="text-sm text-muted-foreground">Recherches Linkup</p>
-                      <p className="text-lg font-semibold">{analysis.result.metadata.linkup_searches_count}</p>
-                    </div>}
-                  {analysis.result.metadata.processing_time_ms && <div>
-                      <p className="text-sm text-muted-foreground">Temps de traitement</p>
-                      <p className="text-lg font-semibold">{(analysis.result.metadata.processing_time_ms / 1000).toFixed(1)}s</p>
-                    </div>}
-                </div>}
-
-              {/* Recherches Linkup */}
-              {analysis.result.linkup_searches && analysis.result.linkup_searches.length > 0 && <div>
-                  <h4 className="font-semibold mb-3 flex items-center gap-2">
-                    <Search className="h-4 w-4" />
-                    Recherches Web ({analysis.result.linkup_searches.length})
-                  </h4>
-                  <div className="space-y-3">
-                    {analysis.result.linkup_searches.map((search: any, idx: number) => <div key={idx} className="border-l-2 border-primary pl-4 py-2">
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="font-medium text-sm flex-1">{search.query}</p>
-                          <Badge variant="outline" className="text-xs shrink-0">{search.depth}</Badge>
-                        </div>
-                        {search.timestamp && <p className="text-xs text-muted-foreground mt-1">
-                            {formatDistanceToNow(new Date(search.timestamp), {
-                        addSuffix: true,
-                        locale: fr
-                      })}
-                          </p>}
-                      </div>)}
-                  </div>
-                </div>}
-
-              {/* Statut détaillé */}
-              {analysis.result.status && <div className="border-l-2 pl-4 py-2">
-                  <div className="flex items-center gap-2 mb-1">
-                    {analysis.result.status === 'completed' && <CheckCircle2 className="h-4 w-4 text-success" />}
-                    {analysis.result.status === 'processing' && <Clock className="h-4 w-4 text-warning" />}
-                    {analysis.result.status === 'error' && <AlertCircle className="h-4 w-4 text-destructive" />}
-                    <span className="font-medium capitalize">{analysis.result.status}</span>
-                  </div>
-                  {analysis.updated_at && <p className="text-xs text-muted-foreground">
-                      Mis à jour {formatDistanceToNow(new Date(analysis.updated_at), {
-                addSuffix: true,
-                locale: fr
-              })}
-                    </p>}
-                </div>}
-            </div>
-          </details>
-        </div>
-      )}
-
-      {/* No Analysis State */}
-      {!isProcessing && !isCompleted && (
+      {/* No Memo State */}
+      {isCompleted && !memoMarkdown && (
         <Card className="p-12 text-center">
           <div className="text-muted-foreground">
-            <p>L'analyse n'a pas encore démarré</p>
+            <p>Aucun mémo disponible pour ce deal</p>
           </div>
         </Card>
       )}
 
-      {/* Floating Chat Button - Always visible */}
+      {/* Floating Chat Button */}
       <DealChatDrawer dealId={id || ''} companyName={displayName} />
     </div>
   );
