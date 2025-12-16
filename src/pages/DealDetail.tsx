@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from "@/components/ui/button";
-import { Download, Trash2, Loader2 } from "lucide-react";
+import { Download, Trash2 } from "lucide-react";
 import { toast } from 'sonner';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-
+import AnalysisLoader from '@/components/AnalysisLoader';
 interface DeckFile {
   storage_path: string;
   file_name: string;
@@ -186,10 +186,7 @@ export default function DealDetail() {
           dangerouslySetInnerHTML={{ __html: deal.memo_html! }} 
         />
       ) : (
-        <div className="flex items-center justify-center p-12 bg-card rounded-lg border">
-          <Loader2 className="h-8 w-8 animate-spin mr-3 text-muted-foreground" />
-          <span className="text-muted-foreground">Analyse en cours...</span>
-        </div>
+        <AnalysisLoader />
       )}
     </div>
   );
