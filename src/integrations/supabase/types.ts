@@ -89,6 +89,7 @@ export type Database = {
           mom_growth_percent: number | null
           personal_notes: string | null
           pre_money_valuation_cents: number | null
+          recommandation: string | null
           sector: string
           solution_summary: string | null
           stage: string
@@ -119,6 +120,7 @@ export type Database = {
           mom_growth_percent?: number | null
           personal_notes?: string | null
           pre_money_valuation_cents?: number | null
+          recommandation?: string | null
           sector: string
           solution_summary?: string | null
           stage: string
@@ -149,6 +151,7 @@ export type Database = {
           mom_growth_percent?: number | null
           personal_notes?: string | null
           pre_money_valuation_cents?: number | null
+          recommandation?: string | null
           sector?: string
           solution_summary?: string | null
           stage?: string

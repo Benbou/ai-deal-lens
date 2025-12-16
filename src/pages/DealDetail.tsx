@@ -16,6 +16,14 @@ interface DeckFile {
   file_name: string;
 }
 
+interface MemoContent {
+  markdown?: string;
+  montant_leve?: string;
+  valorisation?: string;
+  arr?: string;
+  mrr?: string;
+}
+
 interface Deal {
   id: string;
   startup_name: string;
@@ -30,10 +38,11 @@ interface Deal {
   mom_growth_percent?: number | null;
   solution_summary?: string | null;
   currency?: string;
-  memo_content?: { markdown?: string } | null;
+  memo_content?: MemoContent | null;
   error_message?: string | null;
   analyzed_at?: string | null;
   personal_notes?: string | null;
+  recommandation?: string | null;
   deck_files?: DeckFile[];
 }
 
@@ -151,14 +160,23 @@ export default function DealDetail() {
 
       const n8nResponse = await response.json();
 
-      // Update deal with response
+      // Update deal with response - map all fields from webhook
       await supabase
         .from('deals')
         .update({
           company_name: n8nResponse.company_name || deal.startup_name,
-          memo_content: { markdown: n8nResponse.memo_content },
-          status: 'completed',
-          analyzed_at: new Date().toISOString(),
+          sector: n8nResponse.secteur || deal.sector,
+          solution_summary: n8nResponse.resume || null,
+          recommandation: n8nResponse.recommandation || null,
+          memo_content: { 
+            markdown: n8nResponse.memo_content,
+            montant_leve: n8nResponse.montant_leve,
+            valorisation: n8nResponse.valorisation,
+            arr: n8nResponse.arr,
+            mrr: n8nResponse.mrr,
+          },
+          status: n8nResponse.status || 'completed',
+          analyzed_at: n8nResponse.analyzed_at || new Date().toISOString(),
           error_message: null,
         })
         .eq('id', id);
@@ -269,9 +287,19 @@ export default function DealDetail() {
               {deal.sector}
             </Badge>
 
-            {deal.stage && (
-              <Badge variant="outline" className="hover:scale-110 transition-transform cursor-default">
-                {deal.stage}
+            {deal.recommandation && (
+              <Badge 
+                className={`hover:scale-110 transition-transform cursor-default ${
+                  deal.recommandation === 'GO' 
+                    ? 'bg-green-500 text-white' 
+                    : deal.recommandation === 'GO Conditionnel' 
+                    ? 'bg-orange-500 text-white' 
+                    : deal.recommandation === 'NO GO' 
+                    ? 'bg-red-500 text-white' 
+                    : 'bg-muted'
+                }`}
+              >
+                {deal.recommandation}
               </Badge>
             )}
 
@@ -282,7 +310,7 @@ export default function DealDetail() {
               </Badge>
             )}
 
-            {isCompleted && (
+            {isCompleted && !deal.recommandation && (
               <Badge className="bg-success text-success-foreground flex items-center gap-2">
                 <CheckCircle2 className="h-3 w-3" />
                 Analysé
@@ -347,47 +375,36 @@ export default function DealDetail() {
           Informations du Deal
         </h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <div className="group">
             <p className="text-sm text-muted-foreground mb-1 flex items-center gap-1">
               <TrendingUp className="h-3 w-3" />
               Montant levé
             </p>
             <p className="text-xl font-semibold group-hover:text-primary transition-colors">
-              {formatCurrency(deal.amount_raised_cents, deal.currency)}
+              {deal.memo_content?.montant_leve || formatCurrency(deal.amount_raised_cents, deal.currency)}
             </p>
           </div>
 
           <div className="group">
             <p className="text-sm text-muted-foreground mb-1">Valorisation pré-money</p>
             <p className="text-xl font-semibold group-hover:text-primary transition-colors">
-              {formatCurrency(deal.pre_money_valuation_cents, deal.currency)}
+              {deal.memo_content?.valorisation || formatCurrency(deal.pre_money_valuation_cents, deal.currency)}
             </p>
           </div>
 
-          {deal.current_arr_cents !== undefined && deal.current_arr_cents !== null && (
+          <div className="group">
+            <p className="text-sm text-muted-foreground mb-1">ARR</p>
+            <p className="text-xl font-semibold group-hover:text-primary transition-colors">
+              {deal.memo_content?.arr || formatCurrency(deal.current_arr_cents, deal.currency)}
+            </p>
+          </div>
+
+          {deal.memo_content?.mrr && (
             <div className="group">
-              <p className="text-sm text-muted-foreground mb-1">CA / ARR actuel</p>
+              <p className="text-sm text-muted-foreground mb-1">MRR</p>
               <p className="text-xl font-semibold group-hover:text-primary transition-colors">
-                {formatCurrency(deal.current_arr_cents, deal.currency)}
-              </p>
-            </div>
-          )}
-
-          {deal.yoy_growth_percent !== undefined && deal.yoy_growth_percent !== null && (
-            <div className="group">
-              <p className="text-sm text-muted-foreground mb-1">Croissance YoY</p>
-              <p className="text-xl font-semibold text-green-600 hover:scale-105 transition-transform">
-                +{deal.yoy_growth_percent.toFixed(1)}%
-              </p>
-            </div>
-          )}
-
-          {deal.mom_growth_percent !== undefined && deal.mom_growth_percent !== null && (
-            <div className="group">
-              <p className="text-sm text-muted-foreground mb-1">Croissance MoM</p>
-              <p className="text-xl font-semibold text-green-600 hover:scale-105 transition-transform">
-                +{deal.mom_growth_percent.toFixed(1)}%
+                {deal.memo_content.mrr}
               </p>
             </div>
           )}
@@ -395,7 +412,7 @@ export default function DealDetail() {
 
         {deal.solution_summary && (
           <div className="mt-6 pt-6 border-t">
-            <p className="text-sm text-muted-foreground mb-2">Résumé de la solution</p>
+            <p className="text-sm text-muted-foreground mb-2">Résumé</p>
             <p className="text-base leading-relaxed">{deal.solution_summary}</p>
           </div>
         )}

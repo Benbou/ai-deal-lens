@@ -142,14 +142,23 @@ export default function SubmitDeal() {
       setUploadProgress(90);
       setStatusMessage('Mise à jour du deal...');
 
-      // Update deal with N8N response
+      // Update deal with N8N response - map all fields from webhook
       const { error: updateError } = await supabase
         .from('deals')
         .update({
           company_name: n8nResponse.company_name || deal.startup_name,
-          memo_content: { markdown: n8nResponse.memo_content },
-          status: 'completed',
-          analyzed_at: new Date().toISOString(),
+          sector: n8nResponse.secteur || 'Non défini',
+          solution_summary: n8nResponse.resume || null,
+          recommandation: n8nResponse.recommandation || null,
+          memo_content: { 
+            markdown: n8nResponse.memo_content,
+            montant_leve: n8nResponse.montant_leve,
+            valorisation: n8nResponse.valorisation,
+            arr: n8nResponse.arr,
+            mrr: n8nResponse.mrr,
+          },
+          status: n8nResponse.status || 'completed',
+          analyzed_at: n8nResponse.analyzed_at || new Date().toISOString(),
         })
         .eq('id', deal.id);
 
