@@ -23,22 +23,38 @@ import {
 } from "@/components/ui/alert-dialog";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 
+interface MemoContent {
+  markdown?: string;
+  montant_leve?: string;
+  valorisation?: string;
+  arr?: string;
+  mrr?: string;
+}
+
 export interface Deal {
   id: string;
   startup_name: string;
-  company_name?: string;
+  company_name?: string | null;
   sector: string;
-  stage?: string;
-  amount_raised_cents?: number;
-  pre_money_valuation_cents?: number;
-  current_arr_cents?: number;
-  yoy_growth_percent?: number;
-  mom_growth_percent?: number;
-  status: string;
-  solution_summary?: string;
+  stage?: string | null;
+  amount_raised_cents?: number | null;
+  pre_money_valuation_cents?: number | null;
+  current_arr_cents?: number | null;
+  yoy_growth_percent?: number | null;
+  mom_growth_percent?: number | null;
+  status: string | null;
+  solution_summary?: string | null;
+  recommandation?: string | null;
+  memo_content?: MemoContent | Record<string, unknown> | null;
   deck_files?: { storage_path: string; file_name: string }[];
   analyses?: { status: string }[];
 }
+
+// Helper to safely get memo content values
+const getMemoValue = (deal: Deal, key: keyof MemoContent): string | undefined => {
+  if (!deal.memo_content || typeof deal.memo_content !== 'object') return undefined;
+  return (deal.memo_content as MemoContent)[key];
+};
 
 const formatCurrency = (cents?: number) => {
   if (!cents) return "-";
@@ -125,42 +141,39 @@ export const createColumns = (
     },
   },
   {
-    accessorKey: "amount_raised_cents",
+    id: "montant_leve",
+    accessorFn: (row) => getMemoValue(row, 'montant_leve') || row.amount_raised_cents,
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Levé" />
+      <DataTableColumnHeader column={column} title="Levée" />
     ),
     cell: ({ row }) => {
-      return (
-        <div className="font-medium">
-          {formatCurrency(row.getValue("amount_raised_cents"))}
-        </div>
-      );
+      const deal = row.original;
+      const value = getMemoValue(deal, 'montant_leve') || formatCurrency(deal.amount_raised_cents ?? undefined);
+      return <div className="font-medium">{value}</div>;
     },
   },
   {
-    accessorKey: "pre_money_valuation_cents",
+    id: "valorisation",
+    accessorFn: (row) => getMemoValue(row, 'valorisation') || row.pre_money_valuation_cents,
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Valorisation" />
     ),
     cell: ({ row }) => {
-      return (
-        <div className="font-medium">
-          {formatCurrency(row.getValue("pre_money_valuation_cents"))}
-        </div>
-      );
+      const deal = row.original;
+      const value = getMemoValue(deal, 'valorisation') || formatCurrency(deal.pre_money_valuation_cents ?? undefined);
+      return <div className="font-medium">{value}</div>;
     },
   },
   {
-    accessorKey: "current_arr_cents",
+    id: "arr",
+    accessorFn: (row) => getMemoValue(row, 'arr') || row.current_arr_cents,
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="ARR" />
     ),
     cell: ({ row }) => {
-      return (
-        <div className="font-medium">
-          {formatCurrency(row.getValue("current_arr_cents"))}
-        </div>
-      );
+      const deal = row.original;
+      const value = getMemoValue(deal, 'arr') || formatCurrency(deal.current_arr_cents ?? undefined);
+      return <div className="font-medium">{value}</div>;
     },
   },
   {
@@ -192,52 +205,71 @@ export const createColumns = (
     },
   },
   {
-    accessorKey: "status",
+    accessorKey: "recommandation",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Status" />
+      <DataTableColumnHeader column={column} title="Recommandation" />
     ),
     cell: ({ row }) => {
-      const status = row.getValue("status") as string;
+      const deal = row.original;
+      const recommandation = deal.recommandation;
+      const status = deal.status;
       
-      const statusConfig = {
-        pending: { 
-          label: "En attente", 
-          variant: "outline" as const,
-          icon: Clock,
-          className: "whitespace-nowrap bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900 dark:text-blue-200"
+      // If no recommandation, show status
+      if (!recommandation) {
+        const statusConfig = {
+          pending: { 
+            label: "En analyse", 
+            icon: Loader,
+            className: "whitespace-nowrap animate-pulse bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
+          },
+          error: { 
+            label: "Erreur", 
+            icon: AlertCircle,
+            className: "whitespace-nowrap bg-red-50 text-red-700 border-red-200 dark:bg-red-900 dark:text-red-200"
+          },
+          completed: { 
+            label: "Analysé", 
+            icon: CheckCircle,
+            className: "whitespace-nowrap bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+          },
+        };
+        
+        const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;
+        const Icon = config.icon;
+        
+        return (
+          <Badge variant="outline" className={config.className}>
+            <Icon className="mr-1 h-3 w-3" />
+            {config.label}
+          </Badge>
+        );
+      }
+      
+      // Show recommandation badge
+      const recommandationConfig: Record<string, { className: string }> = {
+        'GO': { 
+          className: "whitespace-nowrap bg-green-500 text-white hover:bg-green-600"
         },
-        processing: { 
-          label: "En cours", 
-          variant: "default" as const,
-          icon: Loader,
-          className: "whitespace-nowrap animate-pulse bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200"
+        'GO Conditionnel': { 
+          className: "whitespace-nowrap bg-orange-500 text-white hover:bg-orange-600"
         },
-        completed: { 
-          label: "Analysé", 
-          variant: "outline" as const,
-          icon: CheckCircle,
-          className: "whitespace-nowrap bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-        },
-        failed: { 
-          label: "Échoué", 
-          variant: "outline" as const,
-          icon: AlertCircle,
-          className: "whitespace-nowrap bg-red-50 text-red-700 border-red-200 dark:bg-red-900 dark:text-red-200"
+        'NO GO': { 
+          className: "whitespace-nowrap bg-red-500 text-white hover:bg-red-600"
         },
       };
       
-      const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;
-      const Icon = config.icon;
+      const config = recommandationConfig[recommandation] || { className: "whitespace-nowrap bg-muted" };
       
       return (
-        <Badge variant={config.variant} className={config.className}>
-          <Icon className="mr-1 h-3 w-3" />
-          {config.label}
+        <Badge className={config.className}>
+          {recommandation}
         </Badge>
       );
     },
     filterFn: (row, id, value) => {
-      return value.includes(row.getValue(id));
+      const deal = row.original;
+      const recommandation = deal.recommandation || deal.status;
+      return value.includes(recommandation);
     },
   },
   {

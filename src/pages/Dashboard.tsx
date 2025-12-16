@@ -52,7 +52,7 @@ export default function Dashboard() {
 
       if (error) throw error;
 
-      setDeals(data || []);
+      setDeals((data || []) as Deal[]);
     } catch (error: any) {
       console.error('Error loading deals:', error);
       toast.error('Échec du chargement des deals');
