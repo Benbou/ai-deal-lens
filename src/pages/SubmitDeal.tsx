@@ -6,10 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Upload, FileType, Loader2 } from 'lucide-react';
+import { Upload, FileType, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
+import AnalysisLoader from '@/components/AnalysisLoader';
 
 const dealSubmissionSchema = z.object({
   additionalContext: z.string().max(5000, 'Additional context must be less than 5000 characters').optional()
@@ -21,12 +22,11 @@ export default function SubmitDeal() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const [loading, setLoading] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [hasError, setHasError] = useState(false);
   const [deckFile, setDeckFile] = useState<File | null>(null);
   const [additionalContext, setAdditionalContext] = useState('');
-  const [statusMessage, setStatusMessage] = useState('');
+  const [createdDealId, setCreatedDealId] = useState<string | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -80,8 +80,8 @@ export default function SubmitDeal() {
       return;
     }
 
-    setLoading(true);
-    setUploading(true);
+    setIsAnalyzing(true);
+    setHasError(false);
 
     let dealId: string | null = null;
 
@@ -94,15 +94,12 @@ export default function SubmitDeal() {
         .replace(/_{2,}/g, '_');
       
       const fileName = `${user?.id}/${Date.now()}_${sanitizedFileName}`;
-      setUploadProgress(10);
-      setStatusMessage('Upload du fichier...');
 
       const { error: uploadError } = await supabase.storage
         .from('deck-files')
         .upload(fileName, deckFile);
 
       if (uploadError) throw uploadError;
-      setUploadProgress(30);
 
       const personalNotes = additionalContext || 'No additional context';
 
@@ -123,7 +120,7 @@ export default function SubmitDeal() {
 
       if (dealError) throw dealError;
       dealId = deal.id;
-      setUploadProgress(40);
+      setCreatedDealId(deal.id);
 
       await supabase.from('deck_files').insert({
         deal_id: deal.id,
@@ -133,14 +130,8 @@ export default function SubmitDeal() {
         mime_type: deckFile.type,
       });
 
-      setUploadProgress(50);
-      setStatusMessage('Analyse en cours via N8N...');
-
       // Send to N8N webhook and wait for response
       const n8nResponse = await sendToN8N(deal.id, deckFile, additionalContext);
-      
-      setUploadProgress(90);
-      setStatusMessage('Mise à jour du deal...');
 
       // Update deal with N8N response - simplified mapping
       const { error: updateError } = await supabase
@@ -154,7 +145,6 @@ export default function SubmitDeal() {
 
       if (updateError) throw updateError;
 
-      setUploadProgress(100);
       toast.success(t('submit.success.title'));
       
       // Redirect to deal detail page
@@ -162,6 +152,7 @@ export default function SubmitDeal() {
 
     } catch (error: any) {
       console.error('Error:', error);
+      setHasError(true);
       
       // If deal was created, update it with error status
       if (dealId) {
@@ -173,27 +164,56 @@ export default function SubmitDeal() {
           })
           .eq('id', dealId);
       }
-
-      const userMessage = error.code === 'PGRST116' 
-        ? 'Deal not found'
-        : error.message?.includes('policy')
-        ? 'Access denied'
-        : error.message?.includes('N8N')
-        ? 'Échec de l\'analyse. Vous pouvez réessayer depuis la page du deal.'
-        : t('submit.errors.failed');
-      toast.error(userMessage);
-
-      // If deal was created, redirect to it so user can retry
-      if (dealId) {
-        navigate(`/deal/${dealId}`);
-      }
-    } finally {
-      setLoading(false);
-      setUploading(false);
-      setUploadProgress(0);
-      setStatusMessage('');
     }
   };
+
+  const handleRetry = () => {
+    setHasError(false);
+    setIsAnalyzing(false);
+    setCreatedDealId(null);
+  };
+
+  const handleViewDeal = () => {
+    if (createdDealId) {
+      navigate(`/deal/${createdDealId}`);
+    }
+  };
+
+  // Show analysis loader while analyzing
+  if (isAnalyzing && !hasError) {
+    return (
+      <div className="container mx-auto px-4 py-8 max-w-2xl">
+        <AnalysisLoader />
+      </div>
+    );
+  }
+
+  // Show error state
+  if (hasError) {
+    return (
+      <div className="container mx-auto px-4 py-8 max-w-2xl">
+        <div className="flex flex-col items-center justify-center p-10 space-y-6 bg-card rounded-xl shadow-sm border border-border">
+          <AlertCircle className="h-16 w-16 text-destructive" />
+          <div className="text-center space-y-2">
+            <h2 className="text-2xl font-bold text-foreground">Erreur dans l'analyse</h2>
+            <p className="text-muted-foreground">
+              Une erreur s'est produite lors de l'analyse du deck. Veuillez réessayer.
+            </p>
+          </div>
+          <div className="flex gap-4">
+            <Button variant="outline" onClick={handleRetry}>
+              Réessayer
+            </Button>
+            {createdDealId && (
+              <Button onClick={handleViewDeal}>
+                Voir le deal
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-2xl">
@@ -235,20 +255,6 @@ export default function SubmitDeal() {
                 )}
               </label>
             </div>
-
-            {uploading && (
-              <div className="mt-4">
-                <div className="h-2 bg-muted rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-primary transition-all duration-300"
-                    style={{ width: `${uploadProgress}%` }}
-                  />
-                </div>
-                <p className="text-sm text-center mt-2 text-muted-foreground">
-                  {statusMessage || `${uploadProgress}%`}
-                </p>
-              </div>
-            )}
           </CardContent>
         </Card>
 
@@ -272,15 +278,8 @@ export default function SubmitDeal() {
           </CardContent>
         </Card>
 
-        <Button type="submit" disabled={loading || !deckFile} className="w-full" size="lg">
-          {loading ? (
-            <>
-              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-              {statusMessage || t('submit.form.submitting')}
-            </>
-          ) : (
-            t('submit.form.submit')
-          )}
+        <Button type="submit" disabled={!deckFile} className="w-full" size="lg">
+          {t('submit.form.submit')}
         </Button>
       </form>
     </div>
