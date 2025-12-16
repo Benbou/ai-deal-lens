@@ -86,6 +86,7 @@ export type Database = {
           is_archived: boolean | null
           is_invested: boolean | null
           memo_content: Json | null
+          memo_html: string | null
           mom_growth_percent: number | null
           personal_notes: string | null
           pre_money_valuation_cents: number | null
@@ -117,6 +118,7 @@ export type Database = {
           is_archived?: boolean | null
           is_invested?: boolean | null
           memo_content?: Json | null
+          memo_html?: string | null
           mom_growth_percent?: number | null
           personal_notes?: string | null
           pre_money_valuation_cents?: number | null
@@ -148,6 +150,7 @@ export type Database = {
           is_archived?: boolean | null
           is_invested?: boolean | null
           memo_content?: Json | null
+          memo_html?: string | null
           mom_growth_percent?: number | null
           personal_notes?: string | null
           pre_money_valuation_cents?: number | null
