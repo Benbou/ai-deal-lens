@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Plus, TrendingUp, BarChart3, Building2 } from 'lucide-react';
+import { Plus, BarChart3 } from 'lucide-react';
 import { toast } from 'sonner';
 import { DataTable } from '@/components/ui/data-table';
 import { Deal, createColumns } from './Dashboard/columns';
@@ -28,7 +28,6 @@ export default function Dashboard() {
         },
         (payload) => {
           console.log('Deal updated:', payload);
-          // Update the specific deal in state
           setDeals(prev => 
             prev.map(deal => 
               deal.id === payload.new.id ? { ...deal, ...payload.new } as Deal : deal
@@ -47,7 +46,7 @@ export default function Dashboard() {
     try {
       const { data, error } = await supabase
         .from('deals')
-        .select('*, deck_files(storage_path, file_name), analyses(status)')
+        .select('id, startup_name, company_name, sector, status, memo_html, deck_files(storage_path, file_name)')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -83,7 +82,6 @@ export default function Dashboard() {
   const handleDeleteDeal = async (dealId: string, deal: Deal) => {
     setDeleting(dealId);
     try {
-      // Delete files from storage first
       if (deal.deck_files && deal.deck_files.length > 0) {
         const filePaths = deal.deck_files.map(f => f.storage_path);
         const { error: storageError } = await supabase.storage
@@ -95,7 +93,6 @@ export default function Dashboard() {
         }
       }
 
-      // Delete the deal (cascade will handle related records)
       const { error: deleteError } = await supabase
         .from('deals')
         .delete()
@@ -104,8 +101,6 @@ export default function Dashboard() {
       if (deleteError) throw deleteError;
 
       toast.success('Deal supprimé avec succès');
-      
-      // Reload deals
       await loadDeals();
     } catch (error: any) {
       console.error('Error deleting deal:', error);
@@ -125,22 +120,9 @@ export default function Dashboard() {
     [navigate, deleting]
   );
 
-  // Extract unique sectors and stages for filters
-  const sectors = useMemo(() => {
-    const uniqueSectors = Array.from(new Set(deals.map(d => d.sector).filter(Boolean)));
-    return uniqueSectors.map(sector => ({
-      label: sector,
-      value: sector,
-      icon: Building2,
-    }));
-  }, [deals]);
-
-
   const statuses = [
-    { label: "En attente", value: "pending", icon: BarChart3 },
-    { label: "En cours", value: "processing", icon: BarChart3 },
+    { label: "En cours", value: "pending", icon: BarChart3 },
     { label: "Analysé", value: "completed", icon: BarChart3 },
-    { label: "Échoué", value: "failed", icon: BarChart3 },
   ];
 
   if (loading) {
@@ -170,11 +152,6 @@ export default function Dashboard() {
         searchKey="company_name"
         searchPlaceholder="Rechercher une entreprise..."
         facetedFilters={[
-          {
-            column: "sector",
-            title: "Secteur",
-            options: sectors,
-          },
           {
             column: "status",
             title: "Status",
