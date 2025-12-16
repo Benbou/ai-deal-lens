@@ -3,5 +3,8 @@ project_id = "lnybmpzrrpxzwkqsiaic"
 [functions.whatsapp-webhook]
 verify_jwt = false
 
+[functions.webhook-deal]
+verify_jwt = false
+
 [functions.chat-with-analysis]
 verify_jwt = true

@@ -1,20 +1,43 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import logo from '@/assets/logo.svg';
 
 export default function Auth() {
   const { signIn, signUp, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetSent, setResetSent] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
 
   const [signInData, setSignInData] = useState({ email: '', password: '' });
   const [signUpData, setSignUpData] = useState({ name: '', email: '', password: '' });
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetLoading(true);
+    
+    const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    
+    if (error) {
+      toast.error('Une erreur est survenue. Vérifiez votre email.');
+    } else {
+      setResetSent(true);
+    }
+    
+    setResetLoading(false);
+  };
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,6 +58,80 @@ export default function Auth() {
       setLoading(false);
     }
   };
+
+  // Reset password form
+  if (showResetPassword) {
+    if (resetSent) {
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center p-4">
+          <Card className="w-full max-w-md shadow-elegant text-center">
+            <CardContent className="pt-6">
+              <div className="text-6xl mb-4">📧</div>
+              <h2 className="text-xl font-bold mb-2">Email envoyé !</h2>
+              <p className="text-muted-foreground mb-4">
+                Si un compte existe avec l'adresse <strong>{resetEmail}</strong>, 
+                vous recevrez un lien pour réinitialiser votre mot de passe.
+              </p>
+              <Button variant="outline" onClick={() => {
+                setShowResetPassword(false);
+                setResetSent(false);
+                setResetEmail('');
+              }}>
+                Retour à la connexion
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-8">
+            <div className="flex items-center justify-center mb-4">
+              <img src={logo} alt="albo" className="h-10" />
+            </div>
+          </div>
+          <Card className="shadow-elegant">
+            <CardHeader>
+              <CardTitle>Réinitialiser le mot de passe</CardTitle>
+              <CardDescription>
+                Entrez votre adresse email et nous vous enverrons un lien pour réinitialiser votre mot de passe.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleResetPassword} className="space-y-4">
+                <div>
+                  <Label htmlFor="reset-email">Email</Label>
+                  <Input
+                    id="reset-email"
+                    type="email"
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    placeholder="votre@email.com"
+                    required
+                    className="mt-2"
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={resetLoading || !resetEmail}>
+                  {resetLoading ? 'Envoi en cours...' : 'Envoyer le lien'}
+                </Button>
+                <Button 
+                  type="button"
+                  variant="outline" 
+                  className="w-full" 
+                  onClick={() => setShowResetPassword(false)}
+                >
+                  Retour
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center p-4">
@@ -125,8 +222,17 @@ export default function Auth() {
                     />
                   </div>
                   <Button type="submit" className="w-full" disabled={loading}>
-                    {loading ? 'Signing in...' : 'Sign In'}
+                    {loading ? 'Connexion...' : 'Se connecter'}
                   </Button>
+                  <div className="text-center mt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowResetPassword(true)}
+                      className="text-sm text-muted-foreground hover:text-primary underline"
+                    >
+                      Mot de passe oublié ?
+                    </button>
+                  </div>
                 </form>
               </TabsContent>
 
