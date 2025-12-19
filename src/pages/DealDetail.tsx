@@ -17,8 +17,22 @@ interface Deal {
   company_name?: string | null;
   status?: string | null;
   memo_html?: string | null;
+  sent_at?: string | null;
   deck_files?: DeckFile[];
 }
+
+// Format date for display
+const formatDate = (dateString: string | null | undefined) => {
+  if (!dateString) return null;
+  const date = new Date(dateString);
+  return date.toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  }).replace(' ', ' à ');
+};
 
 export default function DealDetail() {
   const { id } = useParams();
@@ -34,7 +48,7 @@ export default function DealDetail() {
       try {
         const { data: dealData } = await supabase
           .from('deals')
-          .select('id, startup_name, company_name, status, memo_html, deck_files(storage_path, file_name)')
+          .select('id, startup_name, company_name, status, memo_html, sent_at, deck_files(storage_path, file_name)')
           .eq('id', id)
           .single();
         
@@ -143,8 +157,15 @@ export default function DealDetail() {
   return (
     <div className="space-y-6 max-w-full overflow-x-hidden">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">{displayName}</h1>
+      <div className="flex justify-between items-start">
+        <div>
+          <h1 className="text-2xl font-bold">{displayName}</h1>
+          {deal.sent_at && (
+            <p className="text-sm text-muted-foreground mt-1">
+              Reçu le {formatDate(deal.sent_at)}
+            </p>
+          )}
+        </div>
         <div className="flex gap-2">
           {deal.deck_files?.[0] && (
             <Button onClick={handleDownloadDeck} variant="outline">

@@ -102,6 +102,7 @@ export default function SubmitDeal() {
       if (uploadError) throw uploadError;
 
       const personalNotes = additionalContext || 'No additional context';
+      const now = new Date().toISOString();
 
       // Create deal with pending status
       const { data: deal, error: dealError } = await supabase
@@ -114,6 +115,7 @@ export default function SubmitDeal() {
           country: 'To be determined',
           personal_notes: personalNotes,
           status: 'pending',
+          sent_at: now,
         })
         .select()
         .single();
@@ -170,7 +172,22 @@ export default function SubmitDeal() {
   const handleRetry = () => {
     setHasError(false);
     setIsAnalyzing(false);
-    setCreatedDealId(null);
+    // Note: deckFile and additionalContext are preserved
+  };
+
+  const handleCancelAnalysis = async () => {
+    // Update the deal status to cancelled if we have a deal ID
+    if (createdDealId) {
+      await supabase
+        .from('deals')
+        .update({ status: 'cancelled' })
+        .eq('id', createdDealId);
+    }
+    
+    // Return to upload screen, preserving the file and context
+    setIsAnalyzing(false);
+    setHasError(false);
+    // Note: deckFile and additionalContext are NOT reset
   };
 
   const handleViewDeal = () => {
@@ -184,6 +201,15 @@ export default function SubmitDeal() {
     return (
       <div className="container mx-auto px-4 py-8 max-w-2xl">
         <AnalysisLoader />
+        <div className="flex justify-center mt-6">
+          <Button 
+            variant="outline" 
+            onClick={handleCancelAnalysis}
+            className="text-muted-foreground hover:text-destructive hover:border-destructive transition-colors"
+          >
+            Annuler l'analyse
+          </Button>
+        </div>
       </div>
     );
   }

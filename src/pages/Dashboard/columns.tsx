@@ -30,8 +30,22 @@ export interface Deal {
   stage?: string | null;
   status: string | null;
   memo_html?: string | null;
+  sent_at?: string | null;
   deck_files?: { storage_path: string; file_name: string }[];
 }
+
+// Format date for display
+const formatDate = (dateString: string | null | undefined) => {
+  if (!dateString) return '-';
+  const date = new Date(dateString);
+  return date.toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  }).replace(' ', ' à ');
+};
 
 export const createColumns = (
   onView: (id: string) => void,
@@ -91,6 +105,20 @@ export const createColumns = (
     },
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id));
+    },
+  },
+  {
+    accessorKey: "sent_at",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Date" />
+    ),
+    cell: ({ row }) => {
+      const sentAt = row.getValue("sent_at") as string | null;
+      return (
+        <span className="text-muted-foreground text-sm whitespace-nowrap">
+          {formatDate(sentAt)}
+        </span>
+      );
     },
   },
   {

@@ -92,6 +92,7 @@ export type Database = {
           pre_money_valuation_cents: number | null
           recommandation: string | null
           sector: string
+          sent_at: string | null
           solution_summary: string | null
           stage: string
           startup_name: string
@@ -124,6 +125,7 @@ export type Database = {
           pre_money_valuation_cents?: number | null
           recommandation?: string | null
           sector: string
+          sent_at?: string | null
           solution_summary?: string | null
           stage: string
           startup_name: string
@@ -156,6 +158,7 @@ export type Database = {
           pre_money_valuation_cents?: number | null
           recommandation?: string | null
           sector?: string
+          sent_at?: string | null
           solution_summary?: string | null
           stage?: string
           startup_name?: string
