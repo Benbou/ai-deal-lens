@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Upload, FileType, AlertCircle } from 'lucide-react';
+import { Upload, FileType, AlertCircle, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
@@ -27,6 +27,7 @@ export default function SubmitDeal() {
   const [deckFile, setDeckFile] = useState<File | null>(null);
   const [additionalContext, setAdditionalContext] = useState('');
   const [createdDealId, setCreatedDealId] = useState<string | null>(null);
+  const [analysisId, setAnalysisId] = useState<string | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -43,11 +44,12 @@ export default function SubmitDeal() {
     }
   };
 
-  const sendToN8N = async (dealId: string, file: File, additionalContext: string) => {
+  const sendToN8N = async (dealId: string, file: File, additionalContext: string, analysisRequestId: string) => {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('deal_id', dealId);
     formData.append('additional_context', additionalContext || '');
+    formData.append('analysis_id', analysisRequestId); // Pour que N8N puisse vérifier le statut
 
     const response = await fetch(N8N_WEBHOOK_URL, {
       method: 'POST',
@@ -84,8 +86,29 @@ export default function SubmitDeal() {
     setHasError(false);
 
     let dealId: string | null = null;
+    let currentAnalysisId: string | null = null;
 
     try {
+      // ÉTAPE 1: Créer l'enregistrement analysis_requests AVANT tout
+      const { data: analysisRecord, error: analysisInsertError } = await supabase
+        .from('analysis_requests')
+        .insert({
+          status: 'running',
+          company_name: deckFile.name.replace('.pdf', ''),
+          deck_filename: deckFile.name
+        })
+        .select('id')
+        .single();
+
+      if (analysisInsertError) {
+        console.error('Erreur création analysis_request:', analysisInsertError);
+        throw new Error('Impossible de démarrer l\'analyse');
+      }
+
+      currentAnalysisId = analysisRecord.id;
+      setAnalysisId(currentAnalysisId);
+      console.log('Analysis request created with ID:', currentAnalysisId);
+
       // Sanitize filename
       const sanitizedFileName = deckFile.name
         .normalize('NFD')
@@ -132,8 +155,17 @@ export default function SubmitDeal() {
         mime_type: deckFile.type,
       });
 
-      // Send to N8N webhook and wait for response
-      const n8nResponse = await sendToN8N(deal.id, deckFile, additionalContext);
+      // Send to N8N webhook with analysis_id
+      const n8nResponse = await sendToN8N(deal.id, deckFile, additionalContext, currentAnalysisId);
+      
+      // Vérifier si l'analyse a été annulée
+      if (n8nResponse?.cancelled === true) {
+        console.log('Analysis was cancelled by N8N');
+        toast.info('L\'analyse a été annulée');
+        setAnalysisId(null);
+        setIsAnalyzing(false);
+        return;
+      }
 
       // Update deal with N8N response - simplified mapping
       const { error: updateError } = await supabase
@@ -147,7 +179,16 @@ export default function SubmitDeal() {
 
       if (updateError) throw updateError;
 
+      // Marquer l'analyse comme completed dans analysis_requests
+      if (currentAnalysisId) {
+        await supabase
+          .from('analysis_requests')
+          .update({ status: 'completed' })
+          .eq('id', currentAnalysisId);
+      }
+
       toast.success(t('submit.success.title'));
+      setAnalysisId(null);
       
       // Redirect to deal detail page
       navigate(`/deal/${deal.id}`);
@@ -155,6 +196,14 @@ export default function SubmitDeal() {
     } catch (error: any) {
       console.error('Error:', error);
       setHasError(true);
+      
+      // Marquer l'analyse comme failed dans analysis_requests
+      if (currentAnalysisId) {
+        await supabase
+          .from('analysis_requests')
+          .update({ status: 'failed' })
+          .eq('id', currentAnalysisId);
+      }
       
       // If deal was created, update it with error status
       if (dealId) {
@@ -176,17 +225,50 @@ export default function SubmitDeal() {
   };
 
   const handleCancelAnalysis = async () => {
-    // Update the deal status to cancelled if we have a deal ID
-    if (createdDealId) {
-      await supabase
-        .from('deals')
-        .update({ status: 'cancelled' })
-        .eq('id', createdDealId);
+    if (!analysisId) {
+      toast.error('Aucune analyse en cours à annuler');
+      return;
     }
-    
-    // Return to upload screen, preserving the file and context
+
+    try {
+      console.log('Cancelling analysis:', analysisId);
+      
+      // Mettre à jour le status dans analysis_requests
+      const { error: analysisError } = await supabase
+        .from('analysis_requests')
+        .update({ status: 'cancelled' })
+        .eq('id', analysisId);
+
+      if (analysisError) {
+        console.error('Cancel analysis_requests error:', analysisError);
+        throw analysisError;
+      }
+
+      // Update the deal status to cancelled if we have a deal ID
+      if (createdDealId) {
+        await supabase
+          .from('deals')
+          .update({ status: 'cancelled' })
+          .eq('id', createdDealId);
+      }
+      
+      toast.success('Demande d\'annulation envoyée. L\'analyse s\'arrêtera sous peu.');
+      
+      // Note: On ne remet pas isAnalyzing à false immédiatement
+      // car le workflow N8N doit encore répondre
+      // Mais on peut proposer à l'utilisateur de revenir
+      
+    } catch (error) {
+      console.error('Cancel error:', error);
+      toast.error('Erreur lors de l\'annulation');
+    }
+  };
+
+  const handleForceCancel = () => {
+    // Force return to upload screen
     setIsAnalyzing(false);
     setHasError(false);
+    setAnalysisId(null);
     // Note: deckFile and additionalContext are NOT reset
   };
 
@@ -201,13 +283,28 @@ export default function SubmitDeal() {
     return (
       <div className="container mx-auto px-4 py-8 max-w-2xl">
         <AnalysisLoader />
-        <div className="flex justify-center mt-6">
+        <div className="flex flex-col items-center gap-4 mt-6">
           <Button 
-            variant="outline" 
+            variant="destructive" 
             onClick={handleCancelAnalysis}
-            className="text-muted-foreground hover:text-destructive hover:border-destructive transition-colors"
+            size="sm"
           >
+            <X className="w-4 h-4 mr-2" />
             Annuler l'analyse
+          </Button>
+          
+          <p className="text-xs text-muted-foreground text-center max-w-md">
+            L'annulation peut prendre quelques secondes à être prise en compte 
+            (le workflow vérifie périodiquement).
+          </p>
+          
+          <Button 
+            variant="ghost" 
+            onClick={handleForceCancel}
+            size="sm"
+            className="text-muted-foreground"
+          >
+            Revenir au formulaire
           </Button>
         </div>
       </div>
