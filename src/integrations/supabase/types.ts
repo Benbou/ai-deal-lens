@@ -70,6 +70,33 @@ export type Database = {
           },
         ]
       }
+      analysis_requests: {
+        Row: {
+          company_name: string | null
+          created_at: string | null
+          deck_filename: string | null
+          id: string
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          company_name?: string | null
+          created_at?: string | null
+          deck_filename?: string | null
+          id?: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          company_name?: string | null
+          created_at?: string | null
+          deck_filename?: string | null
+          id?: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       deals: {
         Row: {
           amount_raised_cents: number | null
