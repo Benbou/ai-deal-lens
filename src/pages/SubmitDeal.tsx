@@ -156,7 +156,12 @@ export default function SubmitDeal() {
       });
 
       // Send to N8N webhook with analysis_id
-      const n8nResponse = await sendToN8N(deal.id, deckFile, additionalContext, currentAnalysisId);
+      const n8nRawResponse = await sendToN8N(deal.id, deckFile, additionalContext, currentAnalysisId);
+      
+      // N8N renvoie un tableau, on prend le premier élément
+      const n8nResponse = Array.isArray(n8nRawResponse) ? n8nRawResponse[0] : n8nRawResponse;
+      
+      console.log('N8N response:', n8nResponse);
       
       // Vérifier si l'analyse a été annulée
       if (n8nResponse?.cancelled === true) {
@@ -171,9 +176,9 @@ export default function SubmitDeal() {
       const { error: updateError } = await supabase
         .from('deals')
         .update({
-          company_name: n8nResponse.company_name || deal.startup_name,
-          memo_html: n8nResponse.memo_html || null,
-          status: n8nResponse.status || 'completed',
+          company_name: n8nResponse?.company_name || deal.startup_name,
+          memo_html: n8nResponse?.memo_html || null,
+          status: n8nResponse?.status || 'completed',
         })
         .eq('id', deal.id);
 
