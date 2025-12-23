@@ -46,8 +46,8 @@ export default function Dashboard() {
     try {
       const { data, error } = await supabase
         .from('deals')
-        .select('id, startup_name, company_name, sector, status, memo_html, sent_at, deck_files(storage_path, file_name)')
-        .order('sent_at', { ascending: false, nullsFirst: false });
+        .select('id, startup_name, company_name, sector, status, memo_html, sent_at, created_at, deck_files(storage_path, file_name)')
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
 
