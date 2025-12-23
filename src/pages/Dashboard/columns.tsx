@@ -31,6 +31,7 @@ export interface Deal {
   status: string | null;
   memo_html?: string | null;
   sent_at?: string | null;
+  created_at?: string | null;
   deck_files?: { storage_path: string; file_name: string }[];
 }
 
@@ -108,15 +109,17 @@ export const createColumns = (
     },
   },
   {
-    accessorKey: "sent_at",
+    id: "date",
+    accessorFn: (row) => row.sent_at || row.created_at,
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Date" />
     ),
     cell: ({ row }) => {
-      const sentAt = row.getValue("sent_at") as string | null;
+      const deal = row.original;
+      const dateValue = deal.sent_at || deal.created_at;
       return (
         <span className="text-muted-foreground text-sm whitespace-nowrap">
-          {formatDate(sentAt)}
+          {formatDate(dateValue)}
         </span>
       );
     },
